@@ -1,16 +1,30 @@
 # Local CLI Agent Design
 
 Date: 2026-04-23
+Revised: 2026-04-27
 
 ## Goal
 
-Build a minimal local CLI agent that can repeatedly think, choose an action,
-execute local tools, observe results, and continue until the user goal is done
-or a stop condition is reached.
+Build a small local CLI agent that can run on one developer machine, repeatedly
+ask a model for the next action, execute local tools, feed observations back to
+the model, and stop with an explicit result.
 
-The first version is intentionally a skeleton. It should prove that the core
-agent loop works on the local computer before adding web UI, browser control,
-subagents, long-term memory, MCP, plugins, or self-improving skills.
+Version one is intentionally narrow. It should prove the local agent loop,
+tool-call protocol, permission policy, and run logging before adding a web UI,
+browser automation, subagents, long-term memory, MCP, plugins, background
+workers, or hosted execution.
+
+## Design Principles
+
+- Keep the loop understandable. Each step should be visible in code and logs.
+- Keep side effects explicit. File writes and shell commands pass through one
+  policy layer before they execute.
+- Keep API details isolated. OpenAI-specific request and response handling stays
+  inside the LLM client.
+- Keep tools boring. Tool argument schemas should be shallow, typed, and easy
+  for the model to fill correctly.
+- Keep tests offline by default. A fake LLM must prove the loop without a live
+  API key.
 
 ## Product Shape
 
@@ -22,177 +36,156 @@ agent run "run tests and fix the failure" --max-steps 30
 agent tools
 ```
 
-The agent may inspect files, edit files, run shell commands, and ask the user
-questions. Each run writes a structured trace so failures can be debugged after
-the fact.
+The agent may inspect files, edit files, run shell commands, and ask the user a
+direct question. Every run writes a JSONL trace that explains what happened
+without requiring the task to be rerun.
 
-`agent resume <run_id>` is reserved for the next milestone after the direct run
-loop is proven.
+`agent resume <run_id>` is reserved for the next milestone. Version one may log
+enough state to make resume possible later, but it does not need to implement
+resume behavior.
+
+## Version One Scope
+
+Include:
+
+- `agent run "<goal>"` for a single local run.
+- `agent tools` to list registered tools, descriptions, and risk levels.
+- Workspace-scoped filesystem tools.
+- A shell tool with timeout, output limits, and policy checks.
+- An interactive `ask_user` tool.
+- JSONL run logs.
+- Offline tests with fake model and fake tools.
+- Optional live OpenAI smoke tests gated by `OPENAI_API_KEY`.
+
+Exclude:
+
+- Web UI.
+- Browser or computer-control tools.
+- Subagents.
+- Long-term memory or vector search.
+- MCP server or MCP client integration.
+- Plugin system.
+- Background daemon, scheduler, or queue.
+- Multi-user authentication.
+- Cloud or remote execution.
 
 ## Recommended Stack
 
 - Language: Python 3.12+
-- Package manager: uv
+- Package manager: `uv`
 - CLI framework: Typer
 - Terminal output: Rich
-- Config and schemas: Pydantic, YAML
+- Config and schemas: Pydantic and YAML
 - LLM integration: OpenAI Python SDK with the Responses API
 - Testing: pytest
 - Formatting and linting: ruff
 - Optional later type checking: mypy
 
-The first version should not use LangChain, LangGraph, or OpenAI Agents SDK.
-Those frameworks may be useful later, but the first goal is to understand and
-control the loop directly.
+Do not use LangChain, LangGraph, or the OpenAI Agents SDK in version one. Those
+may be useful after the direct loop is proven, but the first implementation
+should make orchestration and state handling explicit.
 
 ## Default Model Settings
+
+Use config keys that are stable for this project, then map them to the OpenAI
+Responses API inside `core.llm`.
 
 Initial defaults:
 
 ```yaml
-model: gpt-5.4-mini
+model: gpt-5.5
 reasoning_effort: low
+text_verbosity: low
 max_steps: 20
 ```
 
-Users can override these from CLI flags or `agent.yaml`.
+The current OpenAI guidance says GPT-5.5 works best through the Responses API,
+supports tool-heavy workflows, uses `reasoning.effort`, and can continue state
+with `previous_response_id`. This design should not scatter those assumptions
+through the codebase. Keep them in `LLMClient` and make model settings
+overridable through CLI flags or `agent.yaml`. Use `gpt-5.4-mini` when latency
+and cost matter more than peak capability.
 
 Examples:
 
 ```bash
-agent run "refactor this module" --model gpt-5.4 --reasoning-effort medium
+agent run "refactor this module" --reasoning-effort medium
 agent run "summarize files" --model gpt-5.4-mini --reasoning-effort low
 ```
 
-## Architecture
+## Project Layout
 
 ```text
+pyproject.toml
+agent.yaml.example
 src/agentskeleton/
+  __init__.py
   cli.py
   config.py
 
   core/
+    actions.py
+    events.py
+    llm.py
     loop.py
     state.py
-    llm.py
-    events.py
 
   tools/
     base.py
+    filesystem.py
     registry.py
     shell.py
-    filesystem.py
     user.py
 
   policy/
     permissions.py
+    paths.py
     risk.py
 
   logging/
     run_logger.py
+
+tests/
+  test_agent_loop.py
+  test_config.py
+  test_filesystem_tools.py
+  test_permission_policy.py
+  test_run_logger.py
+  test_shell_tool.py
+  test_tool_registry.py
 ```
 
-### Agent Loop
+The split is intentionally small. If an implementation needs more modules, add
+them only when a file has more than one clear responsibility.
 
-`core.loop.AgentLoop` owns the run lifecycle:
+## Core Data Contracts
 
-1. Build the model input from the user goal, current run state, and available
-   tools.
-2. Ask the LLM for the next action.
-3. If the model returns final output, stop.
-4. If the model requests a tool, validate and execute it.
-5. Append the observation to state and logs.
-6. Repeat until completion, failure, user interruption, or `max_steps`.
+Define internal contracts before wiring real API calls. The loop should depend
+on these contracts, not on raw OpenAI response objects.
 
-The loop must be deterministic outside the LLM call: tool execution, policy
-checks, logging, and stop handling should be testable without live API calls.
+- `RunConfig`: model, reasoning effort, max steps, workspace, log directory,
+  timeout defaults, output limits, and confirmation behavior.
+- `RunState`: run id, original goal, workspace root, step count, prior response
+  id, prior response output items if needed, observations, and final status.
+- `AgentAction`: discriminated union of `ToolCallAction` and `FinalAction`.
+- `ToolCallAction`: tool name, validated arguments, provider call id, and raw
+  provider metadata needed to continue the response.
+- `FinalAction`: final text and optional structured status.
+- `ToolResult`: success flag, structured payload, human-readable summary, and
+  optional error details.
+- `ToolObservation`: tool call id, tool name, policy decision, result summary,
+  and full result payload for model continuation.
+- `RunEvent`: append-only log event with a type, timestamp, run id, step number,
+  and event-specific payload.
 
-### LLM Client
+These contracts should be Pydantic models or dataclasses with focused tests.
 
-`core.llm.LLMClient` wraps OpenAI Responses API calls.
-
-Responsibilities:
-
-- Convert registered tools into model-callable tool schemas.
-- Send the current run context.
-- Parse assistant messages, function calls, and final answers into internal
-  action objects.
-- Preserve the response output items needed for follow-up tool calls.
-
-The implementation should keep API-specific details in this module so the rest
-of the system can stay provider-neutral enough for future experiments.
-
-### Tool Registry
-
-`tools.registry.ToolRegistry` maps tool names to executable tool objects.
-
-First-version tools:
-
-- `shell`: run a local shell command in the configured working directory.
-- `read_file`: read a UTF-8 text file.
-- `write_file`: write a UTF-8 text file.
-- `list_dir`: list files and directories.
-- `ask_user`: pause and ask the user a direct question.
-
-Each tool exposes:
-
-- name
-- description
-- JSON schema for arguments
-- execute method
-- risk metadata
-
-### Permission Policy
-
-`policy.permissions.PermissionPolicy` decides whether a tool call can run.
-
-The first version should support three outcomes:
-
-- allow
-- confirm
-- block
-
-The policy should confirm or block risky shell operations, including:
-
-- recursive delete
-- force delete
-- disk formatting
-- shutdown or reboot
-- credential or secret extraction
-- commands outside the configured workspace when the tool call looks destructive
-- network exfiltration patterns paired with sensitive paths
-
-The policy does not need to be perfect in version one. It needs to be explicit,
-testable, and conservative.
-
-### Run Logger
-
-`logging.run_logger.RunLogger` writes a JSONL trace per run.
-
-Each step should log:
-
-- run id
-- step number
-- timestamp
-- user goal
-- model selected action
-- tool name and arguments
-- policy decision
-- tool result summary
-- error details, if any
-- final answer, if any
-
-The trace should be useful for debugging failed loops without re-running the
-task.
-
-## State And Data Flow
-
-Main flow:
+## Runtime Flow
 
 ```text
 User Goal
   -> CLI
-  -> Runtime Config
+  -> RunConfig
   -> AgentLoop
   -> LLMClient
   -> ToolRegistry
@@ -202,52 +195,215 @@ User Goal
   -> AgentLoop next step
 ```
 
-Run state should contain:
+`AgentLoop` owns the lifecycle:
+
+1. Create a run id and initialize state.
+2. Build model input from the original goal, available tools, and current
+   observations.
+3. Ask `LLMClient` for the next action.
+4. If the model returns a final answer, log it and stop.
+5. If the model requests a tool, validate the tool name and arguments.
+6. Ask `PermissionPolicy` for `allow`, `confirm`, or `block`.
+7. If confirmation is required, ask the user before execution.
+8. Execute the tool or record the denial/block as an observation.
+9. Send the observation back into the next loop step.
+10. Stop on final answer, max steps, blocked action, denied confirmation,
+    unrecoverable internal error, or user interruption.
+
+The loop must be deterministic outside the model call. Tool execution, policy
+checks, logging, and stop handling should be testable with fake dependencies.
+
+## OpenAI Responses API Boundary
+
+`core.llm.LLMClient` is the only module that knows the Responses API shape.
+
+Responsibilities:
+
+- Convert registered local tools into OpenAI function tool definitions.
+- Send model, reasoning effort, verbosity, instructions, current input, and tool
+  definitions.
+- Parse model output into `ToolCallAction` or `FinalAction`.
+- Preserve `previous_response_id` when using stateful continuation.
+- Preserve returned output items for stateless or future Zero Data Retention
+  flows.
+- Return tool call outputs with the matching provider `call_id`.
+- Hide SDK object shapes from the rest of the codebase.
+
+The implementation should prefer `previous_response_id` for version one because
+it keeps the local loop simpler. It should still store enough response metadata
+in `RunState` and logs to support manual output-item replay later.
+
+## Tool System
+
+`tools.registry.ToolRegistry` maps tool names to executable tool objects.
+
+Each tool exposes:
+
+- `name`
+- `description`
+- JSON schema for arguments
+- risk metadata
+- `execute(args, context) -> ToolResult`
+
+Tool schemas should avoid deep nesting unless a tool genuinely needs it.
+Descriptions should state what the tool does, when to use it, side effects,
+input constraints, retry safety, and common error modes.
+
+Version-one tools:
+
+- `list_dir`: list direct children of a workspace-relative directory.
+- `read_file`: read a UTF-8 text file inside the workspace.
+- `write_file`: write UTF-8 text inside the workspace, creating parent
+  directories only when explicitly requested.
+- `shell`: run a command in the configured workspace.
+- `ask_user`: pause the loop and ask the user one direct question.
+
+## Filesystem Rules
+
+All filesystem tools accept workspace-relative paths. A shared path resolver in
+`policy.paths` must:
+
+- Resolve paths against the configured workspace root.
+- Normalize `.` and `..`.
+- Reject paths that escape the workspace.
+- Reject symlink escapes.
+- Return stable absolute paths to tools.
+
+`read_file` should reject binary files and return a clear error observation.
+`write_file` should write atomically where practical, return the byte count, and
+avoid changing permissions. Version one does not need patch-based editing.
+
+## Shell Tool
+
+The shell tool runs one command in the configured workspace and returns:
+
+- command
+- working directory
+- exit code
+- stdout
+- stderr
+- duration
+- timeout flag
+- truncation flags
+
+Defaults:
+
+```yaml
+shell_timeout_seconds: 30
+shell_max_output_bytes: 20000
+```
+
+Non-zero exit codes are tool results, not internal crashes. Timeouts should
+terminate the process and return a timeout observation. Output truncation should
+be visible to both the model and the run log.
+
+Version one may pass the inherited environment, but logs must never record full
+environment variables. If environment capture is later needed, use an allowlist.
+
+## Permission Policy
+
+`policy.permissions.PermissionPolicy` decides whether a tool call can run.
+
+Outcomes:
+
+- `allow`: execute immediately.
+- `confirm`: ask the user before executing.
+- `block`: do not execute; return a blocked observation.
+
+Default behavior:
+
+- Allow read-only filesystem tools inside the workspace.
+- Confirm `write_file` unless `confirm_risky_actions` is disabled.
+- Confirm shell commands that modify files, install packages, access the
+  network, spawn long-running processes, or run outside common read-only
+  commands.
+- Block clearly dangerous commands.
+
+The policy should block or require confirmation for:
+
+- recursive delete
+- force delete
+- disk formatting
+- shutdown or reboot
+- credential or secret extraction
+- destructive commands targeting paths outside the workspace
+- network exfiltration patterns paired with sensitive paths
+- shell metacharacter chains that hide destructive follow-up commands
+
+The policy does not need to be perfect. It must be explicit, conservative, and
+covered by table-driven tests.
+
+## User Interaction
+
+The CLI should print concise progress:
 
 - run id
-- working directory
-- original goal
-- step count
-- prior model output items needed for Responses API continuation
-- tool observations
+- current step
+- selected tool
+- policy decision
 - final status
+- run log path
 
-## Stop Conditions
+For `confirm`, show the exact tool, arguments, risk reason, and expected side
+effect. The user can approve or deny. Denial becomes a normal observation so
+the model can either choose another path or stop.
 
-The agent stops when one of these occurs:
+For `ask_user`, the model supplies a direct question. The CLI displays it and
+captures a single response. The response is logged as an observation.
 
-- model returns a final answer
-- `max_steps` is reached
-- tool execution fails in a non-recoverable way
-- permission policy blocks an action
-- user denies a confirmation prompt
-- user interrupts the process
+## Run Logger
 
-When stopping, the CLI should print the final status, short explanation, and
-path to the run log.
+`logging.run_logger.RunLogger` writes one JSON object per line.
 
-## Error Handling
+Log path:
 
-Errors should be turned into explicit observations where possible. For example,
-a shell command with a non-zero exit code should return stdout, stderr, and
-exit code to the agent rather than crashing the process.
+```text
+runs/<YYYYMMDD>/<run_id>.jsonl
+```
 
-The process should crash only for internal programming errors, invalid config,
-or unrecoverable setup problems such as missing API credentials.
+Event types:
+
+- `run_started`
+- `model_requested`
+- `model_action`
+- `policy_decision`
+- `tool_started`
+- `tool_finished`
+- `user_confirmation`
+- `user_answered`
+- `run_finished`
+- `run_error`
+
+Each event includes run id, step number, timestamp, and a payload. Tool outputs
+may be truncated in the log, but truncation must be marked. Secrets should be
+redacted with a small set of conservative patterns for API keys, bearer tokens,
+and common credential names.
+
+The trace should be useful for debugging failed loops without rerunning the
+task.
 
 ## Configuration
 
-The default config file is `agent.yaml`.
+Default config file: `agent.yaml`.
+
+Config precedence:
+
+1. CLI flags.
+2. `agent.yaml`.
+3. built-in defaults.
 
 Example:
 
 ```yaml
-model: gpt-5.4-mini
+model: gpt-5.5
 reasoning_effort: low
+text_verbosity: low
 max_steps: 20
 workspace: "."
 confirm_risky_actions: true
 logs_dir: "runs"
+shell_timeout_seconds: 30
+shell_max_output_bytes: 20000
 ```
 
 Environment:
@@ -256,44 +412,80 @@ Environment:
 OPENAI_API_KEY=...
 ```
 
+The app should fail fast with a clear setup error when a live LLM run is
+requested without an API key. Offline tests and fake-LLM runs must not require
+one.
+
+## Error Handling
+
+Expected failures become observations:
+
+- file not found
+- invalid path
+- binary file rejected
+- permission denied by policy
+- user denied confirmation
+- shell non-zero exit
+- shell timeout
+- malformed tool arguments
+- unknown tool name
+
+Internal programming errors may crash the process after logging `run_error`.
+Invalid config should stop before a run starts.
+
+The final CLI output should always include:
+
+- final status
+- short explanation
+- run id
+- path to the run log
+
 ## Testing Strategy
 
-Initial tests:
+Offline tests are required:
 
-- tool registry registers and looks up tools correctly
-- filesystem tools read, write, and list within test temp directories
-- shell tool captures stdout, stderr, exit code, and timeout
-- permission policy blocks clearly dangerous commands
-- permission policy allows safe read-only commands
-- agent loop can run with a fake LLM client and fake tools
-- run logger writes valid JSONL events
+- Config precedence and validation.
+- Tool registry registration and lookup.
+- Workspace path resolver blocks escape attempts and symlink escapes.
+- Filesystem tools read, write, list, and reject invalid inputs.
+- Shell tool captures stdout, stderr, exit code, timeout, and truncation.
+- Permission policy allows safe read-only commands.
+- Permission policy confirms or blocks risky commands.
+- Run logger writes valid JSONL and redacts obvious secrets.
+- Agent loop completes with a fake LLM final answer.
+- Agent loop executes a fake tool call and feeds the observation back.
+- Agent loop stops on max steps, blocked action, and denied confirmation.
 
-Live OpenAI tests should be optional and skipped unless an API key is present.
+Optional live tests:
 
-## Version One Exclusions
+- A live Responses API smoke test runs only when `OPENAI_API_KEY` is present and
+  an explicit marker or environment flag enables it.
 
-Do not include these in the first implementation:
+## Implementation Order
 
-- web UI
-- browser automation
-- subagents
-- long-term memory or vector database
-- self-improving skill storage
-- MCP server or MCP client integration
-- plugin system
-- background daemon or scheduler
-- multi-user auth
-- cloud execution
+1. Create packaging, config, and CLI shell.
+2. Define core contracts and fake LLM interfaces.
+3. Implement tool base classes and registry.
+4. Implement path resolver and filesystem tools.
+5. Implement permission policy.
+6. Implement shell tool.
+7. Implement run logger.
+8. Implement `AgentLoop` against fake LLM and fake tools.
+9. Implement OpenAI `LLMClient`.
+10. Add optional live smoke test and documentation.
+
+This order keeps the loop testable before any live model dependency exists.
 
 ## Success Criteria
 
 Version one is successful when:
 
 - `agent run "<goal>"` starts a local run from the terminal.
-- The model can choose from registered local tools.
-- The loop can execute at least shell, read, write, list, and ask-user actions.
+- The model can choose from registered local function tools.
+- The loop can execute shell, read, write, list, and ask-user actions.
+- Filesystem tools cannot escape the configured workspace.
 - Risky commands are confirmed or blocked.
-- Every step is logged.
+- Every step is logged as JSONL.
 - A fake-LLM smoke test proves the loop without live API calls.
 - The codebase remains small enough that each module has one clear job.
 
@@ -303,7 +495,17 @@ After the skeleton is working:
 
 1. Add resume support using saved run state.
 2. Add richer permission profiles.
-3. Add browser/computer-control tools.
-4. Add compact working memory.
-5. Add skill capture from successful traces.
-6. Consider adopting OpenAI Agents SDK or MCP after the direct loop is proven.
+3. Add diff or patch-based editing.
+4. Add browser or computer-control tools.
+5. Add compact working memory.
+6. Add skill capture from successful traces.
+7. Consider OpenAI Agents SDK or MCP after the direct loop is proven.
+
+## Source Notes
+
+OpenAI API assumptions in this document were checked against the official
+OpenAI developer docs on 2026-04-27:
+
+- `https://developers.openai.com/api/docs/guides/latest-model`
+- `https://developers.openai.com/api/docs/guides/function-calling`
+- `https://developers.openai.com/api/docs/models`

@@ -1,0 +1,162 @@
+from pathlib import Path
+from types import SimpleNamespace
+
+from rich.console import Console
+
+from agentskeleton.config import RunConfig
+from agentskeleton.core.actions import FinalAction, ToolCallAction
+from agentskeleton.core.llm import LLMClient
+from agentskeleton.core.loop import AgentLoop
+from agentskeleton.core.state import RunState
+from agentskeleton.core.trace import ConsoleTraceSink, MemoryTraceSink
+from agentskeleton.tools.base import Tool, ToolContext, ToolResult
+from agentskeleton.tools.registry import ToolRegistry
+
+
+class MemoryLogger:
+    path = Path("memory.jsonl")
+
+    def log(self, event_type: str, step: int, payload: dict[str, object]) -> None:
+        pass
+
+
+class ScriptedLLM:
+    def __init__(self, actions) -> None:
+        self.actions = list(actions)
+
+    def next_action(self, state, registry):
+        return self.actions.pop(0)
+
+
+class TraceTool(Tool):
+    name = "trace_tool"
+    description = "Trace tool."
+    risk = "read"
+    args_schema = {
+        "type": "object",
+        "properties": {"value": {"type": "string"}},
+        "required": ["value"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return ToolResult(success=True, payload={"ok": True}, summary="traced")
+
+
+class FakeResponses:
+    def __init__(self, response) -> None:
+        self.response = response
+
+    def create(self, **kwargs):
+        return self.response
+
+
+class FakeClient:
+    def __init__(self, response) -> None:
+        self.responses = FakeResponses(response)
+
+
+def test_loop_emits_operational_trace(tmp_path: Path) -> None:
+    trace = MemoryTraceSink()
+    loop = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="trace_tool",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([TraceTool()]),
+        logger=MemoryLogger(),
+        trace=trace,
+    )
+
+    loop.run("trace this")
+
+    assert [event.name for event in trace.events] == [
+        "run_started",
+        "step_started",
+        "model_action",
+        "policy_decision",
+        "tool_started",
+        "tool_finished",
+        "step_started",
+        "run_finished",
+    ]
+
+
+def test_llm_client_emits_request_and_response_trace(tmp_path: Path) -> None:
+    trace = MemoryTraceSink()
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="hello")
+
+    LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+        trace=trace,
+    ).next_action(state, ToolRegistry([TraceTool()]))
+
+    assert [event.name for event in trace.events] == [
+        "llm_request",
+        "llm_response",
+    ]
+    assert trace.events[0].payload["input_preview"] == "hello"
+    assert "registered function tools" in trace.events[0].payload[
+        "instructions_preview"
+    ]
+    assert trace.events[0].payload["tool_names"] == ["trace_tool"]
+    assert trace.events[1].payload["final_preview"] == "done"
+
+
+def test_console_trace_sink_prints_readable_flow() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit("tool_started", {"tool_name": "list_dir", "arguments": {"path": "."}})
+
+    output = console.export_text()
+    assert "[tool ->] list_dir" in output
+    assert "path" in output
+
+
+def test_console_trace_sink_prints_llm_instructions_preview() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "llm_request",
+        {
+            "instructions_preview": "Use only registered tools.",
+            "input_preview": "hello",
+            "tool_names": ["read_file"],
+        },
+    )
+
+    output = console.export_text()
+    assert "[llm sys] Use only registered tools." in output
+    assert "[llm ->]" in output
+
+
+def test_console_trace_sink_prints_repeated_instructions_once() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    payload = {
+        "instructions_preview": "Use only registered tools.",
+        "input_preview": "hello",
+        "tool_names": ["read_file"],
+    }
+
+    trace.emit("llm_request", payload)
+    trace.emit("llm_request", payload)
+
+    output = console.export_text()
+    assert output.count("[llm sys]") == 1
+    assert output.count("[llm ->]") == 2
