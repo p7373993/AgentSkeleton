@@ -914,6 +914,53 @@ def test_loop_rejects_malformed_tool_call_batch_shape(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_invalid_batch_member_before_executing_earlier_calls(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallBatchAction(
+                tool_calls=[
+                    ToolCallAction(
+                        tool_name="record",
+                        arguments={"value": "x"},
+                        call_id="call-1",
+                    ),
+                    {"type": "unexpected"},
+                ]
+            )
+        ],
+        logger,
+    ).run("record")
+
+    reason = "Model returned unsupported action: dict"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "dict",
+            "error": reason,
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": reason,
+        },
+    )
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_stops_at_max_steps(tmp_path: Path) -> None:
     logger = MemoryLogger()
     loop = AgentLoop(

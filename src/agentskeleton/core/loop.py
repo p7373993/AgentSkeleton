@@ -184,6 +184,12 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
+                for tool_call in action.tool_calls:
+                    if not isinstance(tool_call, ToolCallAction):
+                        self._record_invalid_action(state, tool_call)
+                        if state.final_status is not None:
+                            self._log_run_finished(state)
+                            return state
                 duplicate_call_id = _duplicate_batch_call_id(action.tool_calls)
                 if duplicate_call_id is not None:
                     self._record_invalid_action(
@@ -199,9 +205,6 @@ class AgentLoop:
                         self._log_run_finished(state)
                         return state
                 for tool_call in action.tool_calls:
-                    if not isinstance(tool_call, ToolCallAction):
-                        self._record_invalid_action(state, tool_call)
-                        break
                     self._execute_tool_action(state, tool_call)
                     if state.final_status is not None:
                         break
