@@ -1,5 +1,14 @@
 from pathlib import Path
 
+_WINDOWS_RESERVED_PATH_BASENAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
+
 
 class PathSecurityError(ValueError):
     """Raised when a requested path escapes the configured workspace."""
@@ -10,6 +19,10 @@ def resolve_workspace_path(workspace: Path, requested_path: str) -> Path:
     if raw_path.is_absolute() or raw_path.drive:
         raise PathSecurityError(
             f"Path must be workspace-relative: {requested_path}"
+        )
+    if _contains_windows_reserved_basename(raw_path):
+        raise PathSecurityError(
+            f"Path contains reserved Windows device name: {requested_path}"
         )
 
     root = workspace.expanduser().resolve()
@@ -23,3 +36,11 @@ def resolve_workspace_path(workspace: Path, requested_path: str) -> Path:
         ) from exc
 
     return candidate
+
+
+def _contains_windows_reserved_basename(path: Path) -> bool:
+    for part in path.parts:
+        base_name = part.split(".", 1)[0].rstrip(" ").upper()
+        if base_name in _WINDOWS_RESERVED_PATH_BASENAMES:
+            return True
+    return False
