@@ -833,14 +833,14 @@ def _summarize_run_log(
         resolved_run_id = log_path.stem
     summary = {
         "run_id": resolved_run_id,
-        "goal": start_payload.get("goal"),
+        "goal": _run_log_text_value(start_payload.get("goal")),
         "workspace": start_payload.get("workspace"),
         "session": start_payload.get("session"),
         "resumed": start_payload.get("resumed"),
         "conversation_turns": start_payload.get("conversation_turns"),
         "status": final_payload.get("status", "unknown"),
-        "reason": final_payload.get("reason"),
-        "answer": final_payload.get("answer"),
+        "reason": _run_log_text_value(final_payload.get("reason")),
+        "answer": _run_log_text_value(final_payload.get("answer")),
         "steps": step,
         "tool_calls": len(tool_events),
         "tool_failures": len(failed_tool_payloads),
@@ -857,6 +857,18 @@ def _event_payload(event: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     payload = event.get("payload")
     return payload if isinstance(payload, dict) else {}
+
+
+def _run_log_text_value(value: object) -> object:
+    if isinstance(value, dict) and value.get("truncated") is True:
+        preview = value.get("preview")
+        if not isinstance(preview, str):
+            return value
+        byte_count = value.get("bytes")
+        if isinstance(byte_count, int):
+            return f"{preview} [truncated, {byte_count} bytes]"
+        return f"{preview} [truncated]"
+    return value
 
 
 def _summary_transcript_content(summary: dict[str, object]) -> str | None:

@@ -2278,6 +2278,57 @@ def test_restore_run_imports_final_answer(monkeypatch, tmp_path) -> None:
     }
 
 
+def test_restore_run_imports_bounded_log_text_previews(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {
+                "goal": {
+                    "truncated": True,
+                    "bytes": 5_000,
+                    "preview": "summarize very long input...",
+                }
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "completed",
+                "answer": {
+                    "truncated": True,
+                    "bytes": 7_000,
+                    "preview": "very long answer...",
+                },
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1"])
+
+    assert result.exit_code == 0
+    session = SessionStore(tmp_path / "runs").load("default")
+    assert [turn.content for turn in session.transcript] == [
+        "summarize very long input... [truncated, 5000 bytes]",
+        "very long answer... [truncated, 7000 bytes]",
+    ]
+
+
 def test_restore_run_reports_session_read_errors(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
