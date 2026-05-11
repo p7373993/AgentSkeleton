@@ -1322,7 +1322,70 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
         "reason": "finished cleanly",
         "answer": "done",
         "steps": 3,
+        "tool_calls": 0,
+        "tool_failures": 0,
+        "last_tool_error": None,
         "log": str(log_path.resolve()),
+    }
+
+
+def test_show_run_summarizes_tool_results_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "debug tools"},
+        },
+        {
+            "type": "tool_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "tool_name": "read_file",
+                "success": True,
+                "summary": "Read 12 characters from README.md",
+                "error": None,
+            },
+        },
+        {
+            "type": "tool_finished",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {
+                "tool_name": "shell",
+                "success": False,
+                "summary": "Command exited with 1",
+                "error": "Command failed",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {"status": "tool_error", "reason": "Command failed"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["tool_calls"] == 2
+    assert payload["tool_failures"] == 1
+    assert payload["last_tool_error"] == {
+        "tool_name": "shell",
+        "summary": "Command exited with 1",
+        "error": "Command failed",
     }
 
 
@@ -1437,6 +1500,9 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
                 "reason": "step limit",
                 "answer": None,
                 "steps": 4,
+                "tool_calls": 0,
+                "tool_failures": 0,
+                "last_tool_error": None,
                 "log": str((second_dir / "run-new.jsonl").resolve()),
             }
         ]

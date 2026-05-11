@@ -570,6 +570,17 @@ def show_run(
         console.print(f"Conversation turns: {summary['conversation_turns']}")
     if summary["steps"] is not None:
         console.print(f"Steps: {summary['steps']}")
+    if summary["tool_calls"]:
+        console.print(
+            f"Tool calls: {summary['tool_calls']} "
+            f"({summary['tool_failures']} failed)"
+        )
+        if summary["last_tool_error"]:
+            error = summary["last_tool_error"]
+            console.print(
+                f"Last tool error: {error['tool_name']} - {error['summary']}",
+                soft_wrap=True,
+            )
     console.print(f"Log: {summary['log']}", soft_wrap=True)
 
 
@@ -642,6 +653,25 @@ def _summarize_run_log(
     start_payload = start_event.get("payload", {}) if start_event else {}
     final_payload = final_event.get("payload", {}) if final_event else {}
     step = final_event.get("step") if final_event else None
+    tool_events = [
+        event
+        for event in events
+        if event.get("type") == "tool_finished"
+        and isinstance(event.get("payload"), dict)
+    ]
+    failed_tool_payloads = [
+        event["payload"]
+        for event in tool_events
+        if event["payload"].get("success") is False
+    ]
+    last_tool_error = None
+    if failed_tool_payloads:
+        last_failed = failed_tool_payloads[-1]
+        last_tool_error = {
+            "tool_name": last_failed.get("tool_name"),
+            "summary": last_failed.get("summary"),
+            "error": last_failed.get("error"),
+        }
     resolved_run_id = run_id
     if resolved_run_id is None and final_event and final_event.get("run_id"):
         resolved_run_id = str(final_event["run_id"])
@@ -660,6 +690,9 @@ def _summarize_run_log(
         "reason": final_payload.get("reason"),
         "answer": final_payload.get("answer"),
         "steps": step,
+        "tool_calls": len(tool_events),
+        "tool_failures": len(failed_tool_payloads),
+        "last_tool_error": last_tool_error,
         "log": str(log_path.resolve()),
     }
 
