@@ -13,7 +13,9 @@ _MAX_TRANSCRIPT_CONTENT_CHARS = 4_096
 _MAX_TRANSCRIPT_METADATA_VALUE_CHARS = 4_096
 _MAX_TRANSCRIPT_METADATA_PREVIEW_CHARS = 200
 _MAX_TRANSCRIPT_METADATA_DEPTH = 64
+_MAX_TRANSCRIPT_METADATA_ITEMS = 200
 _MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+_TRUNCATED_ITEMS_KEY = "__truncated_items__"
 _WINDOWS_RESERVED_SESSION_BASENAMES = {
     "CON",
     "PRN",
@@ -366,10 +368,19 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return {
-                str(key): _json_safe(item, seen, depth + 1)
-                for key, item in value.items()
-            }
+            safe_items: dict[str, Any] = {}
+            item_limit = _metadata_item_limit(len(value))
+            for index, (key, item) in enumerate(value.items()):
+                if index >= item_limit:
+                    continue
+                safe_items[str(key)] = _json_safe(item, seen, depth + 1)
+            omitted = len(value) - item_limit
+            if omitted:
+                safe_items[_TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
+                    len(value),
+                    omitted,
+                )
+            return safe_items
         finally:
             seen.remove(marker)
     if isinstance(value, list | tuple):
@@ -378,7 +389,15 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return [_json_safe(item, seen, depth + 1) for item in value]
+            item_limit = _metadata_item_limit(len(value))
+            safe_items = [
+                _json_safe(item, seen, depth + 1)
+                for item in value[:item_limit]
+            ]
+            omitted = len(value) - item_limit
+            if omitted > 0:
+                safe_items.append(_truncated_items_marker(len(value), omitted))
+            return safe_items
         finally:
             seen.remove(marker)
     if isinstance(value, str):
@@ -386,6 +405,20 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
     if value is None or isinstance(value, int | float | bool):
         return value
     return _bounded_metadata_string(str(value))
+
+
+def _metadata_item_limit(total_items: int) -> int:
+    if total_items <= _MAX_TRANSCRIPT_METADATA_ITEMS:
+        return total_items
+    return _MAX_TRANSCRIPT_METADATA_ITEMS - 1
+
+
+def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]:
+    return {
+        "truncated": True,
+        "items": total_items,
+        "omitted": omitted,
+    }
 
 
 def _bounded_metadata_string(value: str) -> str | dict[str, object]:

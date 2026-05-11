@@ -112,6 +112,49 @@ def test_session_store_bounds_large_transcript_metadata_values(
     assert large_metadata not in transcript_path.read_text(encoding="utf-8")
 
 
+def test_session_store_bounds_wide_transcript_metadata_values(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+    metadata = {
+        "items": list(range(250)),
+        **{f"key_{index}": index for index in range(250)},
+    }
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata=metadata,
+    )
+
+    session = store.load("default")
+    stored_metadata = session.transcript[0].metadata
+    items = stored_metadata["items"]
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    raw = transcript_path.read_text(encoding="utf-8")
+
+    assert stored_metadata["key_0"] == 0
+    assert stored_metadata["key_197"] == 197
+    assert "key_198" not in stored_metadata
+    assert "key_199" not in stored_metadata
+    assert "key_249" not in stored_metadata
+    assert stored_metadata["__truncated_items__"] == {
+        "truncated": True,
+        "items": 251,
+        "omitted": 52,
+    }
+    assert isinstance(items, list)
+    assert items[:3] == [0, 1, 2]
+    assert items[198] == 198
+    assert items[199] == {
+        "truncated": True,
+        "items": 250,
+        "omitted": 51,
+    }
+    assert "key_249" not in raw
+
+
 def test_session_store_bounds_large_persisted_transcript_fields_on_load(
     tmp_path: Path,
 ) -> None:
