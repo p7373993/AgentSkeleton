@@ -698,9 +698,12 @@ def restore_run(
         raise typer.Exit(1)
 
     store = SessionStore(loaded.logs_dir)
-    if _session_has_restored_run(store, session, run_id):
-        console.print(f"Run {run_id} is already restored in session {session}")
-        return
+    try:
+        if _session_has_restored_run(store, session, run_id):
+            console.print(f"Run {run_id} is already restored in session {session}")
+            return
+    except ValueError as exc:
+        _exit_session_error(exc)
 
     try:
         store.append_transcript(

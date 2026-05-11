@@ -2149,6 +2149,54 @@ def test_restore_run_imports_final_answer(monkeypatch, tmp_path) -> None:
     }
 
 
+def test_restore_run_reports_session_read_errors(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "summarize"},
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "summary done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    transcript_path = tmp_path / "runs" / "sessions" / "work" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        json.dumps({"role": "user", "content": "existing"}),
+        encoding="utf-8",
+    )
+    original_read_bytes = Path.read_bytes
+    expected_path = transcript_path.resolve()
+
+    def fail_read_bytes(path: Path) -> bytes:
+        if path.resolve() == expected_path:
+            raise OSError("permission denied")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read_bytes)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert result.exit_code == 1
+    assert "Session error: Session transcript could not be read: work" in (
+        result.stdout
+    )
+
+
 def test_restore_run_does_not_duplicate_existing_import(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
