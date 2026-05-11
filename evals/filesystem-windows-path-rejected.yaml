@@ -1,0 +1,29 @@
+name: filesystem-windows-path-rejected
+domain: filesystem
+goal: Reject Windows device and ambiguous workspace paths before filesystem access.
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-reserved-path
+    arguments:
+      path: NUL
+  - type: tool
+    tool: read_file
+    call_id: read-ambiguous-path
+    arguments:
+      path: note.txt:secret
+  - type: final
+    text: windows path rejection ok
+expect:
+  status: completed
+  answer: windows path rejection ok
+  observations: 2
+  observations_detail:
+    - tool: read_file
+      success: false
+      summary: "Path contains reserved Windows device name: NUL"
+      error: Path invalid
+    - tool: read_file
+      success: false
+      summary: "Path contains ambiguous Windows path part: note.txt:secret"
+      error: Path invalid
