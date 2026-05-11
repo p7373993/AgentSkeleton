@@ -267,6 +267,44 @@ def test_load_tools_from_module_register_function(tmp_path, monkeypatch) -> None
     assert [tool.name for tool in tools] == ["registered_echo"]
 
 
+def test_load_tools_from_module_rejects_non_callable_register_tools(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    module_path = tmp_path / "bad_register_tools.py"
+    module_path.write_text("register_tools = []\n", encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(
+        ValueError,
+        match="Tool module bad_register_tools register_tools must be callable",
+    ):
+        load_tools_from_modules(["bad_register_tools"])
+
+
+def test_load_tools_from_module_reports_register_tools_failures(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    module_path = tmp_path / "failing_register_tools.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "def register_tools(registry):",
+                "    raise RuntimeError('boom')",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(
+        ValueError,
+        match="Tool module failing_register_tools register_tools failed: RuntimeError",
+    ):
+        load_tools_from_modules(["failing_register_tools"])
+
+
 def test_load_tools_from_module_requires_tool_provider(tmp_path, monkeypatch) -> None:
     module_path = tmp_path / "empty_tools.py"
     module_path.write_text("VALUE = 1\n", encoding="utf-8")
@@ -279,6 +317,18 @@ def test_load_tools_from_module_requires_tool_provider(tmp_path, monkeypatch) ->
 def test_load_tools_from_module_reports_missing_module() -> None:
     with pytest.raises(ValueError, match="Tool module not found: missing_tools"):
         load_tools_from_modules(["missing_tools"])
+
+
+def test_load_tools_from_module_reports_import_failures(tmp_path, monkeypatch) -> None:
+    module_path = tmp_path / "bad_syntax_tools.py"
+    module_path.write_text("def broken(:\n", encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(
+        ValueError,
+        match="Tool module bad_syntax_tools could not be imported",
+    ):
+        load_tools_from_modules(["bad_syntax_tools"])
 
 
 def _write_tool_module(path, tool_name: str) -> None:

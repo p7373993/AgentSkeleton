@@ -26,6 +26,11 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
             raise ValueError(
                 f"Tool module {module_name} could not be imported: {exc}"
             ) from exc
+        except Exception as exc:
+            raise ValueError(
+                f"Tool module {module_name} could not be imported: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
 
         module_tools = getattr(module, "TOOLS", None)
         register_tools = getattr(module, "register_tools", None)
@@ -38,8 +43,20 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
             tools.extend(_coerce_tool_list(module_name, module_tools))
 
         if register_tools is not None:
+            if not callable(register_tools):
+                raise ValueError(
+                    f"Tool module {module_name} register_tools must be callable"
+                )
             registry = ToolRegistry()
-            register_tools(registry)
+            try:
+                register_tools(registry)
+            except ValueError:
+                raise
+            except Exception as exc:
+                raise ValueError(
+                    f"Tool module {module_name} register_tools failed: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
             tools.extend(registry.all())
 
     return tools
