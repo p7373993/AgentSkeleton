@@ -72,3 +72,27 @@ def test_write_file_writes_text_and_reports_bytes(tmp_path: Path) -> None:
     assert result.success is True
     assert (tmp_path / "nested" / "out.txt").read_text(encoding="utf-8") == "hello"
     assert result.payload["bytes_written"] == 5
+
+
+def test_write_file_rejects_directory_target(tmp_path: Path) -> None:
+    (tmp_path / "nested").mkdir()
+
+    result = WriteFileTool().execute(
+        {"path": "nested", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Not a file"
+
+
+def test_write_file_rejects_parent_that_is_file(tmp_path: Path) -> None:
+    (tmp_path / "parent").write_text("not a directory", encoding="utf-8")
+
+    result = WriteFileTool().execute(
+        {"path": "parent/out.txt", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Parent is not a directory"

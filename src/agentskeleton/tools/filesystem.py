@@ -121,6 +121,14 @@ class WriteFileTool(Tool):
                     "Parent directory not found",
                 )
             path.parent.mkdir(parents=True, exist_ok=True)
+        elif not path.parent.is_dir():
+            return _error(
+                f"Parent is not a directory: {requested}",
+                "Parent is not a directory",
+            )
+
+        if path.exists() and not path.is_file():
+            return _error(f"Not a file: {requested}", "Not a file")
 
         encoded = content.encode("utf-8")
         temp_path = Path(f"{path}.tmp")
