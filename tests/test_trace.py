@@ -302,6 +302,27 @@ def test_console_trace_sink_serializes_recursive_payloads() -> None:
     assert "<recursive>" in output
 
 
+def test_console_trace_sink_serializes_uninspectable_payloads() -> None:
+    class ExplodingItems(dict):
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("items unavailable")
+
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "tool_started",
+        {
+            "tool_name": "trace_tool",
+            "arguments": ExplodingItems({"api_key": "sk-secret123"}),
+        },
+    )
+
+    output = console.export_text()
+    assert "<uninspectable>" in output
+    assert "sk-secret123" not in output
+
+
 def test_console_trace_sink_redacts_secret_payloads() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)

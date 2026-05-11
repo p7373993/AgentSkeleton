@@ -248,6 +248,25 @@ def test_run_logger_serializes_recursive_payload_values(tmp_path: Path) -> None:
     assert event["payload"]["payload"] == {"self": "<recursive>"}
 
 
+def test_run_logger_serializes_uninspectable_payload_values(tmp_path: Path) -> None:
+    class ExplodingItems(dict):
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("items unavailable")
+
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={"payload": ExplodingItems({"secret": "sk-secret123"})},
+    )
+
+    raw = logger.path.read_text(encoding="utf-8")
+    event = json.loads(raw.splitlines()[0])
+    assert event["payload"]["payload"] == "<uninspectable>"
+    assert "sk-secret123" not in raw
+
+
 def test_run_logger_bounds_deep_payload_values(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
     payload: dict[str, object] = {}

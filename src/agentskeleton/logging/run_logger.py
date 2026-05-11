@@ -12,6 +12,7 @@ _MAX_REDACT_DEPTH = 64
 _MAX_LOG_STRING_CHARS = 4_096
 _MAX_LOG_COLLECTION_ITEMS = 200
 _MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+_UNINSPECTABLE_VALUE = "<uninspectable>"
 _TRUNCATED_ITEMS_KEY = "__truncated_items__"
 _WINDOWS_RESERVED_LOG_BASENAMES = {
     "CON",
@@ -74,23 +75,7 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            redacted_items: dict[str, Any] = {}
-            item_limit = _collection_item_limit(len(value))
-            for index, (key, item) in enumerate(value.items()):
-                if index >= item_limit:
-                    continue
-                redacted_items[str(key)] = (
-                    "[REDACTED]"
-                    if _is_secret_key(key)
-                    else redact(item, seen, depth + 1)
-                )
-            omitted = len(value) - item_limit
-            if omitted:
-                redacted_items[_TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
-                    len(value),
-                    omitted,
-                )
-            return redacted_items
+            return _redact_mapping(value, seen, depth)
         finally:
             seen.remove(marker)
     if isinstance(value, list | tuple):
@@ -99,14 +84,7 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            item_limit = _collection_item_limit(len(value))
-            redacted_items = [
-                redact(item, seen, depth + 1) for item in value[:item_limit]
-            ]
-            omitted = len(value) - item_limit
-            if omitted > 0:
-                redacted_items.append(_truncated_items_marker(len(value), omitted))
-            return redacted_items
+            return _redact_sequence(value, seen, depth)
         finally:
             seen.remove(marker)
     if isinstance(value, str):
@@ -120,6 +98,59 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
     if value is None or isinstance(value, int | float | bool):
         return value
     return str(value)
+
+
+def _redact_mapping(
+    value: dict[Any, Any],
+    seen: set[int],
+    depth: int,
+) -> dict[str, Any] | str:
+    try:
+        total_items = len(value)
+        raw_items = value.items()
+    except Exception:
+        return _UNINSPECTABLE_VALUE
+    redacted_items: dict[str, Any] = {}
+    item_limit = _collection_item_limit(total_items)
+    try:
+        for index, (key, item) in enumerate(raw_items):
+            if index >= item_limit:
+                continue
+            redacted_items[str(key)] = (
+                "[REDACTED]"
+                if _is_secret_key(key)
+                else redact(item, seen, depth + 1)
+            )
+    except Exception:
+        return _UNINSPECTABLE_VALUE
+    omitted = total_items - item_limit
+    if omitted:
+        redacted_items[_TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
+            total_items,
+            omitted,
+        )
+    return redacted_items
+
+
+def _redact_sequence(
+    value: list[Any] | tuple[Any, ...],
+    seen: set[int],
+    depth: int,
+) -> list[Any] | str:
+    try:
+        total_items = len(value)
+        item_limit = _collection_item_limit(total_items)
+        limited_items = value[:item_limit]
+    except Exception:
+        return _UNINSPECTABLE_VALUE
+    try:
+        redacted_items = [redact(item, seen, depth + 1) for item in limited_items]
+    except Exception:
+        return _UNINSPECTABLE_VALUE
+    omitted = total_items - item_limit
+    if omitted > 0:
+        redacted_items.append(_truncated_items_marker(total_items, omitted))
+    return redacted_items
 
 
 def _collection_item_limit(total_items: int) -> int:
