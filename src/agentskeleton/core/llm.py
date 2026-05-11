@@ -82,6 +82,15 @@ def _read_attr(item: Any, name: str, default: Any = None) -> Any:
     return getattr(item, name, default)
 
 
+def _response_output_items(response: Any) -> list[Any]:
+    output = _read_attr(response, "output", []) or []
+    if isinstance(output, dict):
+        return [output]
+    if isinstance(output, list | tuple):
+        return list(output)
+    raise LLMResponseError("Response output must be a list of items")
+
+
 class LLMClient:
     def __init__(
         self,
@@ -117,7 +126,7 @@ class LLMClient:
         )
         response = self.client.responses.create(**request)
 
-        output = _read_attr(response, "output", []) or []
+        output = _response_output_items(response)
         tool_calls: list[ToolCallAction] = []
         for item in output:
             if _read_attr(item, "type") == "function_call":
