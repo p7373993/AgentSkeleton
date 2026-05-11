@@ -194,6 +194,12 @@ def _load_yaml_document(path: Path, label: str) -> object:
     if not _path_is_file_or_error(path, label):
         raise ValueError(f"{label} must be a file: {path}")
     try:
+        size = path.stat().st_size
+    except OSError as exc:
+        raise ValueError(f"{label} could not be checked: {path}") from exc
+    if size > MAX_SCENARIO_FILE_BYTES:
+        raise ValueError(f"{label} exceeds {MAX_SCENARIO_FILE_BYTES} bytes: {path}")
+    try:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise ValueError(f"{label} could not be read as UTF-8: {path}") from exc

@@ -1401,6 +1401,30 @@ def test_load_scenario_reports_yaml_read_failure(
         raise AssertionError("Expected unreadable scenario to fail")
 
 
+def test_load_scenario_rejects_oversized_yaml_before_reading(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "large.yaml"
+    scenario_path.write_text("x" * 11, encoding="utf-8")
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_FILE_BYTES", 10)
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == scenario_path:
+            raise AssertionError("oversized scenario file should not be read")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file exceeds 10 bytes: {scenario_path}"
+    else:
+        raise AssertionError("Expected oversized scenario to fail")
+
+
 def test_load_scenario_requires_expectations(tmp_path: Path) -> None:
     scenario_path = tmp_path / "unchecked.yaml"
     scenario_path.write_text(
