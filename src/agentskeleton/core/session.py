@@ -60,7 +60,13 @@ class SessionStore:
         )
 
     def list_sessions(self) -> list[SessionSummary]:
-        if not self.sessions_dir.is_dir():
+        try:
+            sessions_root_is_directory = self.sessions_dir.is_dir()
+        except OSError as exc:
+            raise ValueError(
+                f"Session list could not be read: {self.sessions_dir}"
+            ) from exc
+        if not sessions_root_is_directory:
             return []
         try:
             session_dirs = [
@@ -104,10 +110,23 @@ class SessionStore:
         }
         transcript_path = self._transcript_path_for(name)
         safe_name = self._safe_name(name)
-        if transcript_path.exists() and not transcript_path.is_file():
+        try:
+            transcript_exists = transcript_path.exists()
+        except OSError as exc:
             raise ValueError(
-                f"Session transcript path is not a file: {safe_name}"
-            )
+                f"Session transcript path could not be checked: {safe_name}"
+            ) from exc
+        if transcript_exists:
+            try:
+                transcript_is_file = transcript_path.is_file()
+            except OSError as exc:
+                raise ValueError(
+                    f"Session transcript path could not be checked: {safe_name}"
+                ) from exc
+            if not transcript_is_file:
+                raise ValueError(
+                    f"Session transcript path is not a file: {safe_name}"
+                )
         try:
             with transcript_path.open("a", encoding="utf-8") as file:
                 file.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -134,8 +153,21 @@ class SessionStore:
         self._ensure_session_dir(name)
         summary_path = self._summary_path_for(name)
         safe_name = self._safe_name(name)
-        if summary_path.exists() and not summary_path.is_file():
-            raise ValueError(f"Session summary path is not a file: {safe_name}")
+        try:
+            summary_exists = summary_path.exists()
+        except OSError as exc:
+            raise ValueError(
+                f"Session summary path could not be checked: {safe_name}"
+            ) from exc
+        if summary_exists:
+            try:
+                summary_is_file = summary_path.is_file()
+            except OSError as exc:
+                raise ValueError(
+                    f"Session summary path could not be checked: {safe_name}"
+                ) from exc
+            if not summary_is_file:
+                raise ValueError(f"Session summary path is not a file: {safe_name}")
         try:
             summary_path.write_text(summary, encoding="utf-8")
         except OSError as exc:
@@ -145,11 +177,17 @@ class SessionStore:
 
     def _load_transcript(self, name: str) -> list[ConversationMessage]:
         path = self._transcript_path_for(name)
-        if not path.is_file():
+        safe_name = self._safe_name(name)
+        try:
+            transcript_is_file = path.is_file()
+        except OSError as exc:
+            raise ValueError(
+                f"Session transcript could not be read: {safe_name}"
+            ) from exc
+        if not transcript_is_file:
             return []
 
         transcript: list[ConversationMessage] = []
-        safe_name = self._safe_name(name)
         try:
             raw_lines = path.read_bytes().splitlines()
         except OSError as exc:
@@ -181,9 +219,15 @@ class SessionStore:
 
     def _load_summary(self, name: str) -> str | None:
         path = self._summary_path_for(name)
-        if not path.is_file():
-            return None
         safe_name = self._safe_name(name)
+        try:
+            summary_is_file = path.is_file()
+        except OSError as exc:
+            raise ValueError(
+                f"Session summary could not be read: {safe_name}"
+            ) from exc
+        if not summary_is_file:
+            return None
         try:
             summary = path.read_text(encoding="utf-8").strip()
         except OSError as exc:
@@ -207,9 +251,21 @@ class SessionStore:
         session_dir = self._dir_for(name)
         safe_name = self._safe_name(name)
         for candidate in (session_dir, *session_dir.parents):
-            if not candidate.exists():
+            try:
+                candidate_exists = candidate.exists()
+            except OSError as exc:
+                raise ValueError(
+                    f"Session path could not be checked: {safe_name}"
+                ) from exc
+            if not candidate_exists:
                 continue
-            if not candidate.is_dir():
+            try:
+                candidate_is_directory = candidate.is_dir()
+            except OSError as exc:
+                raise ValueError(
+                    f"Session path could not be checked: {safe_name}"
+                ) from exc
+            if not candidate_is_directory:
                 raise ValueError(f"Session path is not a directory: {safe_name}")
             break
         try:

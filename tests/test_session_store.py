@@ -167,6 +167,25 @@ def test_session_store_reports_session_list_read_failures(
         SessionStore(tmp_path).list_sessions()
 
 
+def test_session_store_reports_session_list_root_stat_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sessions_root = tmp_path / "sessions"
+    sessions_root.mkdir()
+    original_is_dir = Path.is_dir
+
+    def fail_is_dir(path: Path) -> bool:
+        if path == sessions_root:
+            raise OSError("permission denied")
+        return original_is_dir(path)
+
+    monkeypatch.setattr(Path, "is_dir", fail_is_dir)
+
+    with pytest.raises(ValueError, match="Session list could not be read"):
+        SessionStore(tmp_path).list_sessions()
+
+
 def test_session_store_append_reports_session_path_file(tmp_path) -> None:
     session_dir = tmp_path / "sessions" / "default"
     session_dir.parent.mkdir()
@@ -183,6 +202,89 @@ def test_session_store_refresh_reports_session_path_file(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="Session path is not a directory: default"):
         SessionStore(tmp_path).refresh_summary("default", keep_turns=1)
+
+
+def test_session_store_reports_session_dir_exists_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    session_dir = tmp_path / "sessions" / "default"
+    original_exists = Path.exists
+
+    def fail_exists(path: Path) -> bool:
+        if path == session_dir:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_exists)
+
+    with pytest.raises(ValueError, match="Session path could not be checked: default"):
+        SessionStore(tmp_path).append_transcript("default", "user", "hello")
+
+
+def test_session_store_reports_session_dir_type_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    session_dir = tmp_path / "sessions" / "default"
+    session_dir.mkdir(parents=True)
+    original_is_dir = Path.is_dir
+
+    def fail_is_dir(path: Path) -> bool:
+        if path == session_dir:
+            raise OSError("permission denied")
+        return original_is_dir(path)
+
+    monkeypatch.setattr(Path, "is_dir", fail_is_dir)
+
+    with pytest.raises(ValueError, match="Session path could not be checked: default"):
+        SessionStore(tmp_path).append_transcript("default", "user", "hello")
+
+
+def test_session_store_reports_transcript_path_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    original_exists = Path.exists
+
+    def fail_exists(path: Path) -> bool:
+        if path == transcript_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_exists)
+
+    with pytest.raises(
+        ValueError,
+        match="Session transcript path could not be checked: default",
+    ):
+        store.append_transcript("default", "user", "hello")
+
+
+def test_session_store_reports_summary_path_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = SessionStore(tmp_path)
+    store.append_transcript("default", "user", "hello")
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    original_exists = Path.exists
+
+    def fail_exists(path: Path) -> bool:
+        if path == summary_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_exists)
+
+    with pytest.raises(
+        ValueError,
+        match="Session summary path could not be checked: default",
+    ):
+        store.refresh_summary("default", keep_turns=1)
 
 
 def test_session_store_ignores_malformed_transcript_lines(tmp_path) -> None:
@@ -270,6 +372,33 @@ def test_session_store_reports_transcript_read_failures(
         store.load("default")
 
 
+def test_session_store_reports_transcript_file_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        json.dumps({"role": "user", "content": "hello"}),
+        encoding="utf-8",
+    )
+    original_is_file = Path.is_file
+
+    def fail_is_file(path: Path) -> bool:
+        if path == transcript_path:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_is_file)
+
+    with pytest.raises(
+        ValueError,
+        match="Session transcript could not be read: default",
+    ):
+        store.load("default")
+
+
 def test_session_store_reports_summary_read_failures(tmp_path, monkeypatch) -> None:
     store = SessionStore(tmp_path)
     summary_path = tmp_path / "sessions" / "default" / "summary.md"
@@ -283,6 +412,30 @@ def test_session_store_reports_summary_read_failures(tmp_path, monkeypatch) -> N
         return original_read_text(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    with pytest.raises(
+        ValueError,
+        match="Session summary could not be read: default",
+    ):
+        store.load("default")
+
+
+def test_session_store_reports_summary_file_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = SessionStore(tmp_path)
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_text("summary", encoding="utf-8")
+    original_is_file = Path.is_file
+
+    def fail_is_file(path: Path) -> bool:
+        if path == summary_path:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_is_file)
 
     with pytest.raises(
         ValueError,
