@@ -392,6 +392,39 @@ def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:
     )
 
 
+def test_loop_bounds_logged_model_error_message(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+    error_message = "x" * 5_000
+
+    class LargeErrorLLM:
+        def next_action(self, state, registry):
+            raise RuntimeError(error_message)
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=LargeErrorLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        trace=trace,
+    ).run("finish")
+
+    logged_error = next(
+        event[2]["error"] for event in logger.events if event[0] == "run_error"
+    )
+    traced_error = next(
+        event.payload["error"] for event in trace.events if event.name == "run_error"
+    )
+    assert state.final_status == "model_error"
+    assert isinstance(logged_error, dict)
+    assert logged_error["truncated"] is True
+    assert logged_error["bytes"] == 5_000
+    assert str(logged_error["preview"]).startswith("xxxxxxxxxxxxxxxx")
+    assert len(str(logged_error["preview"])) < 300
+    assert traced_error == logged_error
+    assert error_message not in str(logger.events)
+
+
 def test_loop_handles_unsupported_model_action_as_state(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(

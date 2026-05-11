@@ -35,6 +35,8 @@ REPEATED_ACTION_THRESHOLD = 3
 MAX_TOOL_CALL_BATCH_SIZE = 20
 MAX_LOGGED_ARGUMENT_BYTES = 4_096
 MAX_LOGGED_ARGUMENT_PREVIEW_CHARS = 49
+MAX_LOGGED_TEXT_BYTES = 4_096
+MAX_LOGGED_TEXT_PREVIEW_CHARS = 200
 
 
 class AgentLoop:
@@ -114,23 +116,13 @@ class AgentLoop:
             except Exception as exc:
                 state.final_status = "model_error"
                 state.final_reason = f"Model call failed: {type(exc).__name__}"
-                self._log_event(
-                    "run_error",
-                    state.step_count,
-                    {
-                        "status": state.final_status,
-                        "error_type": type(exc).__name__,
-                        "error": str(exc),
-                    },
-                )
-                self._emit_trace(
-                    "run_error",
-                    {
-                        "status": state.final_status,
-                        "error_type": type(exc).__name__,
-                        "error": str(exc),
-                    },
-                )
+                error_payload = {
+                    "status": state.final_status,
+                    "error_type": type(exc).__name__,
+                    "error": _logged_text(str(exc)),
+                }
+                self._log_event("run_error", state.step_count, error_payload)
+                self._emit_trace("run_error", error_payload)
                 self._log_run_finished(state)
                 return state
 
@@ -602,6 +594,19 @@ def _logged_arguments(arguments: object) -> object:
     preview = encoded.decode("utf-8", errors="ignore")[
         :MAX_LOGGED_ARGUMENT_PREVIEW_CHARS
     ]
+    return {
+        "truncated": True,
+        "bytes": len(encoded),
+        "preview": f"{preview}...",
+    }
+
+
+def _logged_text(value: object) -> object:
+    text = str(value)
+    encoded = text.encode("utf-8", errors="replace")
+    if len(encoded) <= MAX_LOGGED_TEXT_BYTES:
+        return text
+    preview = encoded.decode("utf-8", errors="ignore")[:MAX_LOGGED_TEXT_PREVIEW_CHARS]
     return {
         "truncated": True,
         "bytes": len(encoded),
