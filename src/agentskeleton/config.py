@@ -134,11 +134,14 @@ def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:
 
     values: dict[str, str] = {}
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        raw_text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise ValueError(f"Dotenv file could not be read as UTF-8: {path}") from exc
     except OSError as exc:
         raise ValueError(f"Dotenv file could not be read: {path}") from exc
+    if len(raw_text.encode("utf-8")) > MAX_CONFIG_FILE_BYTES:
+        raise ValueError(f"Dotenv file exceeds {MAX_CONFIG_FILE_BYTES} bytes: {path}")
+    lines = raw_text.splitlines()
 
     for raw_line in lines:
         line = raw_line.strip()
@@ -195,6 +198,10 @@ def load_config(
             ) from exc
         except OSError as exc:
             raise ValueError(f"Config file could not be read: {config_path}") from exc
+        if len(config_text.encode("utf-8")) > MAX_CONFIG_FILE_BYTES:
+            raise ValueError(
+                f"Config file exceeds {MAX_CONFIG_FILE_BYTES} bytes: {config_path}"
+            )
         try:
             loaded = yaml.safe_load(config_text) or {}
         except (yaml.YAMLError, RecursionError) as exc:

@@ -135,6 +135,27 @@ def test_load_config_rejects_oversized_config_before_reading(
         load_config(config_path)
 
 
+def test_load_config_rejects_config_that_grows_after_stat(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(config_module, "MAX_CONFIG_FILE_BYTES", 10)
+    original_read_text = Path.read_text
+
+    def grow_read_text(path: Path, *args, **kwargs) -> str:
+        if path == config_path:
+            return "x" * 11
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", grow_read_text)
+
+    with pytest.raises(ValueError, match=r"Config file exceeds 10 bytes"):
+        load_config(config_path)
+
+
 def test_load_config_reports_malformed_yaml(tmp_path: Path) -> None:
     config_path = tmp_path / "agent.yaml"
     config_path.write_text("model: [unterminated\n", encoding="utf-8")
@@ -266,6 +287,27 @@ def test_load_config_rejects_oversized_dotenv_before_reading(
         return original_read_text(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    with pytest.raises(ValueError, match=r"Dotenv file exceeds 10 bytes"):
+        load_config()
+
+
+def test_load_config_rejects_dotenv_that_grows_after_stat(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(config_module, "MAX_CONFIG_FILE_BYTES", 10)
+    original_read_text = Path.read_text
+
+    def grow_read_text(path: Path, *args, **kwargs) -> str:
+        if path == Path(".env"):
+            return "x" * 11
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", grow_read_text)
 
     with pytest.raises(ValueError, match=r"Dotenv file exceeds 10 bytes"):
         load_config()
