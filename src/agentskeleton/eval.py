@@ -414,6 +414,9 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
     if action_type == "tool":
         return _parse_tool_call(raw, f"Scenario action {index + 1}", index + 1)
 
+    if action_type == "empty_batch":
+        return ToolCallBatchAction(tool_calls=[])
+
     if action_type == "batch":
         raw_calls = raw.get("calls") or raw.get("tool_calls")
         if not isinstance(raw_calls, list) or not raw_calls:

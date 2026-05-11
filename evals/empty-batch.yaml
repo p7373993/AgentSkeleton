@@ -1,0 +1,19 @@
+name: empty-batch
+domain: reliability
+goal: Stop cleanly when the model returns an empty tool-call batch.
+actions:
+  - type: empty_batch
+expect:
+  status: invalid_action
+  reason: Model returned empty tool call batch
+  observations: 0
+  events:
+    - type: run_error
+      payload:
+        status: invalid_action
+        error_type: empty_batch
+        error: Model returned empty tool call batch
+    - type: run_finished
+      payload:
+        status: invalid_action
+        reason: Model returned empty tool call batch

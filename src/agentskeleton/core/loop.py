@@ -134,6 +134,16 @@ class AgentLoop:
             if isinstance(action, ToolCallAction):
                 self._execute_tool_action(state, action)
             elif isinstance(action, ToolCallBatchAction):
+                if not action.tool_calls:
+                    self._record_invalid_action(
+                        state,
+                        action,
+                        reason="Model returned empty tool call batch",
+                        error_type="empty_batch",
+                    )
+                    if state.final_status is not None:
+                        self._log_run_finished(state)
+                        return state
                 for tool_call in action.tool_calls:
                     if not isinstance(tool_call, ToolCallAction):
                         self._record_invalid_action(state, tool_call)
@@ -375,9 +385,15 @@ class AgentLoop:
             },
         )
 
-    def _record_invalid_action(self, state: RunState, action: object) -> None:
-        action_type = type(action).__name__
-        reason = f"Model returned unsupported action: {action_type}"
+    def _record_invalid_action(
+        self,
+        state: RunState,
+        action: object,
+        reason: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        action_type = error_type or type(action).__name__
+        reason = reason or f"Model returned unsupported action: {action_type}"
         state.final_status = "invalid_action"
         state.final_reason = reason
         payload = {

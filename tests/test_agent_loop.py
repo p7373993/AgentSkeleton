@@ -207,6 +207,40 @@ def test_loop_executes_all_tool_calls_in_batch(tmp_path: Path) -> None:
     ]
 
 
+def test_loop_handles_empty_tool_call_batch_as_invalid_action(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [ToolCallBatchAction(tool_calls=[])],
+        logger,
+    ).run("record")
+
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == "Model returned empty tool call batch"
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "empty_batch",
+            "error": "Model returned empty tool call batch",
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": "Model returned empty tool call batch",
+        },
+    )
+
+
 def test_loop_stops_at_max_steps(tmp_path: Path) -> None:
     logger = MemoryLogger()
     loop = AgentLoop(
