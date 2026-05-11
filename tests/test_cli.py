@@ -232,6 +232,37 @@ def test_eval_suite_command_runs_directory_as_json(monkeypatch, tmp_path) -> Non
     assert [item["scenario"] for item in payload["results"]] == ["alpha", "beta"]
 
 
+def test_eval_suite_command_prints_status_and_reason(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "invalid-action.yaml").write_text(
+        "\n".join(
+            [
+                "name: invalid-action",
+                "goal: handle invalid action",
+                "actions:",
+                "  - type: invalid",
+                "expect:",
+                "  status: invalid_action",
+                "  reason: 'Model returned unsupported action: dict'",
+                "  observations: 0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval-suite", str(suite_dir)])
+
+    assert result.exit_code == 0
+    assert "PASS: invalid-action status=invalid_action" in result.stdout
+    assert "Reason: Model returned unsupported action: dict" in result.stdout
+
+
 def test_eval_suite_command_enforces_required_domains(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     suite_dir = tmp_path / "evals"
