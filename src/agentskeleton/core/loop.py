@@ -529,6 +529,17 @@ def _validate_nested_object(
         properties = {}
 
     errors: list[str] = []
+    required = object_schema.get("required", [])
+    if isinstance(required, list):
+        for child_name in required:
+            if isinstance(child_name, str) and child_name not in value:
+                errors.append(f"Missing required argument: {name}.{child_name}")
+
+    if object_schema.get("additionalProperties") is False:
+        for child_name in value:
+            if child_name not in properties:
+                errors.append(f"Unexpected argument: {name}.{child_name}")
+
     for child_name, child_value in value.items():
         child_schema = properties.get(child_name)
         if not isinstance(child_schema, dict):

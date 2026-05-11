@@ -635,6 +635,35 @@ def test_loop_rejects_invalid_nested_object_tool_argument(tmp_path: Path) -> Non
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_invalid_nested_object_shape_tool_argument(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="config_record",
+                    arguments={"settings": {"extra": True}},
+                    call_id="call-1",
+                ),
+                FinalAction(text="recovered"),
+            ]
+        ),
+        registry=ToolRegistry([ConfigRecordTool()]),
+        logger=logger,
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].result.success is False
+    assert state.observations[0].result.payload["validation_errors"] == [
+        "Missing required argument: settings.enabled",
+        "Unexpected argument: settings.extra",
+    ]
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(
