@@ -286,6 +286,42 @@ def test_run_scenario_executes_batch_tool_actions(tmp_path: Path) -> None:
     assert [failure for failure in result.failures] == []
 
 
+def test_run_scenario_executes_invalid_batch_member(
+    tmp_path: Path,
+) -> None:
+    scenario_path = tmp_path / "invalid-batch-member.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: invalid-batch-member",
+                "goal: handle an invalid batch member",
+                "actions:",
+                "  - type: invalid_batch_member",
+                "expect:",
+                "  status: invalid_action",
+                "  reason: 'Model returned unsupported action: dict'",
+                "  observations: 0",
+                "  events:",
+                "    - type: run_error",
+                "      payload:",
+                "        status: invalid_action",
+                "        error_type: dict",
+                "        error: 'Model returned unsupported action: dict'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
 def test_run_scenario_uses_scripted_user_answers(tmp_path: Path) -> None:
     scenario_path = tmp_path / "interactive.yaml"
     scenario_path.write_text(
