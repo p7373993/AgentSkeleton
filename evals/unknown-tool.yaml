@@ -18,3 +18,12 @@ expect:
       error: Unknown tool
       payload:
         tool_name: missing_domain_tool
+  events:
+    - type: model_action
+      payload:
+        tool_name: missing_domain_tool
+        call_id: missing-tool
+    - type: run_finished
+      payload:
+        status: unknown_tool
+        reason: "Unknown tool: missing_domain_tool"

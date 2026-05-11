@@ -8,3 +8,12 @@ expect:
   status: model_error
   reason: "Model call failed: RuntimeError"
   observations: 0
+  events:
+    - type: run_error
+      payload:
+        status: model_error
+        error_type: RuntimeError
+    - type: run_finished
+      payload:
+        status: model_error
+        reason: "Model call failed: RuntimeError"

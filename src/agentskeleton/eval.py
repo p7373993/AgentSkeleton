@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -241,7 +242,8 @@ def run_scenario(
         ),
     )
     state = loop.run(scenario.goal, trace_context={"scenario": scenario.name})
-    failures = _compare_expectations(scenario.expect, state, workspace)
+    log_path = Path(logger.path).resolve()
+    failures = _compare_expectations(scenario.expect, state, workspace, log_path)
     return ScenarioResult(
         scenario=scenario.name,
         domain=scenario.domain,
@@ -251,7 +253,7 @@ def run_scenario(
         reason=state.final_reason,
         observations=len(state.observations),
         failures=failures,
-        log_path=Path(logger.path).resolve(),
+        log_path=log_path,
         workspace=workspace,
     )
 
@@ -461,6 +463,7 @@ def _compare_expectations(
     expect: dict[str, object],
     state: RunState,
     workspace: Path,
+    log_path: Path,
 ) -> list[str]:
     failures: list[str] = []
     _expect_equal(failures, "status", expect, state.final_status)
@@ -473,6 +476,7 @@ def _compare_expectations(
         )
     _expect_observations(failures, expect.get("observations_detail"), state)
     _expect_files(failures, expect.get("files"), workspace)
+    _expect_events(failures, expect.get("events"), log_path)
     return failures
 
 
@@ -602,3 +606,85 @@ def _expect_payload(
                 f"observation {number} payload.{key} expected "
                 f"{expected_value!r} but got {actual_value!r}"
             )
+
+
+def _expect_events(
+    failures: list[str],
+    raw_events: object,
+    log_path: Path,
+) -> None:
+    if raw_events is None:
+        return
+    if not isinstance(raw_events, list):
+        failures.append("events expectation must be a list")
+        return
+
+    events = _read_log_events(log_path, failures)
+    cursor = 0
+    for index, raw_expected in enumerate(raw_events):
+        number = index + 1
+        if not isinstance(raw_expected, dict):
+            failures.append(f"event {number} expectation must be a mapping")
+            continue
+
+        found = False
+        for actual_index in range(cursor, len(events)):
+            if _event_matches(raw_expected, events[actual_index]):
+                cursor = actual_index + 1
+                found = True
+                break
+        if not found:
+            failures.append(
+                f"event {number} expected {raw_expected!r} but was not found"
+            )
+
+
+def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]]:
+    if not log_path.exists():
+        failures.append(f"log file expected but was missing: {log_path}")
+        return []
+
+    events: list[dict[str, Any]] = []
+    lines = log_path.read_text(encoding="utf-8").splitlines()
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError as exc:
+            failures.append(f"log line {line_number} could not be decoded: {exc.msg}")
+            continue
+        if isinstance(event, dict):
+            events.append(event)
+        else:
+            failures.append(f"log line {line_number} must decode to a mapping")
+    return events
+
+
+def _event_matches(expected: dict[str, object], actual: dict[str, Any]) -> bool:
+    for key, expected_value in expected.items():
+        actual_value = actual.get(key)
+        if isinstance(expected_value, dict):
+            if not isinstance(actual_value, dict):
+                return False
+            if not _mapping_contains(actual_value, expected_value):
+                return False
+        elif actual_value != expected_value:
+            return False
+    return True
+
+
+def _mapping_contains(
+    actual: dict[str, Any],
+    expected: dict[str, object],
+) -> bool:
+    for key, expected_value in expected.items():
+        actual_value = actual.get(key)
+        if isinstance(expected_value, dict):
+            if not isinstance(actual_value, dict):
+                return False
+            if not _mapping_contains(actual_value, expected_value):
+                return False
+        elif actual_value != expected_value:
+            return False
+    return True

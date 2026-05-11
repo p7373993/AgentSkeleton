@@ -590,6 +590,76 @@ def test_run_scenario_reports_observation_detail_mismatch(tmp_path: Path) -> Non
     assert result.failures == ["observation 1 success expected True but got False"]
 
 
+def test_run_scenario_checks_expected_log_events(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "events.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: events",
+                "goal: finish with logged events",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+                "  answer: done",
+                "  events:",
+                "    - type: run_started",
+                "      payload:",
+                "        goal: finish with logged events",
+                "    - type: run_finished",
+                "      payload:",
+                "        status: completed",
+                "        answer: done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
+def test_run_scenario_reports_log_event_mismatch(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "event-mismatch.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: event-mismatch",
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+                "  events:",
+                "    - type: run_finished",
+                "      payload:",
+                "        status: failed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == [
+        "event 1 expected {'type': 'run_finished', 'payload': {'status': 'failed'}} "
+        "but was not found"
+    ]
+
+
 def test_run_scenario_reports_expected_file_mismatch(tmp_path: Path) -> None:
     scenario_path = tmp_path / "missing-report.yaml"
     scenario_path.write_text(

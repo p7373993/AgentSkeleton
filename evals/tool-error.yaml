@@ -23,3 +23,14 @@ expect:
       error: boom
       payload:
         tool_name: explode
+  events:
+    - type: tool_finished
+      payload:
+        tool_name: explode
+        success: false
+        summary: "Tool raised an exception: RuntimeError"
+        error: boom
+    - type: run_finished
+      payload:
+        status: tool_error
+        reason: "Tool raised an exception: RuntimeError"
