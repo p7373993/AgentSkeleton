@@ -42,7 +42,15 @@ class AskUserTool(Tool):
                 error="No user input callback configured",
             )
 
-        answer = context.ask_user(question)
+        try:
+            answer = context.ask_user(question)
+        except Exception as exc:
+            return ToolResult(
+                success=False,
+                payload={"question": question},
+                summary=f"User input failed: {type(exc).__name__}",
+                error="User input failed",
+            )
         return ToolResult(
             success=True,
             payload={"question": question, "answer": answer},
