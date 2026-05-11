@@ -136,3 +136,8 @@ def test_load_tools_from_module_requires_tool_provider(tmp_path, monkeypatch) ->
 
     with pytest.raises(ValueError, match="must define TOOLS or register_tools"):
         load_tools_from_modules(["empty_tools"])
+
+
+def test_load_tools_from_module_reports_missing_module() -> None:
+    with pytest.raises(ValueError, match="Tool module not found: missing_tools"):
+        load_tools_from_modules(["missing_tools"])

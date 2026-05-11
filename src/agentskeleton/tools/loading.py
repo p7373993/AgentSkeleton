@@ -7,7 +7,22 @@ from agentskeleton.tools.registry import ToolRegistry
 def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     tools: list[Tool] = []
     for module_name in module_names or []:
-        module = importlib.import_module(module_name)
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError as exc:
+            missing_name = exc.name or module_name
+            if module_name == missing_name or module_name.startswith(
+                f"{missing_name}."
+            ):
+                raise ValueError(f"Tool module not found: {module_name}") from exc
+            raise ValueError(
+                f"Tool module {module_name} could not import dependency: "
+                f"{missing_name}"
+            ) from exc
+        except ImportError as exc:
+            raise ValueError(
+                f"Tool module {module_name} could not be imported: {exc}"
+            ) from exc
 
         module_tools = getattr(module, "TOOLS", None)
         register_tools = getattr(module, "register_tools", None)

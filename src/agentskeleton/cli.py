@@ -60,13 +60,35 @@ def build_default_registry(
     return ToolRegistry(selected)
 
 
+def _load_config_or_exit(
+    config_path: Path | None = None,
+    overrides: dict[str, Any] | None = None,
+):
+    try:
+        return load_config(config_path, overrides)
+    except ValueError as exc:
+        console.print(f"Configuration error: {exc}")
+        raise typer.Exit(1) from exc
+
+
+def _build_registry_or_exit(
+    enabled_tools: list[str] | None,
+    tool_modules: list[str] | None,
+) -> ToolRegistry:
+    try:
+        return build_default_registry(enabled_tools, tool_modules)
+    except ValueError as exc:
+        console.print(f"Configuration error: {exc}")
+        raise typer.Exit(1) from exc
+
+
 @app.command()
 def tools(
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
 ) -> None:
-    loaded = load_config(config, {"enabled_tools": tool})
-    registry = build_default_registry(loaded.enabled_tools, loaded.tool_modules)
+    loaded = _load_config_or_exit(config, {"enabled_tools": tool})
+    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     table = Table(title="Registered Tools")
     table.add_column("Name")
     table.add_column("Description")
@@ -94,7 +116,7 @@ def run(
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
 ) -> None:
-    loaded = load_config(
+    loaded = _load_config_or_exit(
         config,
         {
             "model": model,
@@ -106,7 +128,7 @@ def run(
     )
     run_id = str(uuid4())
     logger = RunLogger(loaded.logs_dir, run_id)
-    registry = build_default_registry(loaded.enabled_tools, loaded.tool_modules)
+    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     trace = NullTraceSink() if quiet else ConsoleTraceSink(console)
     session_store = SessionStore(loaded.logs_dir)
     conversation = []
@@ -179,7 +201,7 @@ def chat(
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
     trace: Annotated[bool, typer.Option("--trace")] = False,
 ) -> None:
-    loaded = load_config(
+    loaded = _load_config_or_exit(
         config,
         {
             "model": model,
@@ -189,7 +211,7 @@ def chat(
             "enabled_tools": tool,
         },
     )
-    registry = build_default_registry(loaded.enabled_tools, loaded.tool_modules)
+    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     trace_sink = ConsoleTraceSink(console) if trace else NullTraceSink()
     session_store = SessionStore(loaded.logs_dir)
 
@@ -293,7 +315,7 @@ def show_run(
     run_id: str,
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
 ) -> None:
-    loaded = load_config(config)
+    loaded = _load_config_or_exit(config)
     log_path = _find_run_log(loaded.logs_dir, run_id)
     if log_path is None:
         console.print(f"Run log not found: {run_id}")

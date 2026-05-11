@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from typer.testing import CliRunner
 
 from agentskeleton.cli import app, build_default_registry, configure_streams_for_unicode
@@ -71,6 +72,41 @@ def test_tools_command_tool_option_overrides_config(monkeypatch, tmp_path) -> No
     assert result.exit_code == 0
     assert "read_file" in result.stdout
     assert "shell" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("command", "user_input"),
+    [
+        (["tools"], None),
+        (["run", "finish"], None),
+        (["chat"], "/exit\n"),
+    ],
+)
+def test_cli_reports_registry_configuration_errors(
+    command, user_input, monkeypatch, tmp_path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "enabled_tools:",
+                "  - missing",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [*command, "--config", str(config_path)],
+        input=user_input,
+    )
+
+    assert result.exit_code == 1
+    assert "Configuration error: Unknown enabled tool: missing" in result.stdout
+    assert result.exception is None or not isinstance(result.exception, ValueError)
 
 
 def test_default_registry_can_filter_enabled_tools() -> None:
