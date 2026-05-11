@@ -1,6 +1,6 @@
 from typer.testing import CliRunner
 
-from agentskeleton.cli import app, configure_streams_for_unicode
+from agentskeleton.cli import app, build_default_registry, configure_streams_for_unicode
 from agentskeleton.core.session import SessionStore
 
 
@@ -15,6 +15,21 @@ def test_tools_command_lists_default_tools() -> None:
     assert "write_file" in result.stdout
     assert "shell" in result.stdout
     assert "ask_user" in result.stdout
+
+
+def test_default_registry_can_filter_enabled_tools() -> None:
+    registry = build_default_registry(["read_file", "ask_user"])
+
+    assert [tool.name for tool in registry.all()] == ["read_file", "ask_user"]
+
+
+def test_default_registry_rejects_unknown_enabled_tool() -> None:
+    try:
+        build_default_registry(["read_file", "missing"])
+    except ValueError as exc:
+        assert str(exc) == "Unknown enabled tool: missing"
+    else:
+        raise AssertionError("Expected unknown enabled tool to fail")
 
 
 def test_configure_streams_for_unicode_uses_utf8_with_replacement() -> None:
@@ -140,6 +155,113 @@ def test_run_can_disable_session(monkeypatch, tmp_path) -> None:
     assert seen_conversation == [[]]
     session = SessionStore(tmp_path / "runs").load("default")
     assert [turn.content for turn in session.transcript] == ["remember alpha"]
+
+
+def test_run_uses_enabled_tools_from_config(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "enabled_tools:",
+                "  - read_file",
+                "  - ask_user",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    seen_tools: list[list[str]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            seen_tools.append([tool.name for tool in kwargs["registry"].all()])
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "continue", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert seen_tools == [["read_file", "ask_user"]]
+
+
+def test_run_tool_option_overrides_enabled_tools_config(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "enabled_tools:",
+                "  - shell",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    seen_tools: list[list[str]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            seen_tools.append([tool.name for tool in kwargs["registry"].all()])
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "continue",
+            "--config",
+            str(config_path),
+            "--tool",
+            "read_file",
+            "--tool",
+            "ask_user",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert seen_tools == [["read_file", "ask_user"]]
 
 
 def test_chat_reuses_session_transcript_between_inputs(monkeypatch, tmp_path) -> None:

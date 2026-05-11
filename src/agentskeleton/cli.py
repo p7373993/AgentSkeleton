@@ -33,16 +33,25 @@ app = typer.Typer(help="Run a minimal local CLI agent.")
 console = Console()
 
 
-def build_default_registry() -> ToolRegistry:
-    return ToolRegistry(
-        [
-            ListDirTool(),
-            ReadFileTool(),
-            WriteFileTool(),
-            ShellTool(),
-            AskUserTool(),
-        ]
-    )
+def build_default_registry(enabled_tools: list[str] | None = None) -> ToolRegistry:
+    tools = [
+        ListDirTool(),
+        ReadFileTool(),
+        WriteFileTool(),
+        ShellTool(),
+        AskUserTool(),
+    ]
+    if enabled_tools is None:
+        return ToolRegistry(tools)
+
+    by_name = {tool.name: tool for tool in tools}
+    selected = []
+    for name in enabled_tools:
+        try:
+            selected.append(by_name[name])
+        except KeyError as exc:
+            raise ValueError(f"Unknown enabled tool: {name}") from exc
+    return ToolRegistry(selected)
 
 
 @app.command()
@@ -70,6 +79,7 @@ def run(
         typer.Option("--reasoning-effort"),
     ] = None,
     max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
     session: Annotated[str, typer.Option("--session")] = "default",
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
@@ -81,11 +91,12 @@ def run(
             "base_url": base_url,
             "reasoning_effort": reasoning_effort,
             "max_steps": max_steps,
+            "enabled_tools": tool,
         },
     )
     run_id = str(uuid4())
     logger = RunLogger(loaded.logs_dir, run_id)
-    registry = build_default_registry()
+    registry = build_default_registry(loaded.enabled_tools)
     trace = NullTraceSink() if quiet else ConsoleTraceSink(console)
     session_store = SessionStore(loaded.logs_dir)
     conversation = []
@@ -150,6 +161,7 @@ def chat(
         typer.Option("--reasoning-effort"),
     ] = None,
     max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
     session: Annotated[str, typer.Option("--session")] = "default",
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
     trace: Annotated[bool, typer.Option("--trace")] = False,
@@ -161,9 +173,10 @@ def chat(
             "base_url": base_url,
             "reasoning_effort": reasoning_effort,
             "max_steps": max_steps,
+            "enabled_tools": tool,
         },
     )
-    registry = build_default_registry()
+    registry = build_default_registry(loaded.enabled_tools)
     trace_sink = ConsoleTraceSink(console) if trace else NullTraceSink()
     session_store = SessionStore(loaded.logs_dir)
 

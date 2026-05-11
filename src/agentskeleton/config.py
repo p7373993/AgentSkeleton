@@ -19,11 +19,22 @@ class RunConfig(BaseModel):
     logs_dir: Path = Path("runs")
     shell_timeout_seconds: int = Field(default=30, gt=0)
     shell_max_output_bytes: int = Field(default=20000, gt=0)
+    enabled_tools: list[str] | None = None
 
     @field_validator("workspace")
     @classmethod
     def resolve_workspace(cls, value: Path) -> Path:
         return value.expanduser().resolve()
+
+    @field_validator("enabled_tools")
+    @classmethod
+    def reject_empty_tool_names(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        for name in value:
+            if not name.strip():
+                raise ValueError("enabled_tools cannot contain empty names")
+        return value
 
 
 def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:

@@ -11,3 +11,10 @@ confirm_risky_actions: true
 logs_dir: "runs"
 shell_timeout_seconds: 30
 shell_max_output_bytes: 20000
+# Optional allowlist for the tools exposed to the model.
+# Leave null to enable all default tools.
+enabled_tools: null
+# enabled_tools:
+#   - list_dir
+#   - read_file
+#   - ask_user
