@@ -178,10 +178,13 @@ class PermissionPolicy:
 def _looks_like_recursive_delete(command: str) -> bool:
     delete_commands = ("remove-item", "rm", "ri", "del", "erase", "rd", "rmdir")
     tokens = command.replace(";", " ").replace("|", " ").split()
-    if not any(token in delete_commands for token in tokens):
+    if not any(
+        _normalize_executable_token(token) in delete_commands for token in tokens
+    ):
         return False
     return any(
-        token in {"-recurse", "-r", "/s"} or _is_compact_recursive_flag(token)
+        token in {"-recurse", "-recursive", "--recursive", "-r", "/s"}
+        or _is_compact_recursive_flag(token)
         for token in tokens
     )
 

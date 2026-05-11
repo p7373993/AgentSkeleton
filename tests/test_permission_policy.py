@@ -384,6 +384,25 @@ def test_policy_blocks_compact_rm_recursive_flags() -> None:
 @pytest.mark.parametrize(
     "command",
     [
+        "rm --recursive build",
+        "rm -fr build",
+        "rm.exe -rf build",
+    ],
+)
+def test_policy_blocks_recursive_delete_variants(command: str) -> None:
+    decision = PermissionPolicy().decide(
+        "shell",
+        {"command": command},
+        "shell",
+    )
+
+    assert decision.outcome == "block"
+    assert "destructive" in decision.reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         "uv pip install pytest",
         "uv sync",
         "uv add pytest",
