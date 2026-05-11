@@ -272,10 +272,12 @@ def eval_scenario(
         console.print(f"Passed: {payload['passed']}")
         console.print(f"Status: {payload['status']}")
         if payload["reason"]:
-            console.print(f"Reason: {payload['reason']}")
+            reason = _bounded_display_text(str(payload["reason"]))
+            console.print(f"Reason: {reason}")
         if payload["failures"]:
             for failure in payload["failures"]:
-                console.print(f"Failure: {failure}")
+                bounded_failure = _bounded_display_text(str(failure))
+                console.print(f"Failure: {bounded_failure}")
         console.print(f"Log: {payload['log']}", soft_wrap=True)
 
     if not result.passed:
@@ -319,11 +321,14 @@ def eval_suite(
             marker = "PASS" if item["passed"] else "FAIL"
             console.print(f"{marker}: {item['scenario']} status={item['status']}")
             if item["reason"]:
-                console.print(f"Reason: {item['reason']}")
+                reason = _bounded_display_text(str(item["reason"]))
+                console.print(f"Reason: {reason}")
             for failure in item["failures"]:
-                console.print(f"Failure: {failure}")
+                bounded_failure = _bounded_display_text(str(failure))
+                console.print(f"Failure: {bounded_failure}")
         for failure in payload["coverage_failures"]:
-            console.print(f"Coverage failure: {failure}")
+            bounded_failure = _bounded_display_text(str(failure))
+            console.print(f"Coverage failure: {bounded_failure}")
 
     if not result.passed:
         raise typer.Exit(1)

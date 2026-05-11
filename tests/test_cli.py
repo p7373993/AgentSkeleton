@@ -202,6 +202,57 @@ def test_eval_command_prints_final_reason(monkeypatch, tmp_path) -> None:
     assert "Reason: Model returned unsupported action: dict" in result.stdout
 
 
+def test_eval_command_bounds_large_reason_and_failure_output(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    scenario_path = tmp_path / "large-output.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: large-output",
+                "goal: large output",
+                "actions:",
+                "  - type: final",
+                "    text: actual",
+                "expect:",
+                "  status: completed",
+                "  answer: expected",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    large_reason = "r" * 20_000
+    large_failure = "f" * 20_000
+
+    class FakeResult:
+        passed = False
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "scenario": "large-output",
+                "passed": False,
+                "status": "model_error",
+                "reason": large_reason,
+                "failures": [large_failure],
+                "log": str(tmp_path / "large-output.jsonl"),
+            }
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.run_scenario",
+        lambda *args, **kwargs: FakeResult(),
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval", str(scenario_path)])
+
+    assert result.exit_code == 1
+    assert result.stdout.count("[truncated") >= 2
+    assert large_reason not in result.stdout
+    assert large_failure not in result.stdout
+
+
 def test_eval_command_reports_directory_scenario_path(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     scenario_path = tmp_path / "directory.yaml"
@@ -310,6 +361,67 @@ def test_eval_suite_command_prints_scenario_failures(
     assert result.exit_code == 1
     assert "FAIL: mismatch status=completed" in result.stdout
     assert "Failure: answer expected 'expected' but got 'actual'" in result.stdout
+
+
+def test_eval_suite_command_bounds_large_reason_and_failure_output(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "large-output.yaml").write_text(
+        "\n".join(
+            [
+                "name: large-output",
+                "goal: large output",
+                "actions:",
+                "  - type: final",
+                "    text: actual",
+                "expect:",
+                "  status: completed",
+                "  answer: expected",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    large_reason = "r" * 20_000
+    large_failure = "f" * 20_000
+    large_coverage_failure = "c" * 20_000
+
+    class FakeResult:
+        passed = False
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "passed": False,
+                "passed_count": 0,
+                "total": 1,
+                "results": [
+                    {
+                        "scenario": "large-output",
+                        "passed": False,
+                        "status": "model_error",
+                        "reason": large_reason,
+                        "failures": [large_failure],
+                    }
+                ],
+                "coverage_failures": [large_coverage_failure],
+            }
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.run_scenario_suite",
+        lambda *args, **kwargs: FakeResult(),
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval-suite", str(suite_dir)])
+
+    assert result.exit_code == 1
+    assert result.stdout.count("[truncated") >= 3
+    assert large_reason not in result.stdout
+    assert large_failure not in result.stdout
+    assert large_coverage_failure not in result.stdout
 
 
 def test_eval_suite_command_enforces_required_domains(monkeypatch, tmp_path) -> None:
