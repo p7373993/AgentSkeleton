@@ -25,6 +25,7 @@ from agentskeleton.tools.registry import ToolRegistry
 
 RegistryFactory = Callable[[RunConfig], ToolRegistry]
 SUITE_MANIFEST_NAMES = {"suite.yaml", "suite.yml"}
+MAX_SCENARIO_FILE_BYTES = 2_097_152
 
 
 @dataclass(frozen=True)
@@ -408,6 +409,10 @@ def _parse_file_content(path: str, raw: object) -> str:
     if type(count) is not int or count < 0:
         raise ValueError(
             f"Scenario file {path} count must be a non-negative integer"
+        )
+    if len(repeat.encode("utf-8")) * count > MAX_SCENARIO_FILE_BYTES:
+        raise ValueError(
+            f"Scenario file {path} exceeds {MAX_SCENARIO_FILE_BYTES} bytes"
         )
     return repeat * count
 

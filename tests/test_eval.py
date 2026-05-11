@@ -163,6 +163,37 @@ def test_run_scenario_expands_repeated_declared_workspace_files(
     ) == "ababab"
 
 
+def test_load_scenario_rejects_repeated_workspace_file_over_limit(
+    tmp_path: Path,
+) -> None:
+    scenario_path = tmp_path / "fixture-repeat-large.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-repeat-large",
+                "goal: prepare oversized repeated fixture",
+                "files:",
+                "  data/large.txt:",
+                "    repeat: a",
+                "    count: 2097153",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario file data/large.txt exceeds 2097152 bytes"
+    else:
+        raise AssertionError("Expected oversized repeated fixture to fail")
+
+
 def test_run_scenario_reports_declared_file_parent_conflict(
     tmp_path: Path,
 ) -> None:
