@@ -4,6 +4,8 @@ from typing import Any, ClassVar
 
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
+MAX_COMMAND_BYTES = 16_384
+
 
 def _truncate(text: str | bytes | None, max_bytes: int) -> tuple[str, bool]:
     if text is None:
@@ -45,6 +47,12 @@ class ShellTool(Tool):
             return ToolResult(
                 success=False,
                 summary="Command invalid: command cannot be blank",
+                error="Command invalid",
+            )
+        if len(command.encode("utf-8")) > MAX_COMMAND_BYTES:
+            return ToolResult(
+                success=False,
+                summary="Command invalid: command too large",
                 error="Command invalid",
             )
         started = time.perf_counter()

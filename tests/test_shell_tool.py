@@ -80,6 +80,23 @@ def test_shell_tool_rejects_blank_command(tmp_path: Path, monkeypatch) -> None:
     assert result.payload == {}
 
 
+def test_shell_tool_rejects_oversized_command(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": "x" * 16_385},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Command invalid"
+    assert result.summary == "Command invalid: command too large"
+    assert result.payload == {}
+
+
 def test_shell_tool_times_out(tmp_path: Path) -> None:
     result = ShellTool().execute(
         {"command": command_for("import time; time.sleep(2)")},
