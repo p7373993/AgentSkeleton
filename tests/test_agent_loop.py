@@ -323,6 +323,16 @@ def test_loop_stops_when_policy_blocks_tool(tmp_path: Path) -> None:
     assert state.final_status == "denied"
     assert state.final_reason == "Tool writes files in the workspace"
     assert state.observations[0].policy_decision == "confirm"
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "write_record",
+            "success": False,
+            "summary": "Tool writes files in the workspace",
+            "error": "Permission denied",
+        },
+    ) in logger.events
     assert logger.events[-1] == (
         "run_finished",
         1,
@@ -356,6 +366,16 @@ def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
     assert state.final_reason == "Tool is blocked by read-only profile"
     assert state.observations[0].policy_decision == "block"
     assert state.observations[0].result.error == "Permission blocked"
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "write_record",
+            "success": False,
+            "summary": "Tool is blocked by read-only profile",
+            "error": "Permission blocked",
+        },
+    ) in logger.events
     assert logger.events[-1] == (
         "run_finished",
         1,
@@ -368,6 +388,7 @@ def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
 
 
 def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:
+    logger = MemoryLogger()
     state = make_loop(
         tmp_path,
         [
@@ -377,6 +398,7 @@ def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:
                 call_id="call-1",
             )
         ],
+        logger,
     ).run("record")
 
     assert state.final_status == "unknown_tool"
@@ -392,6 +414,16 @@ def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:
         "arguments": {"value": "x"},
     }
     assert state.final_reason == "Unknown tool: missing"
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "missing",
+            "success": False,
+            "summary": "Unknown tool: missing",
+            "error": "Unknown tool",
+        },
+    ) in logger.events
 
 
 @pytest.mark.parametrize(
@@ -481,6 +513,7 @@ def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:
 
 
 def test_loop_stops_after_repeating_same_action_three_times(tmp_path: Path) -> None:
+    logger = MemoryLogger()
     state = make_loop(
         tmp_path,
         [
@@ -501,6 +534,7 @@ def test_loop_stops_after_repeating_same_action_three_times(tmp_path: Path) -> N
             ),
             FinalAction(text="unreachable"),
         ],
+        logger,
     ).run("record")
 
     assert state.final_status == "repeated_action"
@@ -512,6 +546,16 @@ def test_loop_stops_after_repeating_same_action_three_times(tmp_path: Path) -> N
         False,
     ]
     assert state.observations[2].result.error == "Repeated action"
+    assert (
+        "tool_finished",
+        3,
+        {
+            "tool_name": "record",
+            "success": False,
+            "summary": "Repeated tool action 3 times: record",
+            "error": "Repeated action",
+        },
+    ) in logger.events
 
 
 def test_loop_resets_repeat_counter_when_arguments_change(tmp_path: Path) -> None:

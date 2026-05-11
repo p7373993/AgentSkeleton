@@ -222,6 +222,7 @@ class AgentLoop:
             state.observations.append(
                 ToolObservation(action.call_id, action.tool_name, "block", result)
             )
+            self._log_tool_finished(state, action.tool_name, result)
             state.final_status = "unknown_tool"
             state.final_reason = result.summary
             return
@@ -272,6 +273,7 @@ class AgentLoop:
             state.observations.append(
                 ToolObservation(action.call_id, tool.name, decision.outcome, result)
             )
+            self._log_tool_finished(state, tool.name, result)
             state.final_status = "blocked"
             state.final_reason = result.summary
             return
@@ -285,6 +287,7 @@ class AgentLoop:
             state.observations.append(
                 ToolObservation(action.call_id, tool.name, decision.outcome, result)
             )
+            self._log_tool_finished(state, tool.name, result)
             state.final_status = "denied"
             state.final_reason = result.summary
             return
@@ -358,6 +361,7 @@ class AgentLoop:
         state.observations.append(
             ToolObservation(action.call_id, action.tool_name, "block", result)
         )
+        self._log_tool_finished(state, action.tool_name, result)
         state.final_status = "repeated_action"
         state.final_reason = result.summary
         return True
