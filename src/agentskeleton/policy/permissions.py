@@ -26,16 +26,12 @@ class PermissionPolicy:
         args: dict[str, Any],
         risk: str,
     ) -> PermissionDecision:
-        if risk == "read" or risk == "interactive":
-            return PermissionDecision("allow", "read-only or interactive tool")
-
-        if self.profile == "read_only":
-            return PermissionDecision(
-                "block",
-                "Tool is blocked by read-only profile",
-            )
-
         if tool_name == "write_file" or risk == "write":
+            if self.profile == "read_only":
+                return PermissionDecision(
+                    "block",
+                    "Tool is blocked by read-only profile",
+                )
             if self.confirm_risky_actions and self.profile != "trusted":
                 return PermissionDecision(
                     "confirm",
@@ -44,12 +40,26 @@ class PermissionPolicy:
             return PermissionDecision("allow", "file writes allowed by configuration")
 
         if tool_name == "shell" or risk == "shell":
+            if self.profile == "read_only":
+                return PermissionDecision(
+                    "block",
+                    "Tool is blocked by read-only profile",
+                )
             if not isinstance(args, dict):
                 return PermissionDecision("block", "Shell command invalid")
             command = args.get("command")
             if not isinstance(command, str) or not command.strip():
                 return PermissionDecision("block", "Shell command invalid")
             return self._decide_shell(command)
+
+        if risk == "read" or risk == "interactive":
+            return PermissionDecision("allow", "read-only or interactive tool")
+
+        if self.profile == "read_only":
+            return PermissionDecision(
+                "block",
+                "Tool is blocked by read-only profile",
+            )
 
         return PermissionDecision("confirm", f"Unknown risk level: {risk}")
 

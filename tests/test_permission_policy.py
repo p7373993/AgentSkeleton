@@ -9,6 +9,28 @@ def test_policy_allows_read_only_tools() -> None:
     assert decision.outcome == "allow"
 
 
+def test_policy_uses_shell_tool_name_before_risk_label() -> None:
+    decision = PermissionPolicy().decide(
+        "shell",
+        {"command": "rm -rf /"},
+        "read",
+    )
+
+    assert decision.outcome == "block"
+    assert "destructive" in decision.reason
+
+
+def test_policy_uses_write_tool_name_before_risk_label() -> None:
+    decision = PermissionPolicy().decide(
+        "write_file",
+        {"path": "README.md", "content": "hello"},
+        "read",
+    )
+
+    assert decision.outcome == "confirm"
+    assert "writes files" in decision.reason
+
+
 def test_policy_confirms_write_file_by_default() -> None:
     decision = PermissionPolicy(confirm_risky_actions=True).decide(
         "write_file",
