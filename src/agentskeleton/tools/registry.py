@@ -23,6 +23,10 @@ class ToolRegistry:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
         if not isinstance(tool.description, str):
             raise ValueError(f"Tool {name} description must be a string")
+        if not isinstance(tool.risk, str):
+            raise ValueError(f"Tool {name} risk must be a string")
+        if not tool.risk.strip():
+            raise ValueError(f"Tool {name} risk cannot be empty")
         _validate_args_schema(tool)
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")

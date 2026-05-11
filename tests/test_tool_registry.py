@@ -84,6 +84,27 @@ def test_registry_rejects_non_string_tool_descriptions() -> None:
 
 
 @pytest.mark.parametrize(
+    ("risk", "error"),
+    [
+        (123, "Tool echo risk must be a string"),
+        (" ", "Tool echo risk cannot be empty"),
+    ],
+)
+def test_registry_rejects_invalid_tool_risk_metadata(
+    risk: object,
+    error: str,
+) -> None:
+    class InvalidRiskTool(EchoTool):
+        pass
+
+    InvalidRiskTool.risk = risk
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match=error):
+        registry.register(InvalidRiskTool())
+
+
+@pytest.mark.parametrize(
     ("schema", "error"),
     [
         ([], "schema must be a mapping"),
