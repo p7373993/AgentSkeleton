@@ -13,6 +13,16 @@ def _error(summary: str, error: str) -> ToolResult:
     return ToolResult(success=False, summary=summary, error=error)
 
 
+def _path_security_error(exc: PathSecurityError) -> ToolResult:
+    summary = str(exc)
+    error = (
+        "Path escapes workspace"
+        if summary.startswith("Path escapes workspace")
+        else "Path invalid"
+    )
+    return _error(summary, error)
+
+
 def _string_arg(
     args: dict[str, Any],
     name: str,
@@ -91,7 +101,7 @@ class ListDirTool(Tool):
         try:
             path = resolve_workspace_path(context.workspace, requested)
         except PathSecurityError as exc:
-            return _error(str(exc), "Path escapes workspace")
+            return _path_security_error(exc)
 
         try:
             path_exists = _path_exists(path)
@@ -171,7 +181,7 @@ class ReadFileTool(Tool):
         try:
             path = resolve_workspace_path(context.workspace, requested)
         except PathSecurityError as exc:
-            return _error(str(exc), "Path escapes workspace")
+            return _path_security_error(exc)
 
         try:
             path_exists = _path_exists(path)
@@ -253,7 +263,7 @@ class WriteFileTool(Tool):
         try:
             path = resolve_workspace_path(context.workspace, requested)
         except PathSecurityError as exc:
-            return _error(str(exc), "Path escapes workspace")
+            return _path_security_error(exc)
 
         try:
             parent_exists = _path_exists(path.parent)

@@ -134,6 +134,40 @@ def test_filesystem_tools_reject_control_characters_in_paths(
     assert result.payload == {}
 
 
+@pytest.mark.parametrize(
+    ("tool", "args", "summary"),
+    [
+        (
+            ListDirTool(),
+            {"path": "NUL"},
+            "Path contains reserved Windows device name: NUL",
+        ),
+        (
+            ReadFileTool(),
+            {"path": "note.txt:secret"},
+            "Path contains ambiguous Windows path part: note.txt:secret",
+        ),
+        (
+            WriteFileTool(),
+            {"path": "CON.txt", "content": "hello"},
+            "Path contains reserved Windows device name: CON.txt",
+        ),
+    ],
+)
+def test_filesystem_tools_report_rejected_windows_paths_as_invalid(
+    tmp_path: Path,
+    tool,
+    args: dict[str, object],
+    summary: str,
+) -> None:
+    result = tool.execute(args, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Path invalid"
+    assert result.summary == summary
+    assert result.payload == {}
+
+
 def test_list_dir_returns_error_when_listing_fails(
     tmp_path: Path,
     monkeypatch,
