@@ -806,6 +806,46 @@ def test_run_reuses_default_session_transcript(monkeypatch, tmp_path) -> None:
     ]
 
 
+def test_run_bounds_large_final_answer_output(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    large_answer = "a" * 20_000
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": large_answer,
+                    "final_reason": None,
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "finish"])
+
+    assert result.exit_code == 0
+    assert "a" * 40 in result.stdout
+    assert "[truncated" in result.stdout
+    assert large_answer not in result.stdout
+
+
 def test_run_refreshes_session_summary_for_long_transcript(
     monkeypatch,
     tmp_path,
@@ -1170,6 +1210,46 @@ def test_chat_reuses_session_transcript_between_inputs(monkeypatch, tmp_path) ->
     ]
     assert "assistant> answer: first" in result.stdout
     assert "assistant> answer: second" in result.stdout
+
+
+def test_chat_bounds_large_final_answer_output(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    large_answer = "b" * 20_000
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": large_answer,
+                    "final_reason": None,
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="finish\n/exit\n")
+
+    assert result.exit_code == 0
+    assert "b" * 40 in result.stdout
+    assert "[truncated" in result.stdout
+    assert large_answer not in result.stdout
 
 
 def test_chat_can_disable_session(monkeypatch, tmp_path) -> None:

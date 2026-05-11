@@ -427,7 +427,7 @@ def run(
     if getattr(state, "final_reason", None):
         console.print(f"Reason: {state.final_reason}")
     if state.final_answer:
-        console.print(state.final_answer)
+        console.print(_bounded_display_text(state.final_answer))
     console.print(f"Run log: {logger.path}")
 
 
@@ -533,7 +533,7 @@ def chat(
                 _exit_session_error(exc)
 
         if state.final_answer:
-            console.print(f"assistant> {state.final_answer}")
+            console.print(f"assistant> {_bounded_display_text(state.final_answer)}")
         else:
             console.print(f"Status: {state.final_status}")
             if getattr(state, "final_reason", None):
@@ -877,6 +877,10 @@ def _bounded_run_log_text(value: str) -> str:
         return value
     omitted = len(value) - MAX_RUN_LOG_TEXT_CHARS
     return f"{value[:MAX_RUN_LOG_TEXT_CHARS]}\n[truncated {omitted} characters]"
+
+
+def _bounded_display_text(value: str) -> str:
+    return _bounded_run_log_text(value)
 
 
 def _bounded_run_log_event(value: Any, depth: int = 0) -> Any:
