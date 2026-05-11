@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+_MAX_RUN_LOG_STEM_LENGTH = 120
 SECRET_PATTERNS = [
     re.compile(r"(OPENAI_API_KEY\s*=\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"(Authorization:\s*Bearer\s+)[^\s]+", re.IGNORECASE),
@@ -38,7 +40,12 @@ SECRET_KEY_TERMS = {
 
 def _safe_log_stem(value: str) -> str:
     safe_value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
-    return safe_value or "run"
+    safe_value = safe_value or "run"
+    if len(safe_value) > _MAX_RUN_LOG_STEM_LENGTH:
+        digest = hashlib.sha256(safe_value.encode("utf-8")).hexdigest()[:12]
+        prefix_length = _MAX_RUN_LOG_STEM_LENGTH - len(digest) - 1
+        safe_value = f"{safe_value[:prefix_length]}-{digest}"
+    return safe_value
 
 
 def redact(value: Any, seen: set[int] | None = None) -> Any:

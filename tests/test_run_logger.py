@@ -34,6 +34,27 @@ def test_run_logger_sanitizes_run_id_path_segments(tmp_path: Path) -> None:
     assert not (tmp_path / "bad id.jsonl").exists()
 
 
+def test_run_logger_bounds_very_long_run_id_filenames(tmp_path: Path) -> None:
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    run_ids = ["r" * 319 + "x", "r" * 319 + "y"]
+
+    for index, run_id in enumerate(run_ids):
+        RunLogger(logs_dir=tmp_path, run_id=run_id).log(
+            "run_started",
+            step=0,
+            payload={"index": index},
+        )
+
+    log_paths = list((tmp_path / today).iterdir())
+    events = [
+        json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+        for path in sorted(log_paths)
+    ]
+    assert len(log_paths) == 2
+    assert all(len(path.stem) <= 120 for path in log_paths)
+    assert {event["run_id"] for event in events} == set(run_ids)
+
+
 def test_run_logger_redacts_obvious_secrets(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
 
