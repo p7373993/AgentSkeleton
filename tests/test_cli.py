@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+import agentskeleton.cli as cli_module
 from agentskeleton.cli import app, build_default_registry, configure_streams_for_unicode
 from agentskeleton.core.session import SessionStore
 
@@ -1895,6 +1896,47 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
             }
         ]
     }
+
+
+def test_list_runs_passes_limit_to_log_discovery(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    seen: dict[str, int | None] = {}
+    log_path = tmp_path / "runs" / "20260511" / "run-1.jsonl"
+
+    def fake_run_log_paths(logs_dir: Path, limit: int | None = None) -> list[Path]:
+        seen["limit"] = limit
+        return [log_path]
+
+    def fake_summarize_run_log(log_path: Path) -> dict[str, object]:
+        return {
+            "run_id": "run-1",
+            "goal": "finish",
+            "workspace": None,
+            "session": None,
+            "resumed": None,
+            "conversation_turns": None,
+            "status": "completed",
+            "reason": None,
+            "answer": "done",
+            "steps": 1,
+            "tool_calls": 0,
+            "tool_failures": 0,
+            "last_tool_error": None,
+            "log": str(log_path),
+        }
+
+    monkeypatch.setattr(cli_module, "_run_log_paths", fake_run_log_paths)
+    monkeypatch.setattr(
+        cli_module,
+        "_summarize_run_log_or_exit",
+        fake_summarize_run_log,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs", "--limit", "1", "--json"])
+
+    assert result.exit_code == 0
+    assert seen["limit"] == 1
 
 
 def test_list_runs_ignores_malformed_jsonl_lines(monkeypatch, tmp_path) -> None:
