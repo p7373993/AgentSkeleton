@@ -1,5 +1,8 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
+
+import pytest
 
 from agentskeleton.logging.run_logger import RunLogger
 
@@ -97,3 +100,22 @@ def test_run_logger_serializes_non_json_payload_values(tmp_path: Path) -> None:
     assert event["payload"]["workspace"] == str(tmp_path)
     assert event["payload"]["raw"] == str(marker)
     assert event["payload"]["42"] == "numeric key"
+
+
+def test_run_logger_reports_date_directory_file(tmp_path: Path) -> None:
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    date_path = tmp_path / today
+    date_path.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Run log directory is not a directory"):
+        RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+
+def test_run_logger_reports_log_path_directory(tmp_path: Path) -> None:
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    log_path = tmp_path / today / "run-1.jsonl"
+    log_path.mkdir(parents=True)
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    with pytest.raises(ValueError, match="Run log path is not a file"):
+        logger.log("run_started", step=0, payload={"goal": "test"})

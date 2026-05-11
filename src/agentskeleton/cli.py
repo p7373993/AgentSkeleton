@@ -95,6 +95,14 @@ def _exit_session_error(exc: ValueError) -> None:
     raise typer.Exit(1) from exc
 
 
+def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
+    try:
+        return RunLogger(logs_dir, run_id)
+    except ValueError as exc:
+        console.print(f"Run log error: {exc}", soft_wrap=True)
+        raise typer.Exit(1) from exc
+
+
 def _registry_from_config(config) -> ToolRegistry:
     return build_default_registry(config.enabled_tools, config.tool_modules)
 
@@ -316,7 +324,7 @@ def run(
         },
     )
     run_id = str(uuid4())
-    logger = RunLogger(loaded.logs_dir, run_id)
+    logger = _create_run_logger_or_exit(loaded.logs_dir, run_id)
     registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     trace = NullTraceSink() if quiet else ConsoleTraceSink(console)
     session_store = SessionStore(loaded.logs_dir)
@@ -445,7 +453,7 @@ def chat(
             continue
 
         run_id = str(uuid4())
-        logger = RunLogger(loaded.logs_dir, run_id)
+        logger = _create_run_logger_or_exit(loaded.logs_dir, run_id)
         conversation = []
         if not no_session:
             try:

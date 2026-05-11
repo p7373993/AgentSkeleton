@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 
 import pytest
 from typer.testing import CliRunner
@@ -675,6 +676,21 @@ def test_run_reports_session_store_errors(tmp_path, monkeypatch) -> None:
 
     assert result.exit_code == 1
     assert "Session error: Session path is not a directory: default" in result.stdout
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
+def test_run_reports_log_directory_errors(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    log_dir = tmp_path / "runs"
+    log_dir.mkdir()
+    (log_dir / today).write_text("not a directory", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "finish"])
+
+    assert result.exit_code == 1
+    assert "Run log error: Run log directory is not a directory:" in result.stdout
     assert result.exception is None or not isinstance(result.exception, OSError)
 
 

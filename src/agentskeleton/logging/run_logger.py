@@ -56,7 +56,7 @@ class RunLogger:
         self.run_id = run_id
         today = datetime.now(tz=UTC).strftime("%Y%m%d")
         self.path = logs_dir / today / f"{run_id}.jsonl"
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._ensure_log_directory()
 
     def log(self, event_type: str, step: int, payload: dict[str, Any]) -> None:
         event = {
@@ -66,5 +66,24 @@ class RunLogger:
             "step": step,
             "payload": redact(payload),
         }
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+        if self.path.exists() and not self.path.is_file():
+            raise ValueError(f"Run log path is not a file: {self.path}")
+        try:
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+        except OSError as exc:
+            raise ValueError(f"Run log could not be written: {self.path}") from exc
+
+    def _ensure_log_directory(self) -> None:
+        for candidate in (self.path.parent, *self.path.parent.parents):
+            if not candidate.exists():
+                continue
+            if not candidate.is_dir():
+                raise ValueError(f"Run log directory is not a directory: {candidate}")
+            break
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(
+                f"Run log directory could not be created: {self.path.parent}"
+            ) from exc
