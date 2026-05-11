@@ -16,6 +16,7 @@ SUPPORTED_JSON_SCHEMA_TYPES = (
     "object",
     "string",
 )
+MAX_TOOL_SCHEMA_DEPTH = 64
 
 
 class ToolRegistry:
@@ -87,7 +88,7 @@ def _validate_args_schema(tool: Tool) -> None:
         raise ValueError(f"Tool {tool.name} schema must be a mapping")
     if schema.get("type") != "object":
         raise ValueError(f"Tool {tool.name} schema type must be object")
-    _validate_schema_node(tool.name, schema, "schema", set())
+    _validate_schema_node(tool.name, schema, "schema", set(), 0)
 
 
 def _validate_schema_node(
@@ -95,13 +96,16 @@ def _validate_schema_node(
     schema: Mapping,
     label: str,
     seen: set[int],
+    depth: int,
 ) -> None:
+    if depth > MAX_TOOL_SCHEMA_DEPTH:
+        raise ValueError(f"Tool {tool_name} schema exceeds maximum depth")
     marker = id(schema)
     if marker in seen:
         raise ValueError(f"Tool {tool_name} {label} cannot be recursive")
     seen.add(marker)
     try:
-        _validate_schema_node_content(tool_name, schema, label, seen)
+        _validate_schema_node_content(tool_name, schema, label, seen, depth)
     finally:
         seen.remove(marker)
 
@@ -111,6 +115,7 @@ def _validate_schema_node_content(
     schema: Mapping,
     label: str,
     seen: set[int],
+    depth: int,
 ) -> None:
     description = schema.get("description")
     if description is not None:
@@ -177,6 +182,7 @@ def _validate_schema_node_content(
                 property_schema,
                 f"{label} property {property_name}",
                 seen,
+                depth + 1,
             )
     required = schema.get("required")
     if required is not None:
@@ -213,7 +219,7 @@ def _validate_schema_node_content(
             raise ValueError(f"Tool {tool_name} {label} items require array type")
         if not isinstance(items, Mapping):
             raise ValueError(f"Tool {tool_name} {label} items must be a mapping")
-        _validate_schema_node(tool_name, items, f"{label} items", seen)
+        _validate_schema_node(tool_name, items, f"{label} items", seen, depth + 1)
 
 
 def _schema_type_includes(raw_type: object, expected_type: str) -> bool:

@@ -233,6 +233,25 @@ def test_registry_rejects_recursive_args_schema() -> None:
         registry.register(RecursiveSchemaTool())
 
 
+def test_registry_rejects_overly_deep_args_schema() -> None:
+    schema: dict[str, object] = {"type": "object", "properties": {}}
+    current = schema
+    for depth in range(80):
+        child = {"type": "object", "properties": {}}
+        properties = current["properties"]
+        assert isinstance(properties, dict)
+        properties[f"level_{depth}"] = child
+        current = child
+
+    class DeepSchemaTool(EchoTool):
+        args_schema = schema
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="schema exceeds maximum depth"):
+        registry.register(DeepSchemaTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [
