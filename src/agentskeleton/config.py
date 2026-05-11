@@ -186,7 +186,7 @@ def load_config(
             raise ValueError(f"Config file could not be read: {config_path}") from exc
         try:
             loaded = yaml.safe_load(config_text) or {}
-        except yaml.YAMLError as exc:
+        except (yaml.YAMLError, RecursionError) as exc:
             raise ValueError(f"Config file could not be parsed: {config_path}") from exc
         if not isinstance(loaded, dict):
             raise ValueError(f"Config file must contain a mapping: {config_path}")

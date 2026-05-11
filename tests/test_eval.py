@@ -1398,6 +1398,18 @@ def test_load_scenario_reports_malformed_yaml(tmp_path: Path) -> None:
         raise AssertionError("Expected malformed scenario to fail")
 
 
+def test_load_scenario_reports_deeply_nested_yaml(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "deep.yaml"
+    scenario_path.write_text("[" * 20_000 + "null" + "]" * 20_000, encoding="utf-8")
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file could not be parsed: {scenario_path}"
+    else:
+        raise AssertionError("Expected deeply nested scenario to fail")
+
+
 def test_load_scenario_reports_invalid_utf8_yaml(tmp_path: Path) -> None:
     scenario_path = tmp_path / "broken.yaml"
     scenario_path.write_bytes(b"\xff\xfe\x00broken")

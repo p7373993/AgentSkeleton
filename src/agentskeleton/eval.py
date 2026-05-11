@@ -207,7 +207,7 @@ def _load_yaml_document(path: Path, label: str) -> object:
         raise ValueError(f"{label} could not be read: {path}") from exc
     try:
         return yaml.safe_load(text) or {}
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, RecursionError) as exc:
         raise ValueError(f"{label} could not be parsed: {path}") from exc
 
 
