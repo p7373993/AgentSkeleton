@@ -182,6 +182,8 @@ def _load_yaml_document(path: Path, label: str) -> object:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
         raise ValueError(f"{label} could not be read as UTF-8: {path}") from exc
+    except OSError as exc:
+        raise ValueError(f"{label} could not be read: {path}") from exc
     try:
         return yaml.safe_load(text) or {}
     except yaml.YAMLError as exc:

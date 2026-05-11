@@ -913,6 +913,41 @@ def test_load_scenario_reports_invalid_utf8_yaml(tmp_path: Path) -> None:
         raise AssertionError("Expected invalid UTF-8 scenario to fail")
 
 
+def test_load_scenario_reports_yaml_read_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "unreadable.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == scenario_path:
+            raise OSError("permission denied")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file could not be read: {scenario_path}"
+    else:
+        raise AssertionError("Expected unreadable scenario to fail")
+
+
 def test_load_scenario_requires_expectations(tmp_path: Path) -> None:
     scenario_path = tmp_path / "unchecked.yaml"
     scenario_path.write_text(
@@ -1040,6 +1075,39 @@ def test_load_scenario_suite_config_reports_invalid_utf8_manifest(
         assert str(exc) == f"Suite manifest could not be read as UTF-8: {manifest}"
     else:
         raise AssertionError("Expected invalid UTF-8 suite manifest to fail")
+
+
+def test_load_scenario_suite_config_reports_manifest_read_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    manifest = suite_dir / "suite.yaml"
+    manifest.write_text(
+        "\n".join(
+            [
+                "required_domains:",
+                "  - finance",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == manifest:
+            raise OSError("permission denied")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    try:
+        load_scenario_suite_config(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Suite manifest could not be read: {manifest}"
+    else:
+        raise AssertionError("Expected unreadable suite manifest to fail")
 
 
 def test_load_scenario_suite_config_rejects_manifest_directory(
