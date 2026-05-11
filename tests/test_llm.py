@@ -510,6 +510,40 @@ def test_llm_client_rejects_oversized_function_call_arguments(tmp_path) -> None:
     assert state.response_context_items == []
 
 
+def test_llm_client_rejects_oversized_mapping_function_call_arguments(
+    tmp_path,
+) -> None:
+    large_arguments = {
+        f"{index:05d}_{'x' * 300}": "value"
+        for index in range(9_000)
+    }
+    assert len(json.dumps(large_arguments).encode("utf-8")) > 2_097_152
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                name="read_file",
+                arguments=large_arguments,
+                call_id="call-1",
+            )
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Function call arguments are too large",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_parses_multiple_function_calls_as_batch(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",

@@ -497,7 +497,7 @@ def _bounded_tool_result_text(value: str) -> str:
 
 
 def _json_size(value: Any) -> int:
-    return len(json.dumps(_json_safe(value), default=str).encode("utf-8"))
+    return len(json.dumps(_json_size_safe(value), default=str).encode("utf-8"))
 
 
 def _json_exceeds_depth(value: Any, max_depth: int) -> bool:
@@ -565,6 +565,39 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             if omitted > 0:
                 safe_items.append(_truncated_items_marker(len(value), omitted))
             return safe_items
+        finally:
+            seen.remove(marker)
+
+    return str(value)
+
+
+def _json_size_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
+    if depth > MAX_JSON_SAFE_DEPTH:
+        return MAX_DEPTH_EXCEEDED
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+
+    seen = seen or set()
+    if isinstance(value, dict):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return {
+                str(key): _json_size_safe(item, seen, depth + 1)
+                for key, item in value.items()
+            }
+        finally:
+            seen.remove(marker)
+
+    if isinstance(value, list | tuple):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [_json_size_safe(item, seen, depth + 1) for item in value]
         finally:
             seen.remove(marker)
 
