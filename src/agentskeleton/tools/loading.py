@@ -8,6 +8,7 @@ from agentskeleton.tools.registry import ToolRegistry
 def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     tools: list[Tool] = []
     for module_name in module_names or []:
+        _validate_module_name(module_name)
         try:
             importlib.invalidate_caches()
             sys.modules.pop(module_name, None)
@@ -60,6 +61,15 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
             tools.extend(registry.all())
 
     return tools
+
+
+def _validate_module_name(module_name: object) -> None:
+    if not isinstance(module_name, str):
+        raise ValueError("Tool module name must be a string")
+    if not module_name.strip():
+        raise ValueError("Tool module name cannot be blank")
+    if module_name.strip() != module_name:
+        raise ValueError("Tool module name cannot contain whitespace")
 
 
 def _coerce_tool_list(module_name: str, module_tools: object) -> list[Tool]:

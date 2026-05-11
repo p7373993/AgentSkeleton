@@ -442,6 +442,21 @@ def test_load_tools_from_module_reports_missing_module() -> None:
         load_tools_from_modules(["missing_tools"])
 
 
+def test_load_tools_from_module_rejects_non_string_module_name() -> None:
+    with pytest.raises(ValueError, match="Tool module name must be a string"):
+        load_tools_from_modules([123])
+
+
+def test_load_tools_from_module_rejects_blank_module_name() -> None:
+    with pytest.raises(ValueError, match="Tool module name cannot be blank"):
+        load_tools_from_modules(["   "])
+
+
+def test_load_tools_from_module_rejects_module_name_whitespace() -> None:
+    with pytest.raises(ValueError, match="Tool module name cannot contain whitespace"):
+        load_tools_from_modules([" custom_tools"])
+
+
 def test_load_tools_from_module_reports_import_failures(tmp_path, monkeypatch) -> None:
     module_path = tmp_path / "bad_syntax_tools.py"
     module_path.write_text("def broken(:\n", encoding="utf-8")
