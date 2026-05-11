@@ -501,14 +501,16 @@ class AgentLoop:
         tool_name: str,
         result: ToolResult,
     ) -> None:
+        summary = _logged_text(result.summary)
+        error = _logged_text(result.error) if result.error is not None else None
         self._log_event(
             "tool_finished",
             state.step_count,
             {
                 "tool_name": tool_name,
                 "success": result.success,
-                "summary": result.summary,
-                "error": result.error,
+                "summary": summary,
+                "error": error,
             },
         )
         self._emit_trace(
@@ -516,8 +518,8 @@ class AgentLoop:
             {
                 "tool_name": tool_name,
                 "success": result.success,
-                "summary": result.summary,
-                "error": result.error,
+                "summary": summary,
+                "error": error,
             },
         )
 

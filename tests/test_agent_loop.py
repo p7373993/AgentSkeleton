@@ -1243,6 +1243,52 @@ def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:
     ) in logger.events
 
 
+def test_loop_bounds_logged_tool_error_message(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+    error_message = "x" * 5_000
+
+    class LargeErrorTool(RecordTool):
+        name = "large_error"
+
+        def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+            raise RuntimeError(error_message)
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="large_error",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                )
+            ]
+        ),
+        registry=ToolRegistry([LargeErrorTool()]),
+        logger=logger,
+        trace=trace,
+    ).run("record")
+
+    logged_error = next(
+        event[2]["error"] for event in logger.events if event[0] == "tool_finished"
+    )
+    traced_error = next(
+        event.payload["error"]
+        for event in trace.events
+        if event.name == "tool_finished"
+    )
+    assert state.final_status == "tool_error"
+    assert state.observations[0].result.error == error_message
+    assert isinstance(logged_error, dict)
+    assert logged_error["truncated"] is True
+    assert logged_error["bytes"] == 5_000
+    assert str(logged_error["preview"]).startswith("xxxxxxxxxxxxxxxx")
+    assert len(str(logged_error["preview"])) < 300
+    assert traced_error == logged_error
+    assert error_message not in str(logger.events)
+
+
 def test_loop_converts_invalid_tool_result_to_observation(tmp_path: Path) -> None:
     logger = MemoryLogger()
     try:
