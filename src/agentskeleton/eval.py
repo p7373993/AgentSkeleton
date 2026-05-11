@@ -40,6 +40,7 @@ class Scenario:
     expect: dict[str, object] = field(default_factory=dict)
     files: dict[str, str] = field(default_factory=dict)
     config_overrides: dict[str, object] = field(default_factory=dict)
+    user_answers: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -162,6 +163,7 @@ def load_scenario(path: Path) -> Scenario:
 
     files = _parse_files(raw.get("files", {}))
     config_overrides = _parse_config_overrides(raw.get("config", {}))
+    user_answers = _parse_user_answers(raw.get("user_answers", []))
     name = raw.get("name") or path.stem
     return Scenario(
         name=str(name),
@@ -171,6 +173,7 @@ def load_scenario(path: Path) -> Scenario:
         expect=expect,
         files=files,
         config_overrides=config_overrides,
+        user_answers=user_answers,
     )
 
 
@@ -218,6 +221,11 @@ def run_scenario(
         confirmer=lambda _decision, _action: False,
         run_id=run_id,
         trace=NullTraceSink(),
+        ask_user=(
+            _scripted_user_answers(scenario.user_answers)
+            if scenario.user_answers
+            else None
+        ),
     )
     state = loop.run(scenario.goal, trace_context={"scenario": scenario.name})
     failures = _compare_expectations(scenario.expect, state, workspace)
@@ -309,6 +317,26 @@ def _parse_config_overrides(raw: object) -> dict[str, object]:
     if not isinstance(raw, dict):
         raise ValueError("Scenario config must be a mapping")
     return dict(raw)
+
+
+def _parse_user_answers(raw: object) -> list[str]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("Scenario user_answers must be a list")
+    return [str(answer) for answer in raw]
+
+
+def _scripted_user_answers(answers: list[str]) -> Callable[[str], str]:
+    remaining = iter(answers)
+
+    def ask_user(_question: str) -> str:
+        try:
+            return next(remaining)
+        except StopIteration as exc:
+            raise RuntimeError("Scenario user answers exhausted") from exc
+
+    return ask_user
 
 
 def _apply_config_overrides(

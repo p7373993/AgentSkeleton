@@ -3,6 +3,7 @@ required_domains:
   - coding
   - data
   - filesystem
+  - interactive
   - reliability
   - tool_packs
   - writing

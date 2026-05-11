@@ -1,0 +1,24 @@
+name: interactive-clarification
+domain: interactive
+goal: Ask a deterministic clarification question before answering.
+user_answers:
+  - enterprise
+actions:
+  - type: tool
+    tool: ask_user
+    call_id: ask-segment
+    arguments:
+      question: Which customer segment?
+  - type: final
+    text: interactive clarification ok
+expect:
+  status: completed
+  answer: interactive clarification ok
+  observations: 1
+  observations_detail:
+    - tool: ask_user
+      success: true
+      summary: User answered question
+      payload:
+        question: Which customer segment?
+        answer: enterprise

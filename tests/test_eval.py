@@ -11,6 +11,7 @@ from agentskeleton.eval import (
 from agentskeleton.tools.filesystem import ReadFileTool, WriteFileTool
 from agentskeleton.tools.loading import load_tools_from_modules
 from agentskeleton.tools.registry import ToolRegistry
+from agentskeleton.tools.user import AskUserTool
 
 
 def test_run_scenario_executes_scripted_actions_and_checks_expectations(
@@ -283,6 +284,49 @@ def test_run_scenario_executes_batch_tool_actions(tmp_path: Path) -> None:
 
     assert result.passed is True
     assert [failure for failure in result.failures] == []
+
+
+def test_run_scenario_uses_scripted_user_answers(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "interactive.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: interactive",
+                "goal: clarify the customer segment",
+                "user_answers:",
+                "  - enterprise",
+                "actions:",
+                "  - type: tool",
+                "    tool: ask_user",
+                "    call_id: ask-segment",
+                "    arguments:",
+                "      question: Which customer segment?",
+                "  - type: final",
+                "    text: interactive ok",
+                "expect:",
+                "  status: completed",
+                "  answer: interactive ok",
+                "  observations: 1",
+                "  observations_detail:",
+                "    - tool: ask_user",
+                "      success: true",
+                "      summary: User answered question",
+                "      payload:",
+                "        question: Which customer segment?",
+                "        answer: enterprise",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([AskUserTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
 
 
 def test_run_scenario_applies_config_overrides(tmp_path: Path) -> None:
