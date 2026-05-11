@@ -1,0 +1,37 @@
+name: invalid-tool-result
+domain: reliability
+goal: Convert an invalid tool return value into observable run state.
+config:
+  tool_modules:
+    - agentskeleton.eval_tools
+  enabled_tools:
+    - invalid_result
+actions:
+  - type: tool
+    tool: invalid_result
+    call_id: invalid-result-1
+    arguments:
+      value: malformed
+expect:
+  status: tool_error
+  reason: "Tool returned invalid result: dict"
+  observations: 1
+  observations_detail:
+    - tool: invalid_result
+      success: false
+      summary: "Tool returned invalid result: dict"
+      error: "Invalid tool result"
+      payload:
+        tool_name: invalid_result
+        result_type: dict
+  events:
+    - type: tool_finished
+      payload:
+        tool_name: invalid_result
+        success: false
+        summary: "Tool returned invalid result: dict"
+        error: "Invalid tool result"
+    - type: run_finished
+      payload:
+        status: tool_error
+        reason: "Tool returned invalid result: dict"
