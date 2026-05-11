@@ -18,6 +18,7 @@ def _string_arg(
     label: str,
     *,
     allow_blank: bool = False,
+    allow_control_chars: bool = False,
 ) -> str | ToolResult:
     value = args.get(name)
     if not isinstance(value, str):
@@ -28,6 +29,11 @@ def _string_arg(
     if not allow_blank and not value.strip():
         return _error(
             f"{label} invalid: {name} cannot be blank",
+            f"{label} invalid",
+        )
+    if not allow_control_chars and any(ord(character) < 32 for character in value):
+        return _error(
+            f"{label} invalid: {name} cannot contain control characters",
             f"{label} invalid",
         )
     return value
@@ -212,7 +218,13 @@ class WriteFileTool(Tool):
         requested = _string_arg(args, "path", "Path")
         if isinstance(requested, ToolResult):
             return requested
-        content = _string_arg(args, "content", "Content", allow_blank=True)
+        content = _string_arg(
+            args,
+            "content",
+            "Content",
+            allow_blank=True,
+            allow_control_chars=True,
+        )
         if isinstance(content, ToolResult):
             return content
         create_parent_dirs = _bool_arg(

@@ -68,6 +68,27 @@ def test_list_dir_rejects_invalid_path(
     assert result.payload == {}
 
 
+@pytest.mark.parametrize(
+    ("tool", "args"),
+    [
+        (ListDirTool(), {"path": "bad\x00name"}),
+        (ReadFileTool(), {"path": "bad\x00name"}),
+        (WriteFileTool(), {"path": "bad\x00name", "content": "hello"}),
+    ],
+)
+def test_filesystem_tools_reject_control_characters_in_paths(
+    tmp_path: Path,
+    tool,
+    args: dict[str, object],
+) -> None:
+    result = tool.execute(args, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Path invalid"
+    assert result.summary == "Path invalid: path cannot contain control characters"
+    assert result.payload == {}
+
+
 def test_list_dir_returns_error_when_listing_fails(
     tmp_path: Path,
     monkeypatch,
@@ -290,6 +311,16 @@ def test_write_file_writes_text_and_reports_bytes(tmp_path: Path) -> None:
     assert result.success is True
     assert (tmp_path / "nested" / "out.txt").read_text(encoding="utf-8") == "hello"
     assert result.payload["bytes_written"] == 5
+
+
+def test_write_file_allows_multiline_content(tmp_path: Path) -> None:
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": "hello\nworld"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is True
+    assert (tmp_path / "out.txt").read_text(encoding="utf-8") == "hello\nworld"
 
 
 @pytest.mark.parametrize(
