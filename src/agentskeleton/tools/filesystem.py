@@ -4,6 +4,8 @@ from uuid import uuid4
 from agentskeleton.policy.paths import PathSecurityError, resolve_workspace_path
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
+MAX_READ_FILE_BYTES = 1_048_576
+
 
 def _error(summary: str, error: str) -> ToolResult:
     return ToolResult(success=False, summary=summary, error=error)
@@ -55,6 +57,10 @@ def _path_is_dir(path) -> bool:
 
 def _path_is_file(path) -> bool:
     return path.is_file()
+
+
+def _path_size(path) -> int:
+    return path.stat().st_size
 
 
 class ListDirTool(Tool):
@@ -157,6 +163,12 @@ class ReadFileTool(Tool):
             return _error(f"File read failed: {requested}", "File read failed")
         if not path_is_file:
             return _error(f"Not a file: {requested}", "Not a file")
+        try:
+            file_size = _path_size(path)
+        except OSError:
+            return _error(f"File read failed: {requested}", "File read failed")
+        if file_size > MAX_READ_FILE_BYTES:
+            return _error(f"File too large: {requested}", "File too large")
 
         try:
             raw = path.read_bytes()

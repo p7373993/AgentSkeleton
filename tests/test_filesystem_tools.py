@@ -196,6 +196,19 @@ def test_read_file_rejects_binary_content(tmp_path: Path) -> None:
     assert result.error == "Binary file rejected"
 
 
+def test_read_file_rejects_large_text_files(tmp_path: Path) -> None:
+    (tmp_path / "large.txt").write_bytes(b"a" * 1_048_577)
+
+    result = ReadFileTool().execute(
+        {"path": "large.txt"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "File too large"
+    assert result.summary == "File too large: large.txt"
+
+
 def test_read_file_returns_error_when_read_fails(tmp_path: Path, monkeypatch) -> None:
     target = tmp_path / "note.txt"
     target.write_text("hello", encoding="utf-8")
