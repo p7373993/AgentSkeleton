@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -6,6 +7,7 @@ from typing import Any
 
 from agentskeleton.core.state import ConversationMessage
 
+_MAX_SESSION_DIR_NAME_LENGTH = 120
 _WINDOWS_RESERVED_SESSION_BASENAMES = {
     "CON",
     "PRN",
@@ -286,6 +288,10 @@ class SessionStore:
     def _safe_name(self, name: str) -> str:
         safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")
         safe_name = safe_name or "default"
+        if len(safe_name) > _MAX_SESSION_DIR_NAME_LENGTH:
+            digest = hashlib.sha256(safe_name.encode("utf-8")).hexdigest()[:12]
+            prefix_length = _MAX_SESSION_DIR_NAME_LENGTH - len(digest) - 1
+            safe_name = f"{safe_name[:prefix_length]}-{digest}"
         base_name = safe_name.split(".", 1)[0].upper()
         if base_name in _WINDOWS_RESERVED_SESSION_BASENAMES:
             return f"{safe_name}_"

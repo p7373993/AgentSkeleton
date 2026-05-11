@@ -508,6 +508,26 @@ def test_session_store_suffixes_windows_reserved_session_names(
     assert (tmp_path / "sessions" / safe_dir / "transcript.jsonl").is_file()
 
 
+def test_session_store_bounds_very_long_session_names(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    raw_names = ["a" * 319 + "x", "a" * 319 + "y"]
+
+    for index, raw_name in enumerate(raw_names):
+        store.append_transcript(raw_name, "user", f"safe-{index}")
+
+    session_dirs = list((tmp_path / "sessions").iterdir())
+    assert [store.load(raw_name).transcript[0].content for raw_name in raw_names] == [
+        "safe-0",
+        "safe-1",
+    ]
+    assert len(session_dirs) == 2
+    assert all(len(session_dir.name) <= 120 for session_dir in session_dirs)
+    assert all(
+        (session_dir / "transcript.jsonl").is_file()
+        for session_dir in session_dirs
+    )
+
+
 def test_session_store_ignores_legacy_previous_response_id_file(tmp_path) -> None:
     legacy_path = tmp_path / "sessions" / "default.json"
     legacy_path.parent.mkdir(parents=True)
