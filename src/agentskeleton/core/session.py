@@ -261,7 +261,9 @@ class SessionStore:
                     f"Session summary exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
                     f"{safe_name}"
                 )
-            summary = path.read_text(encoding="utf-8").strip()
+            summary = _bounded_transcript_content(
+                path.read_text(encoding="utf-8").strip(),
+            )
         except OSError as exc:
             raise ValueError(
                 f"Session summary could not be read: {safe_name}"

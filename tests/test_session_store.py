@@ -457,6 +457,22 @@ def test_session_store_ignores_invalid_utf8_summary(tmp_path) -> None:
     assert store.list_sessions() == []
 
 
+def test_session_store_bounds_large_summary_on_load(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    large_summary = "s" * 20_000
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_text(large_summary, encoding="utf-8")
+
+    session = store.load("default")
+
+    assert session.summary is not None
+    assert len(session.summary) < 5_000
+    assert session.summary.startswith("ssssssssssssssss")
+    assert "[truncated" in session.summary
+    assert large_summary not in session.summary
+
+
 def test_session_store_reports_transcript_read_failures(
     tmp_path,
     monkeypatch,
