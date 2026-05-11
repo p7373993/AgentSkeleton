@@ -20,3 +20,11 @@ actions:
 expect:
   status: repeated_action
   observations: 3
+  observations_detail:
+    - tool: list_dir
+      success: true
+    - tool: list_dir
+      success: true
+    - tool: list_dir
+      success: false
+      error: Repeated action

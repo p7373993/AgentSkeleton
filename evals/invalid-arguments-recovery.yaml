@@ -12,3 +12,8 @@ expect:
   status: completed
   answer: recovered after invalid args
   observations: 1
+  observations_detail:
+    - tool: read_file
+      success: false
+      summary: Invalid tool arguments
+      error: Invalid arguments

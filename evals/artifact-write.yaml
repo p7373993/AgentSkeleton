@@ -19,5 +19,12 @@ expect:
   status: completed
   answer: artifact write ok
   observations: 1
+  observations_detail:
+    - tool: write_file
+      success: true
+      summary: Wrote 21 bytes to reports/summary.txt
+      payload:
+        path: reports/summary.txt
+        bytes_written: 21
   files:
     reports/summary.txt: summary from raw data

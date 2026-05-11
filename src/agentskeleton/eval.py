@@ -320,6 +320,7 @@ def _compare_expectations(
             "observations expected "
             f"{expect['observations']!r} but got {len(state.observations)!r}"
         )
+    _expect_observations(failures, expect.get("observations_detail"), state)
     _expect_files(failures, expect.get("files"), workspace)
     return failures
 
@@ -364,4 +365,89 @@ def _expect_files(
             failures.append(
                 f"file {path_text} expected {expected_text!r} "
                 f"but got {actual_content!r}"
+            )
+
+
+def _expect_observations(
+    failures: list[str],
+    raw_observations: object,
+    state: RunState,
+) -> None:
+    if raw_observations is None:
+        return
+    if not isinstance(raw_observations, list):
+        failures.append("observations_detail expectation must be a list")
+        return
+
+    for index, raw_expected in enumerate(raw_observations):
+        number = index + 1
+        if index >= len(state.observations):
+            failures.append(f"observation {number} expected but was missing")
+            continue
+        if not isinstance(raw_expected, dict):
+            failures.append(f"observation {number} expectation must be a mapping")
+            continue
+        observation = state.observations[index]
+        _expect_observation_field(
+            failures,
+            number,
+            "tool",
+            raw_expected,
+            observation.tool_name,
+        )
+        _expect_observation_field(
+            failures,
+            number,
+            "success",
+            raw_expected,
+            observation.result.success,
+        )
+        _expect_observation_field(
+            failures,
+            number,
+            "summary",
+            raw_expected,
+            observation.result.summary,
+        )
+        _expect_observation_field(
+            failures,
+            number,
+            "error",
+            raw_expected,
+            observation.result.error,
+        )
+        _expect_payload(failures, number, raw_expected.get("payload"), observation)
+
+
+def _expect_observation_field(
+    failures: list[str],
+    number: int,
+    field_name: str,
+    expected: dict[str, object],
+    actual: object,
+) -> None:
+    if field_name in expected and expected[field_name] != actual:
+        failures.append(
+            f"observation {number} {field_name} expected "
+            f"{expected[field_name]!r} but got {actual!r}"
+        )
+
+
+def _expect_payload(
+    failures: list[str],
+    number: int,
+    raw_payload: object,
+    observation,
+) -> None:
+    if raw_payload is None:
+        return
+    if not isinstance(raw_payload, dict):
+        failures.append(f"observation {number} payload expectation must be a mapping")
+        return
+    for key, expected_value in raw_payload.items():
+        actual_value = observation.result.payload.get(key)
+        if actual_value != expected_value:
+            failures.append(
+                f"observation {number} payload.{key} expected "
+                f"{expected_value!r} but got {actual_value!r}"
             )

@@ -18,3 +18,9 @@ expect:
   status: completed
   answer: domain tool pack ok
   observations: 1
+  observations_detail:
+    - tool: classify_domain
+      success: true
+      summary: classified finance
+      payload:
+        domain: finance

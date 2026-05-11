@@ -11,3 +11,7 @@ actions:
 expect:
   status: denied
   observations: 1
+  observations_detail:
+    - tool: write_file
+      success: false
+      error: Permission denied

@@ -310,6 +310,119 @@ def test_run_scenario_uses_registry_factory_after_config_overrides(
     assert result.status == "completed"
 
 
+def test_run_scenario_checks_observation_details(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "custom_tools.py").write_text(
+        "\n".join(
+            [
+                "from agentskeleton.tools.base import Tool, ToolResult",
+                "",
+                "class ClassifyTool(Tool):",
+                "    name = 'classify_domain'",
+                "    description = 'Classify a domain.'",
+                "    risk = 'read'",
+                "    args_schema = {",
+                "        'type': 'object',",
+                "        'properties': {'text': {'type': 'string'}},",
+                "        'required': ['text'],",
+                "        'additionalProperties': False,",
+                "    }",
+                "    def execute(self, args, context):",
+                "        return ToolResult(",
+                "            success=True,",
+                "            payload={'domain': 'finance', 'confidence': 'high'},",
+                "            summary='classified finance',",
+                "        )",
+                "",
+                "TOOLS = [ClassifyTool()]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    scenario_path = tmp_path / "custom-domain.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: custom-domain",
+                "goal: classify the request domain",
+                "config:",
+                "  tool_modules:",
+                "    - custom_tools",
+                "  enabled_tools:",
+                "    - classify_domain",
+                "actions:",
+                "  - type: tool",
+                "    tool: classify_domain",
+                "    call_id: classify-1",
+                "    arguments:",
+                "      text: reconcile Q4 invoice anomalies",
+                "  - type: final",
+                "    text: classified",
+                "expect:",
+                "  status: completed",
+                "  answer: classified",
+                "  observations: 1",
+                "  observations_detail:",
+                "    - tool: classify_domain",
+                "      success: true",
+                "      summary: classified finance",
+                "      payload:",
+                "        domain: finance",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        registry_factory=lambda config: ToolRegistry(
+            load_tools_from_modules(config.tool_modules)
+        ),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
+def test_run_scenario_reports_observation_detail_mismatch(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "invalid-read.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: invalid-read",
+                "goal: call read_file incorrectly",
+                "actions:",
+                "  - type: tool",
+                "    tool: read_file",
+                "    call_id: read-1",
+                "    arguments: {}",
+                "  - type: final",
+                "    text: recovered",
+                "expect:",
+                "  status: completed",
+                "  observations: 1",
+                "  observations_detail:",
+                "    - tool: read_file",
+                "      success: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == ["observation 1 success expected True but got False"]
+
+
 def test_run_scenario_reports_expected_file_mismatch(tmp_path: Path) -> None:
     scenario_path = tmp_path / "missing-report.yaml"
     scenario_path.write_text(
