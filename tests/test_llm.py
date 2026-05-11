@@ -91,6 +91,18 @@ def test_normalize_base_url_accepts_full_responses_endpoint() -> None:
     )
 
 
+def test_normalize_base_url_accepts_responses_endpoint_with_trailing_slash() -> None:
+    endpoint = (
+        " https://my-ai-resource.services.ai.azure.com/api/projects/demo/"
+        "openai/v1/responses/ "
+    )
+
+    assert normalize_base_url(endpoint) == (
+        "https://my-ai-resource.services.ai.azure.com/api/projects/demo/"
+        "openai/v1/"
+    )
+
+
 def test_normalize_base_url_treats_blank_as_unset() -> None:
     assert normalize_base_url("   ") is None
 

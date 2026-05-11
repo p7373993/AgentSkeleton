@@ -44,6 +44,7 @@ def normalize_base_url(base_url: str | None) -> str | None:
     normalized = base_url.strip()
     if not normalized:
         return None
+    normalized = normalized.rstrip("/")
     if normalized.endswith("/responses"):
         normalized = normalized[: -len("/responses")]
     if not normalized.endswith("/"):
