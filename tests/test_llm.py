@@ -1093,6 +1093,41 @@ def test_llm_client_serializes_recursive_context_item_content(tmp_path) -> None:
     ]
 
 
+def test_llm_client_serializes_uninspectable_context_item_content(tmp_path) -> None:
+    class ExplodingItems(dict):
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("items unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": ExplodingItems({"api_key": "sk-secret123"}),
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert state.response_context_items == [
+        {"role": "user", "content": "read"},
+        {
+            "type": "message",
+            "role": "assistant",
+            "content": "<uninspectable>",
+        },
+    ]
+    assert "sk-secret123" not in str(state.response_context_items)
+
+
 def test_llm_client_bounds_deep_context_item_content(tmp_path) -> None:
     content: dict[str, object] = {}
     current = content

@@ -36,6 +36,7 @@ MAX_CONTEXT_METADATA_CHARS = 512
 MAX_JSON_SAFE_DEPTH = 64
 MAX_JSON_SAFE_ITEMS = 200
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+UNINSPECTABLE_VALUE = "<uninspectable>"
 TRUNCATED_ITEMS_KEY = "__truncated_items__"
 
 
@@ -532,15 +533,7 @@ def _bounded_context_content(
             return "<recursive>"
         seen.add(marker)
         try:
-            item_limit = _json_safe_item_limit(len(value))
-            safe_items = [
-                _bounded_context_content(item, seen, depth + 1)
-                for item in value[:item_limit]
-            ]
-            omitted = len(value) - item_limit
-            if omitted > 0:
-                safe_items.append(_truncated_items_marker(len(value), omitted))
-            return safe_items
+            return _bounded_context_sequence(value, seen, depth)
         finally:
             seen.remove(marker)
     if isinstance(value, tuple):
@@ -549,15 +542,7 @@ def _bounded_context_content(
             return "<recursive>"
         seen.add(marker)
         try:
-            item_limit = _json_safe_item_limit(len(value))
-            safe_items = [
-                _bounded_context_content(item, seen, depth + 1)
-                for item in value[:item_limit]
-            ]
-            omitted = len(value) - item_limit
-            if omitted > 0:
-                safe_items.append(_truncated_items_marker(len(value), omitted))
-            return safe_items
+            return _bounded_context_sequence(value, seen, depth)
         finally:
             seen.remove(marker)
     if isinstance(value, dict):
@@ -566,22 +551,62 @@ def _bounded_context_content(
             return "<recursive>"
         seen.add(marker)
         try:
-            safe_items: dict[Any, Any] = {}
-            item_limit = _json_safe_item_limit(len(value))
-            for index, (key, item) in enumerate(value.items()):
-                if index >= item_limit:
-                    continue
-                safe_items[key] = _bounded_context_content(item, seen, depth + 1)
-            omitted = len(value) - item_limit
-            if omitted:
-                safe_items[TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
-                    len(value),
-                    omitted,
-                )
-            return safe_items
+            return _bounded_context_mapping(value, seen, depth)
         finally:
             seen.remove(marker)
     return value
+
+
+def _bounded_context_sequence(
+    value: list[Any] | tuple[Any, ...],
+    seen: set[int],
+    depth: int,
+) -> list[Any] | str:
+    try:
+        total_items = len(value)
+        item_limit = _json_safe_item_limit(total_items)
+        limited_items = value[:item_limit]
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    try:
+        safe_items = [
+            _bounded_context_content(item, seen, depth + 1)
+            for item in limited_items
+        ]
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    omitted = total_items - item_limit
+    if omitted > 0:
+        safe_items.append(_truncated_items_marker(total_items, omitted))
+    return safe_items
+
+
+def _bounded_context_mapping(
+    value: dict[Any, Any],
+    seen: set[int],
+    depth: int,
+) -> dict[Any, Any] | str:
+    try:
+        total_items = len(value)
+        raw_items = value.items()
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    safe_items: dict[Any, Any] = {}
+    item_limit = _json_safe_item_limit(total_items)
+    try:
+        for index, (key, item) in enumerate(raw_items):
+            if index >= item_limit:
+                continue
+            safe_items[key] = _bounded_context_content(item, seen, depth + 1)
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    omitted = total_items - item_limit
+    if omitted:
+        safe_items[TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
+            total_items,
+            omitted,
+        )
+    return safe_items
 
 
 def _serialize_tool_result(result: Any) -> str:
@@ -660,19 +685,7 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            safe_items: dict[str, Any] = {}
-            item_limit = _json_safe_item_limit(len(value))
-            for index, (key, item) in enumerate(value.items()):
-                if index >= item_limit:
-                    continue
-                safe_items[str(key)] = _json_safe(item, seen, depth + 1)
-            omitted = len(value) - item_limit
-            if omitted:
-                safe_items[TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
-                    len(value),
-                    omitted,
-                )
-            return safe_items
+            return _json_safe_mapping(value, seen, depth)
         finally:
             seen.remove(marker)
 
@@ -682,18 +695,60 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            item_limit = _json_safe_item_limit(len(value))
-            safe_items = [
-                _json_safe(item, seen, depth + 1) for item in value[:item_limit]
-            ]
-            omitted = len(value) - item_limit
-            if omitted > 0:
-                safe_items.append(_truncated_items_marker(len(value), omitted))
-            return safe_items
+            return _json_safe_sequence(value, seen, depth)
         finally:
             seen.remove(marker)
 
     return str(value)
+
+
+def _json_safe_mapping(
+    value: dict[Any, Any],
+    seen: set[int],
+    depth: int,
+) -> dict[str, Any] | str:
+    try:
+        total_items = len(value)
+        raw_items = value.items()
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    safe_items: dict[str, Any] = {}
+    item_limit = _json_safe_item_limit(total_items)
+    try:
+        for index, (key, item) in enumerate(raw_items):
+            if index >= item_limit:
+                continue
+            safe_items[str(key)] = _json_safe(item, seen, depth + 1)
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    omitted = total_items - item_limit
+    if omitted:
+        safe_items[TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
+            total_items,
+            omitted,
+        )
+    return safe_items
+
+
+def _json_safe_sequence(
+    value: list[Any] | tuple[Any, ...],
+    seen: set[int],
+    depth: int,
+) -> list[Any] | str:
+    try:
+        total_items = len(value)
+        item_limit = _json_safe_item_limit(total_items)
+        limited_items = value[:item_limit]
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    try:
+        safe_items = [_json_safe(item, seen, depth + 1) for item in limited_items]
+    except Exception:
+        return UNINSPECTABLE_VALUE
+    omitted = total_items - item_limit
+    if omitted > 0:
+        safe_items.append(_truncated_items_marker(total_items, omitted))
+    return safe_items
 
 
 def _json_size_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
