@@ -191,6 +191,38 @@ def test_console_trace_sink_redacts_secret_payloads() -> None:
     assert "[REDACTED]" in output
 
 
+def test_console_trace_sink_bounds_large_tool_arguments() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    arguments = {f"field_{index}": "a" * 100 for index in range(200)}
+
+    trace.emit(
+        "tool_started",
+        {
+            "tool_name": "trace_tool",
+            "arguments": arguments,
+        },
+    )
+
+    output = console.export_text()
+    assert len(output) < 5_000
+    assert "aaaaaaaaaaaaaaaa" in output
+    assert "..." in output
+
+
+def test_console_trace_sink_bounds_unknown_large_payload() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    payload = {f"field_{index}": "p" * 100 for index in range(200)}
+
+    trace.emit("custom_event", {"payload": payload})
+
+    output = console.export_text()
+    assert len(output) < 5_000
+    assert "pppppppppppppppp" in output
+    assert "..." in output
+
+
 def test_console_trace_sink_bounds_large_tool_summary() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)

@@ -8,6 +8,8 @@ from rich.console import Console
 
 from agentskeleton.logging.run_logger import redact
 
+MAX_TRACE_JSON_CHARS = 1_000
+
 
 @dataclass(frozen=True)
 class TraceEvent:
@@ -111,4 +113,8 @@ def preview(value: Any, max_chars: int = 500) -> str:
 
 
 def _compact_json(value: Any) -> str:
-    return json.dumps(redact(value), ensure_ascii=False, default=str)
+    text = json.dumps(redact(value), ensure_ascii=False, default=str)
+    if len(text) <= MAX_TRACE_JSON_CHARS:
+        return text
+    omitted = len(text) - MAX_TRACE_JSON_CHARS
+    return f"{text[:MAX_TRACE_JSON_CHARS]}... [truncated {omitted} characters]"
