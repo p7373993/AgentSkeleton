@@ -37,6 +37,13 @@ class RunConfig(BaseModel):
             break
         return expanded.resolve()
 
+    @field_validator("model", "reasoning_effort", "text_verbosity")
+    @classmethod
+    def reject_blank_model_settings(cls, value: str, info) -> str:
+        if not value.strip():
+            raise ValueError(f"{info.field_name} cannot be blank")
+        return value
+
     @field_validator("logs_dir")
     @classmethod
     def reject_file_logs_dir(cls, value: Path) -> Path:

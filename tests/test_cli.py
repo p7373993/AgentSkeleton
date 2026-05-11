@@ -622,6 +622,19 @@ def test_cli_reports_workspace_file_config_error(monkeypatch, tmp_path) -> None:
     assert "workspace must be a directory path" in result.stdout
 
 
+def test_cli_reports_blank_model_config_error(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text('model: "   "\n', encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--config", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Configuration error:" in result.stdout
+    assert "model cannot be blank" in result.stdout
+
+
 def test_default_registry_can_filter_enabled_tools() -> None:
     registry = build_default_registry(["read_file", "ask_user"])
 

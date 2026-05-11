@@ -166,6 +166,17 @@ def test_config_rejects_unknown_permission_profile(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, permission_profile="reckless")
 
 
+def test_config_rejects_blank_model_settings(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="model cannot be blank"):
+        RunConfig(workspace=tmp_path, model="   ")
+
+    with pytest.raises(ValueError, match="reasoning_effort cannot be blank"):
+        RunConfig(workspace=tmp_path, reasoning_effort="   ")
+
+    with pytest.raises(ValueError, match="text_verbosity cannot be blank"):
+        RunConfig(workspace=tmp_path, text_verbosity="   ")
+
+
 def test_config_rejects_workspace_file(tmp_path: Path) -> None:
     workspace_file = tmp_path / "workspace"
     workspace_file.write_text("not a directory", encoding="utf-8")
