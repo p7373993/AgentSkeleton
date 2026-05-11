@@ -392,7 +392,24 @@ def _parse_required_domains(raw: object) -> list[str]:
 def _parse_files(raw: object) -> dict[str, str]:
     if not isinstance(raw, dict):
         raise ValueError("Scenario files must be a mapping")
-    return {str(path): str(content) for path, content in raw.items()}
+    return {
+        str(path): _parse_file_content(str(path), content)
+        for path, content in raw.items()
+    }
+
+
+def _parse_file_content(path: str, raw: object) -> str:
+    if not isinstance(raw, dict):
+        return str(raw)
+    repeat = raw.get("repeat")
+    count = raw.get("count")
+    if not isinstance(repeat, str):
+        raise ValueError(f"Scenario file {path} repeat must be a string")
+    if type(count) is not int or count < 0:
+        raise ValueError(
+            f"Scenario file {path} count must be a non-negative integer"
+        )
+    return repeat * count
 
 
 def _parse_config_overrides(raw: object) -> dict[str, object]:

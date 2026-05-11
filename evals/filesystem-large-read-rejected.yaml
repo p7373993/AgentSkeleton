@@ -1,0 +1,31 @@
+name: filesystem-large-read-rejected
+domain: filesystem
+goal: Reject oversized workspace file reads without loading the content into the agent loop.
+files:
+  data/large.txt:
+    repeat: a
+    count: 1048577
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-large-file
+    arguments:
+      path: data/large.txt
+  - type: final
+    text: large read rejected ok
+expect:
+  status: completed
+  answer: large read rejected ok
+  observations: 1
+  observations_detail:
+    - tool: read_file
+      success: false
+      summary: "File too large: data/large.txt"
+      error: File too large
+  events:
+    - type: tool_finished
+      payload:
+        tool_name: read_file
+        success: false
+        summary: "File too large: data/large.txt"
+        error: File too large

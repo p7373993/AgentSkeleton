@@ -127,6 +127,42 @@ def test_run_scenario_applies_declared_workspace_files(tmp_path: Path) -> None:
     assert not (tmp_path / "data" / "input.txt").exists()
 
 
+def test_run_scenario_expands_repeated_declared_workspace_files(
+    tmp_path: Path,
+) -> None:
+    scenario_path = tmp_path / "fixture-repeat.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-repeat",
+                "goal: prepare repeated fixture",
+                "files:",
+                "  data/repeated.txt:",
+                "    repeat: ab",
+                "    count: 3",
+                "actions:",
+                "  - type: final",
+                "    text: fixture repeat ok",
+                "expect:",
+                "  status: completed",
+                "  answer: fixture repeat ok",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert (result.workspace / "data" / "repeated.txt").read_text(
+        encoding="utf-8"
+    ) == "ababab"
+
+
 def test_run_scenario_reports_declared_file_parent_conflict(
     tmp_path: Path,
 ) -> None:
