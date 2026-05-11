@@ -6,6 +6,7 @@ from agentskeleton.config import RunConfig
 from agentskeleton.core.actions import FinalAction, ToolCallAction, ToolCallBatchAction
 from agentskeleton.core.loop import AgentLoop
 from agentskeleton.core.state import ConversationMessage
+from agentskeleton.core.trace import MemoryTraceSink
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 from agentskeleton.tools.registry import ToolRegistry
 from agentskeleton.tools.user import AskUserTool
@@ -194,6 +195,47 @@ def test_loop_logs_run_start_context(tmp_path: Path) -> None:
             "session": "work",
         },
     )
+
+
+def test_loop_trace_context_cannot_clobber_run_start_fields(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+
+    AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        trace=trace,
+    ).run(
+        "continue",
+        conversation=[{"role": "user", "content": "previous"}],
+        trace_context={
+            "goal": "spoofed",
+            "workspace": "spoofed",
+            "resumed": False,
+            "conversation_turns": 999,
+            "session": "work",
+        },
+    )
+
+    assert logger.events[0] == (
+        "run_started",
+        0,
+        {
+            "goal": "continue",
+            "workspace": str(tmp_path),
+            "resumed": True,
+            "conversation_turns": 1,
+            "session": "work",
+        },
+    )
+    assert trace.events[0].name == "run_started"
+    assert trace.events[0].payload["goal"] == "continue"
+    assert trace.events[0].payload["workspace"] == str(tmp_path)
+    assert trace.events[0].payload["resumed"] is True
+    assert trace.events[0].payload["conversation_turns"] == 1
+    assert trace.events[0].payload["session"] == "work"
 
 
 def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:

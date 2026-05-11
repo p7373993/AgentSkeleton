@@ -73,11 +73,11 @@ class AgentLoop:
             conversation=self._normalize_conversation(conversation or []),
         )
         start_payload = {
+            **(trace_context or {}),
             "goal": normalized_goal,
             "workspace": str(state.workspace),
             "resumed": bool(state.conversation),
             "conversation_turns": len(state.conversation),
-            **(trace_context or {}),
         }
         self._log_event(
             "run_started",
