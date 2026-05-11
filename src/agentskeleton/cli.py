@@ -100,6 +100,12 @@ def _exit_run_log_error(exc: ValueError) -> NoReturn:
     raise typer.Exit(1) from exc
 
 
+def _validate_goal_or_exit(goal: str) -> None:
+    if not goal.strip():
+        console.print("Goal error: Goal cannot be blank")
+        raise typer.Exit(1)
+
+
 def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
     try:
         return RunLogger(logs_dir, run_id)
@@ -332,6 +338,7 @@ def run(
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
 ) -> None:
+    _validate_goal_or_exit(goal)
     loaded = _load_config_or_exit(
         config,
         {

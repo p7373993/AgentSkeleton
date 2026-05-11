@@ -709,6 +709,19 @@ def test_run_reports_missing_api_key(tmp_path, monkeypatch) -> None:
     assert "OPENAI_API_KEY or AZURE_OPENAI_API_KEY is required" in result.stdout
 
 
+def test_run_rejects_blank_goal_before_api_key_check(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "   "])
+
+    assert result.exit_code == 1
+    assert "Goal error: Goal cannot be blank" in result.stdout
+    assert "OPENAI_API_KEY" not in result.stdout
+
+
 def test_run_reports_session_store_errors(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     session_dir = tmp_path / "runs" / "sessions" / "default"

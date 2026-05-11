@@ -51,6 +51,11 @@ class InvalidActionLLM:
         return {"type": "unexpected"}
 
 
+class UnexpectedLLM:
+    def next_action(self, state, registry):
+        raise AssertionError("LLM should not be called")
+
+
 class RecordTool(Tool):
     name = "record"
     description = "Record a value."
@@ -181,6 +186,31 @@ def test_loop_stops_on_final_answer(tmp_path: Path) -> None:
     assert state.final_status == "completed"
     assert state.final_answer == "done"
     assert state.step_count == 1
+
+
+def test_loop_rejects_blank_goal_before_model_call(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=UnexpectedLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("   ")
+
+    assert state.final_status == "invalid_goal"
+    assert state.final_reason == "Goal cannot be blank"
+    assert state.final_answer is None
+    assert state.step_count == 0
+    assert not any(event[0] == "model_requested" for event in logger.events)
+    assert logger.events[-1] == (
+        "run_finished",
+        0,
+        {
+            "status": "invalid_goal",
+            "answer": None,
+            "reason": "Goal cannot be blank",
+        },
+    )
 
 
 def test_loop_logs_run_start_context(tmp_path: Path) -> None:

@@ -91,6 +91,11 @@ class AgentLoop:
                 **start_payload,
             },
         )
+        if not normalized_goal.strip():
+            state.final_status = "invalid_goal"
+            state.final_reason = "Goal cannot be blank"
+            self._log_run_finished(state)
+            return state
 
         while state.step_count < self.config.max_steps:
             state.step_count += 1
