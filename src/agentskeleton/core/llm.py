@@ -105,6 +105,44 @@ def _response_output_items(response: Any) -> list[Any]:
     raise LLMResponseError("Response output must be a list of items")
 
 
+def _response_final_text(response: Any, output: list[Any]) -> str:
+    output_text = _read_attr(response, "output_text", "")
+    if output_text:
+        return str(output_text)
+
+    parts: list[str] = []
+    for item in output:
+        if _read_attr(item, "type") != "message":
+            continue
+        parts.extend(_message_content_text_parts(_read_attr(item, "content")))
+    return "\n".join(part for part in parts if part)
+
+
+def _message_content_text_parts(content: Any) -> list[str]:
+    if isinstance(content, str):
+        return [content]
+    if isinstance(content, list | tuple):
+        return [
+            text
+            for part in content
+            if (text := _message_content_part_text(part)) is not None
+        ]
+    text = _message_content_part_text(content)
+    return [] if text is None else [text]
+
+
+def _message_content_part_text(part: Any) -> str | None:
+    if isinstance(part, str):
+        return part
+    part_type = _read_attr(part, "type")
+    text = _read_attr(part, "text")
+    if not isinstance(text, str):
+        return None
+    if part_type in (None, "output_text", "text"):
+        return text
+    return None
+
+
 class LLMClient:
     def __init__(
         self,
@@ -145,6 +183,7 @@ class LLMClient:
         for item in output:
             if _read_attr(item, "type") == "function_call":
                 tool_calls.append(self._parse_function_call(item))
+        final_text = _response_final_text(response, output)
         if output:
             if not state.response_context_items:
                 state.response_context_items = self._conversation_items(state)
@@ -160,7 +199,7 @@ class LLMClient:
                     {"name": call.tool_name, "call_id": call.call_id}
                     for call in tool_calls
                 ],
-                "final_preview": preview(_read_attr(response, "output_text", "")),
+                "final_preview": preview(final_text),
             },
         )
         if len(tool_calls) == 1:
@@ -168,9 +207,8 @@ class LLMClient:
         if len(tool_calls) > 1:
             return ToolCallBatchAction(tool_calls=tool_calls)
 
-        output_text = _read_attr(response, "output_text", "")
-        if output_text:
-            return FinalAction(text=str(output_text))
+        if final_text:
+            return FinalAction(text=final_text)
 
         raise LLMResponseError("Response did not contain final text or a function call")
 
