@@ -144,6 +144,23 @@ def test_llm_client_sends_tool_schemas_and_parses_final_text(tmp_path) -> None:
     assert call["text"] == {"verbosity": "low"}
 
 
+def test_llm_client_bounds_large_output_text(tmp_path) -> None:
+    large_output = "x" * 20_000
+    response = SimpleNamespace(id="resp-1", output_text=large_output, output=[])
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert len(action.text) < 5_000
+    assert action.text.startswith("x" * 40)
+    assert "[truncated" in action.text
+    assert large_output not in action.text
+
+
 def test_llm_client_parses_final_text_from_message_output_content(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",

@@ -114,14 +114,14 @@ def _response_output_items(response: Any) -> list[Any]:
 def _response_final_text(response: Any, output: list[Any]) -> str:
     output_text = _read_attr(response, "output_text", "")
     if output_text:
-        return str(output_text)
+        return _bounded_final_text(str(output_text))
 
     parts: list[str] = []
     for item in output:
         if _read_attr(item, "type") != "message":
             continue
         parts.extend(_message_content_text_parts(_read_attr(item, "content")))
-    return "\n".join(part for part in parts if part)
+    return _bounded_final_text("\n".join(part for part in parts if part))
 
 
 def _message_content_text_parts(content: Any) -> list[str]:
@@ -382,6 +382,10 @@ def _bounded_conversation_content(content: str) -> str:
         f"{content[:MAX_CONVERSATION_CONTENT_CHARS]}"
         f"\n[truncated {omitted} characters]"
     )
+
+
+def _bounded_final_text(text: str) -> str:
+    return _bounded_conversation_content(text)
 
 
 def _safe_conversation_role(role: object) -> str:
