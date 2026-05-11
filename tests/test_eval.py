@@ -841,6 +841,18 @@ def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:
         raise AssertionError("Expected missing scenario file to fail")
 
 
+def test_load_scenario_rejects_directory_path(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "directory.yaml"
+    scenario_path.mkdir()
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file must be a file: {scenario_path}"
+    else:
+        raise AssertionError("Expected scenario directory path to fail")
+
+
 def test_load_scenario_reports_malformed_yaml(tmp_path: Path) -> None:
     scenario_path = tmp_path / "broken.yaml"
     scenario_path.write_text("goal: [unterminated\n", encoding="utf-8")
@@ -992,6 +1004,22 @@ def test_load_scenario_suite_config_reports_invalid_utf8_manifest(
         assert str(exc) == f"Suite manifest could not be read as UTF-8: {manifest}"
     else:
         raise AssertionError("Expected invalid UTF-8 suite manifest to fail")
+
+
+def test_load_scenario_suite_config_rejects_manifest_directory(
+    tmp_path: Path,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    manifest = suite_dir / "suite.yaml"
+    manifest.mkdir()
+
+    try:
+        load_scenario_suite_config(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Suite manifest must be a file: {manifest}"
+    else:
+        raise AssertionError("Expected suite manifest directory to fail")
 
 
 def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> None:

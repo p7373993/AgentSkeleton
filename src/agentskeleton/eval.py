@@ -176,6 +176,8 @@ class ScriptedScenarioLLM:
 
 
 def _load_yaml_document(path: Path, label: str) -> object:
+    if not path.is_file():
+        raise ValueError(f"{label} must be a file: {path}")
     try:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:

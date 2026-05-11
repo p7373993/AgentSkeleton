@@ -199,6 +199,21 @@ def test_eval_command_prints_final_reason(monkeypatch, tmp_path) -> None:
     assert "Reason: Model returned unsupported action: dict" in result.stdout
 
 
+def test_eval_command_reports_directory_scenario_path(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    scenario_path = tmp_path / "directory.yaml"
+    scenario_path.mkdir()
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval", str(scenario_path)])
+
+    assert result.exit_code == 1
+    assert f"Scenario error: Scenario file must be a file: {scenario_path}" in (
+        result.stdout
+    )
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
 def test_eval_suite_command_runs_directory_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     suite_dir = tmp_path / "evals"
