@@ -63,6 +63,14 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
     return value
 
 
+def _reject_invalid_module_list(value: list[str], field_name: str) -> list[str]:
+    _reject_invalid_name_list(value, field_name)
+    for name in value:
+        if any(not part.isidentifier() for part in name.split(".")):
+            raise ValueError(f"{field_name} must contain dotted Python module paths")
+    return value
+
+
 class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_default=True)
 
@@ -114,7 +122,7 @@ class RunConfig(BaseModel):
     @field_validator("tool_modules")
     @classmethod
     def reject_empty_tool_modules(cls, value: list[str]) -> list[str]:
-        return _reject_invalid_name_list(value, "tool_modules")
+        return _reject_invalid_module_list(value, "tool_modules")
 
 
 def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:

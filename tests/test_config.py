@@ -322,6 +322,27 @@ def test_config_rejects_whitespace_in_tool_modules(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, tool_modules=["custom tools"])
 
 
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "../tools.py",
+        ".custom_tools",
+        "custom_tools.",
+        "custom..tools",
+        "custom-tools",
+    ],
+)
+def test_config_rejects_malformed_tool_modules(
+    tmp_path: Path,
+    module_name: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="tool_modules must contain dotted Python module paths",
+    ):
+        RunConfig(workspace=tmp_path, tool_modules=[module_name])
+
+
 def test_config_rejects_workspace_file(tmp_path: Path) -> None:
     workspace_file = tmp_path / "workspace"
     workspace_file.write_text("not a directory", encoding="utf-8")
