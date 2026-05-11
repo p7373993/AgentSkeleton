@@ -133,6 +133,10 @@ def test_registry_rejects_invalid_args_schema_shape(
             "schema property text must be a mapping",
         ),
         (
+            {"type": "object", "properties": {1: {"type": "string"}}},
+            "schema property names must be strings",
+        ),
+        (
             {"type": "object", "properties": {}, "required": "text"},
             "schema required must be a list",
         ),
