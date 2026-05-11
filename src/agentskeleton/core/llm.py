@@ -261,7 +261,7 @@ class LLMClient:
             turn
             for turn in state.conversation
             if turn.metadata.get("sticky_context") is True
-        ]
+        ][-self.config.session_context_turns :]
         conversation = [
             turn
             for turn in state.conversation
