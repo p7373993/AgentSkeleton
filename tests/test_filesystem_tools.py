@@ -74,6 +74,21 @@ def test_write_file_writes_text_and_reports_bytes(tmp_path: Path) -> None:
     assert result.payload["bytes_written"] == 5
 
 
+def test_write_file_does_not_clobber_existing_temp_sibling(tmp_path: Path) -> None:
+    target = tmp_path / "out.txt"
+    temp_sibling = tmp_path / "out.txt.tmp"
+    temp_sibling.write_text("keep me", encoding="utf-8")
+
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is True
+    assert target.read_text(encoding="utf-8") == "hello"
+    assert temp_sibling.read_text(encoding="utf-8") == "keep me"
+
+
 def test_write_file_rejects_directory_target(tmp_path: Path) -> None:
     (tmp_path / "nested").mkdir()
 

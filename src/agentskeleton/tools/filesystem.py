@@ -1,5 +1,5 @@
-from pathlib import Path
 from typing import Any, ClassVar
+from uuid import uuid4
 
 from agentskeleton.policy.paths import PathSecurityError, resolve_workspace_path
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
@@ -131,9 +131,13 @@ class WriteFileTool(Tool):
             return _error(f"Not a file: {requested}", "Not a file")
 
         encoded = content.encode("utf-8")
-        temp_path = Path(f"{path}.tmp")
-        temp_path.write_bytes(encoded)
-        temp_path.replace(path)
+        temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+        try:
+            temp_path.write_bytes(encoded)
+            temp_path.replace(path)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
 
         return ToolResult(
             success=True,
