@@ -365,6 +365,44 @@ def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:
     ) in logger.events
 
 
+def test_loop_bounds_logged_goal_without_changing_model_input(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+    goal = "x" * 5_000
+    seen_goals: list[str] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_goals.append(state.goal)
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        trace=trace,
+    ).run(goal)
+
+    started_goal = next(
+        event[2]["goal"] for event in logger.events if event[0] == "run_started"
+    )
+    requested_goal = next(
+        event[2]["goal"] for event in logger.events if event[0] == "model_requested"
+    )
+    traced_goal = next(
+        event.payload["goal"] for event in trace.events if event.name == "run_started"
+    )
+    assert state.goal == goal
+    assert seen_goals == [goal]
+    assert isinstance(started_goal, dict)
+    assert started_goal["truncated"] is True
+    assert started_goal["bytes"] == 5_000
+    assert requested_goal == started_goal
+    assert traced_goal == started_goal
+    assert goal not in str(logger.events)
+
+
 def test_loop_continues_when_logger_fails(tmp_path: Path) -> None:
     state = AgentLoop(
         config=RunConfig(workspace=tmp_path),

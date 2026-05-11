@@ -80,7 +80,7 @@ class AgentLoop:
         )
         start_payload = {
             **_trace_context(trace_context),
-            "goal": normalized_goal,
+            "goal": _logged_text(normalized_goal),
             "workspace": str(state.workspace),
             "resumed": bool(state.conversation),
             "conversation_turns": len(state.conversation),
@@ -109,7 +109,7 @@ class AgentLoop:
             self._log_event(
                 "model_requested",
                 state.step_count,
-                {"goal": normalized_goal},
+                {"goal": _logged_text(normalized_goal)},
             )
             try:
                 action = self.llm.next_action(state, self.registry)
