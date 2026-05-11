@@ -94,8 +94,13 @@ class PermissionPolicy:
             "sk-",
             "api_key",
             "apikey",
+            "access_key",
+            "credential",
             "password",
+            "passwd",
+            "private_key",
             "secret",
+            "token",
         ]
         network_patterns = [
             "curl ",
