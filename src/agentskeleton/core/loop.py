@@ -185,6 +185,16 @@ class AgentLoop:
         return normalized
 
     def _execute_tool_action(self, state: RunState, action: ToolCallAction) -> None:
+        metadata_error = _validate_tool_action_metadata(action)
+        if metadata_error is not None:
+            self._record_invalid_action(
+                state,
+                action,
+                reason=f"Model returned invalid tool call: {metadata_error}",
+                error_type="invalid_tool_call",
+            )
+            return
+
         self._log_event(
             "model_action",
             state.step_count,
@@ -492,6 +502,14 @@ def _action_fingerprint(action: ToolCallAction) -> str:
     except (TypeError, ValueError):
         arguments = repr(action.arguments)
     return f"{action.tool_name}:{arguments}"
+
+
+def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
+    if not isinstance(action.tool_name, str) or not action.tool_name.strip():
+        return "tool_name must be a non-empty string"
+    if not isinstance(action.call_id, str) or not action.call_id.strip():
+        return "call_id must be a non-empty string"
+    return None
 
 
 def _validate_tool_arguments(

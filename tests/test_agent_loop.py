@@ -286,6 +286,63 @@ def test_loop_handles_unsupported_model_action_as_state(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("action", "reason"),
+    [
+        (
+            ToolCallAction(
+                tool_name=[],
+                arguments={"value": "x"},
+                call_id="call-1",
+            ),
+            "Model returned invalid tool call: tool_name must be a non-empty string",
+        ),
+        (
+            ToolCallAction(
+                tool_name="record",
+                arguments={"value": "x"},
+                call_id=[],
+            ),
+            "Model returned invalid tool call: call_id must be a non-empty string",
+        ),
+    ],
+)
+def test_loop_rejects_malformed_tool_call_metadata(
+    tmp_path: Path,
+    action: ToolCallAction,
+    reason: str,
+) -> None:
+    logger = MemoryLogger()
+    try:
+        state = make_loop(tmp_path, [action], logger).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording invalid action: {exc!r}")
+
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_call",
+            "error": reason,
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": reason,
+        },
+    )
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_executes_tool_and_feeds_observation(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = make_loop(
