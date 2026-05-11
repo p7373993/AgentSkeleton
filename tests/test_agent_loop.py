@@ -154,6 +154,18 @@ class InvalidResultTool(RecordTool):
         return {"success": True, "summary": "not a model"}  # type: ignore[return-value]
 
 
+class MalformedResultTool(RecordTool):
+    name = "malformed_result"
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return ToolResult.model_construct(
+            success="yes",
+            payload=[],
+            summary=123,
+            error={},
+        )
+
+
 def make_loop(tmp_path: Path, actions, logger: MemoryLogger | None = None) -> AgentLoop:
     return AgentLoop(
         config=RunConfig(workspace=tmp_path),
@@ -1133,6 +1145,57 @@ def test_loop_converts_invalid_tool_result_to_observation(tmp_path: Path) -> Non
             "success": False,
             "summary": "Tool returned invalid result: dict",
             "error": "Invalid tool result",
+        },
+    ) in logger.events
+
+
+def test_loop_converts_malformed_tool_result_to_observation(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    try:
+        state = AgentLoop(
+            config=RunConfig(workspace=tmp_path),
+            llm=ScriptedLLM(
+                [
+                    ToolCallAction(
+                        tool_name="malformed_result",
+                        arguments={"value": "x"},
+                        call_id="call-1",
+                    )
+                ]
+            ),
+            registry=ToolRegistry([MalformedResultTool()]),
+            logger=logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording a tool error: {exc!r}")
+
+    assert state.final_status == "tool_error"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "allow"
+    assert observation.result.success is False
+    assert observation.result.summary == (
+        "Tool returned malformed result: success must be a boolean"
+    )
+    assert observation.result.error == "Malformed tool result"
+    assert observation.result.payload == {
+        "tool_name": "malformed_result",
+        "arguments": {"value": "x"},
+        "validation_errors": [
+            "success must be a boolean",
+            "payload must be a mapping",
+            "summary must be a string",
+            "error must be a string or null",
+        ],
+    }
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "malformed_result",
+            "success": False,
+            "summary": "Tool returned malformed result: success must be a boolean",
+            "error": "Malformed tool result",
         },
     ) in logger.events
 

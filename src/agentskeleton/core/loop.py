@@ -418,6 +418,26 @@ class AgentLoop:
             state.final_reason = result.summary
             return
 
+        result_errors = _validate_tool_result_metadata(result)
+        if result_errors:
+            result = ToolResult(
+                success=False,
+                payload={
+                    "tool_name": tool.name,
+                    "arguments": action.arguments,
+                    "validation_errors": result_errors,
+                },
+                summary=f"Tool returned malformed result: {result_errors[0]}",
+                error="Malformed tool result",
+            )
+            state.observations.append(
+                ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            )
+            self._log_tool_finished(state, tool.name, result)
+            state.final_status = "tool_error"
+            state.final_reason = result.summary
+            return
+
         state.observations.append(
             ToolObservation(action.call_id, tool.name, decision.outcome, result)
         )
@@ -556,6 +576,19 @@ def _validate_final_action_metadata(action: FinalAction) -> str | None:
     if not isinstance(action.status, str) or not action.status.strip():
         return "status must be a non-empty string"
     return None
+
+
+def _validate_tool_result_metadata(result: ToolResult) -> list[str]:
+    errors = []
+    if not isinstance(result.success, bool):
+        errors.append("success must be a boolean")
+    if not isinstance(result.payload, Mapping):
+        errors.append("payload must be a mapping")
+    if not isinstance(result.summary, str):
+        errors.append("summary must be a string")
+    if result.error is not None and not isinstance(result.error, str):
+        errors.append("error must be a string or null")
+    return errors
 
 
 def _conversation_message(
