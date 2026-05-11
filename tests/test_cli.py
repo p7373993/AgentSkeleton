@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -1400,6 +1401,33 @@ def test_sessions_command_prints_sessions(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert "work" in result.stdout
     assert "1" in result.stdout
+
+
+def test_sessions_command_reports_session_read_errors(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    transcript_path = tmp_path / "runs" / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        json.dumps({"role": "user", "content": "hello"}),
+        encoding="utf-8",
+    )
+    original_read_bytes = Path.read_bytes
+    expected_path = transcript_path.resolve()
+
+    def fail_read_bytes(path: Path) -> bytes:
+        if path.resolve() == expected_path:
+            raise OSError("permission denied")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read_bytes)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["sessions"])
+
+    assert result.exit_code == 1
+    assert "Session error: Session transcript could not be read: default" in (
+        result.stdout
+    )
 
 
 def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:

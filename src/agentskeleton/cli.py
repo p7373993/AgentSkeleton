@@ -558,7 +558,10 @@ def sessions(
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config)
-    summaries = SessionStore(loaded.logs_dir).list_sessions()
+    try:
+        summaries = SessionStore(loaded.logs_dir).list_sessions()
+    except ValueError as exc:
+        _exit_session_error(exc)
     payload = {"sessions": [summary.to_dict() for summary in summaries]}
 
     if as_json:
