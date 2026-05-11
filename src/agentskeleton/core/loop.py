@@ -78,7 +78,7 @@ class AgentLoop:
             run_id=self.run_id or str(uuid4()),
             workspace=self.config.workspace,
             goal=normalized_goal,
-            conversation=self._normalize_conversation(conversation or []),
+            conversation=self._normalize_conversation(conversation),
         )
         start_payload = {
             **_trace_context(trace_context),
@@ -221,10 +221,17 @@ class AgentLoop:
 
     def _normalize_conversation(
         self,
-        conversation: list[object],
+        conversation: object | None,
     ) -> list[ConversationMessage]:
+        if conversation is None:
+            return []
+        turns = (
+            conversation
+            if isinstance(conversation, (list, tuple))
+            else [conversation]
+        )
         normalized: list[ConversationMessage] = []
-        for turn in conversation:
+        for turn in turns:
             if isinstance(turn, ConversationMessage):
                 normalized.append(
                     _conversation_message(
