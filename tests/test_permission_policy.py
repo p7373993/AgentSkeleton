@@ -255,10 +255,20 @@ def test_policy_blocks_compact_rm_recursive_flags() -> None:
     assert "destructive" in decision.reason
 
 
-def test_policy_confirms_package_install_shell_commands() -> None:
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv pip install pytest",
+        "uv sync",
+        "uv add pytest",
+        "npm ci",
+        "poetry install",
+    ],
+)
+def test_policy_confirms_package_install_shell_commands(command: str) -> None:
     decision = PermissionPolicy().decide(
         "shell",
-        {"command": "uv pip install pytest"},
+        {"command": command},
         "shell",
     )
 
