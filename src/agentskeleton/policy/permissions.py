@@ -120,6 +120,13 @@ class PermissionPolicy:
             "poetry install",
             "curl ",
             "wget ",
+            "invoke-webrequest",
+            "invoke-restmethod",
+            "iwr ",
+            "irm ",
+            "requests.",
+            "urllib.",
+            "http.client",
             "git push",
             "start ",
         ]

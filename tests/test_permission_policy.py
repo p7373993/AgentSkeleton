@@ -274,3 +274,28 @@ def test_policy_confirms_package_install_shell_commands(command: str) -> None:
 
     assert decision.outcome == "confirm"
     assert "install" in decision.reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "Invoke-WebRequest https://example.test -OutFile data.json",
+        "Invoke-RestMethod https://example.test/api",
+        "iwr https://example.test",
+        "irm https://example.test/api",
+        "python -c \"import requests; requests.get('https://example.test')\"",
+        (
+            "python -c \"import urllib.request; "
+            "urllib.request.urlopen('https://example.test')\""
+        ),
+    ],
+)
+def test_policy_confirms_network_shell_commands(command: str) -> None:
+    decision = PermissionPolicy().decide(
+        "shell",
+        {"command": command},
+        "shell",
+    )
+
+    assert decision.outcome == "confirm"
+    assert "network" in decision.reason
