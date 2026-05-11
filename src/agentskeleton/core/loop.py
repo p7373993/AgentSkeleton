@@ -38,7 +38,9 @@ MAX_LOGGED_ARGUMENT_PREVIEW_CHARS = 49
 MAX_LOGGED_TEXT_BYTES = 4_096
 MAX_LOGGED_TEXT_PREVIEW_CHARS = 200
 MAX_LOGGED_VALUE_DEPTH = 64
+MAX_LOGGED_COLLECTION_ITEMS = 200
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+TRUNCATED_ITEMS_KEY = "__truncated_items__"
 MAX_TOOL_ACTION_METADATA_BYTES = 512
 MAX_FINAL_ACTION_STATUS_BYTES = 512
 MAX_VALIDATION_ERRORS = 50
@@ -681,7 +683,7 @@ def _action_fingerprint(action: ToolCallAction) -> str:
 
 
 def _logged_arguments(arguments: object) -> object:
-    safe_arguments = _json_log_safe(arguments)
+    safe_arguments = _bounded_json_log_safe(arguments)
     try:
         encoded = json.dumps(
             safe_arguments,
@@ -718,7 +720,7 @@ def _logged_text(value: object) -> object:
 
 
 def _logged_value(value: object) -> object:
-    safe_value = _json_log_safe(value)
+    safe_value = _bounded_json_log_safe(value)
     try:
         encoded = json.dumps(
             safe_value,
@@ -762,7 +764,7 @@ def _bounded_stored_tool_result(result: ToolResult) -> ToolResult:
 
 
 def _bounded_stored_tool_payload(payload: Mapping[str, object]) -> dict[str, object]:
-    safe_payload = _json_log_safe(payload)
+    safe_payload = _bounded_json_log_safe(payload)
     try:
         encoded = json.dumps(
             safe_payload,
@@ -798,10 +800,19 @@ def _bounded_stored_tool_text(value: str) -> str:
     )
 
 
+def _bounded_json_log_safe(value: object) -> object:
+    return _json_log_safe(
+        value,
+        collection_item_limit=MAX_LOGGED_COLLECTION_ITEMS,
+    )
+
+
 def _json_log_safe(
     value: object,
     seen: set[int] | None = None,
     depth: int = 0,
+    *,
+    collection_item_limit: int | None = None,
 ) -> object:
     if depth > MAX_LOGGED_VALUE_DEPTH:
         return MAX_DEPTH_EXCEEDED
@@ -815,10 +826,24 @@ def _json_log_safe(
             return "<recursive>"
         seen.add(marker)
         try:
-            return {
-                str(key): _json_log_safe(item, seen, depth + 1)
-                for key, item in value.items()
-            }
+            item_limit = _collection_item_limit(len(value), collection_item_limit)
+            safe_items: dict[str, object] = {}
+            for index, (key, item) in enumerate(value.items()):
+                if index >= item_limit:
+                    continue
+                safe_items[str(key)] = _json_log_safe(
+                    item,
+                    seen,
+                    depth + 1,
+                    collection_item_limit=collection_item_limit,
+                )
+            omitted = len(value) - item_limit
+            if omitted:
+                safe_items[TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
+                    len(value),
+                    omitted,
+                )
+            return safe_items
         finally:
             seen.remove(marker)
 
@@ -828,11 +853,41 @@ def _json_log_safe(
             return "<recursive>"
         seen.add(marker)
         try:
-            return [_json_log_safe(item, seen, depth + 1) for item in value]
+            item_limit = _collection_item_limit(len(value), collection_item_limit)
+            safe_items = [
+                _json_log_safe(
+                    item,
+                    seen,
+                    depth + 1,
+                    collection_item_limit=collection_item_limit,
+                )
+                for item in value[:item_limit]
+            ]
+            omitted = len(value) - item_limit
+            if omitted:
+                safe_items.append(_truncated_items_marker(len(value), omitted))
+            return safe_items
         finally:
             seen.remove(marker)
 
     return str(value)
+
+
+def _collection_item_limit(
+    total_items: int,
+    collection_item_limit: int | None,
+) -> int:
+    if collection_item_limit is None or total_items <= collection_item_limit:
+        return total_items
+    return max(collection_item_limit - 1, 0)
+
+
+def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]:
+    return {
+        "truncated": True,
+        "items": total_items,
+        "omitted": omitted,
+    }
 
 
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:

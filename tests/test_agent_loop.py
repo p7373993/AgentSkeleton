@@ -1913,6 +1913,46 @@ def test_loop_bounds_stored_unknown_tool_arguments(tmp_path: Path) -> None:
     assert large_argument not in str(state.observations)
 
 
+def test_loop_bounds_wide_tool_arguments_before_storing(
+    tmp_path: Path,
+) -> None:
+    values = list(range(210))
+    mapping = {f"k{index}": index for index in range(210)}
+    logger = MemoryLogger()
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="missing_tool",
+                    arguments={"values": values, "mapping": mapping},
+                    call_id="call-1",
+                )
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("record")
+
+    logged_arguments = next(
+        event[2]["arguments"]
+        for event in logger.events
+        if event[0] == "model_action"
+    )
+    stored_arguments = state.observations[0].result.payload["arguments"]
+    marker = {"truncated": True, "items": 210, "omitted": 11}
+
+    assert state.final_status == "unknown_tool"
+    assert logged_arguments["values"][-1] == marker
+    assert len(logged_arguments["values"]) == 200
+    assert logged_arguments["mapping"]["__truncated_items__"] == marker
+    assert len(logged_arguments["mapping"]) == 200
+    assert stored_arguments == logged_arguments
+    assert 209 not in logged_arguments["values"]
+    assert "k209" not in logged_arguments["mapping"]
+
+
 def test_loop_stops_after_repeating_same_action_three_times(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = make_loop(
