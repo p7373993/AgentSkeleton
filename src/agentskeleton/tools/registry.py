@@ -19,6 +19,7 @@ SUPPORTED_JSON_SCHEMA_TYPES = (
 )
 MAX_TOOL_SCHEMA_DEPTH = 64
 MAX_TOOL_SCHEMA_BYTES = 2_097_152
+MAX_TOOL_DESCRIPTION_BYTES = 65_536
 
 
 class ToolRegistry:
@@ -47,6 +48,8 @@ class ToolRegistry:
             raise ValueError(
                 f"Tool {name} description cannot contain surrounding whitespace"
             )
+        if len(tool.description.encode("utf-8")) > MAX_TOOL_DESCRIPTION_BYTES:
+            raise ValueError(f"Tool {name} description exceeds maximum size")
         if not isinstance(tool.risk, str):
             raise ValueError(f"Tool {name} risk must be a string")
         if not tool.risk.strip():

@@ -121,6 +121,16 @@ def test_registry_rejects_invalid_tool_descriptions(
         registry.register(InvalidDescriptionTool())
 
 
+def test_registry_rejects_oversized_tool_description() -> None:
+    class OversizedDescriptionTool(EchoTool):
+        description = "x" * 65_537
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool echo description exceeds maximum size"):
+        registry.register(OversizedDescriptionTool())
+
+
 @pytest.mark.parametrize(
     ("risk", "error"),
     [
