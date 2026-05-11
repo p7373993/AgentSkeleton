@@ -184,12 +184,26 @@ def _looks_like_remote_execution(command: str) -> bool:
 
 
 def _first_executable_token(tokens: list[str]) -> str | None:
-    wrappers = {"sudo"}
+    wrappers = {"sudo", "env"}
     for token in tokens:
         if token in wrappers:
             continue
-        return token
+        if _looks_like_env_assignment(token):
+            continue
+        return _normalize_executable_token(token)
     return None
+
+
+def _looks_like_env_assignment(token: str) -> bool:
+    key, separator, _value = token.partition("=")
+    return bool(separator and key and key.replace("_", "").isalnum())
+
+
+def _normalize_executable_token(token: str) -> str:
+    executable = token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if executable.endswith(".exe"):
+        executable = executable[:-4]
+    return executable
 
 
 def _split_shell_segments(command: str) -> list[str]:
