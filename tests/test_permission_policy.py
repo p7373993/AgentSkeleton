@@ -109,6 +109,17 @@ def test_policy_blocks_powershell_recursive_delete_commands() -> None:
     assert "destructive" in decision.reason
 
 
+def test_policy_blocks_compact_rm_recursive_flags() -> None:
+    decision = PermissionPolicy().decide(
+        "shell",
+        {"command": "rm -rf build"},
+        "shell",
+    )
+
+    assert decision.outcome == "block"
+    assert "destructive" in decision.reason
+
+
 def test_policy_confirms_package_install_shell_commands() -> None:
     decision = PermissionPolicy().decide(
         "shell",

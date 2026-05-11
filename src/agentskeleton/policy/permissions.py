@@ -115,4 +115,11 @@ def _looks_like_recursive_delete(command: str) -> bool:
     tokens = command.replace(";", " ").replace("|", " ").split()
     if not any(token in delete_commands for token in tokens):
         return False
-    return any(token in {"-recurse", "-r", "/s"} for token in tokens)
+    return any(
+        token in {"-recurse", "-r", "/s"} or _is_compact_recursive_flag(token)
+        for token in tokens
+    )
+
+
+def _is_compact_recursive_flag(token: str) -> bool:
+    return token.startswith("-") and len(token) <= 4 and "r" in token[1:]
