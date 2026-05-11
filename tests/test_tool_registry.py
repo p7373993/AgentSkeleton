@@ -1,6 +1,7 @@
 import pytest
 
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
+from agentskeleton.tools.loading import load_tools_from_modules
 from agentskeleton.tools.registry import ToolRegistry
 
 
@@ -62,3 +63,76 @@ def test_registry_raises_for_unknown_tool() -> None:
 
     with pytest.raises(KeyError, match="Unknown tool"):
         registry.get("missing")
+
+
+def test_load_tools_from_module_tools_list(tmp_path, monkeypatch) -> None:
+    module_path = tmp_path / "custom_tools.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "from agentskeleton.tools.base import Tool, ToolResult",
+                "",
+                "class CustomTool(Tool):",
+                "    name = 'custom_echo'",
+                "    description = 'Custom echo.'",
+                "    risk = 'read'",
+                "    args_schema = {",
+                "        'type': 'object',",
+                "        'properties': {'text': {'type': 'string'}},",
+                "        'required': ['text'],",
+                "        'additionalProperties': False,",
+                "    }",
+                "    def execute(self, args, context):",
+                "        return ToolResult(",
+                "            success=True,",
+                "            payload={'text': args['text']},",
+                "            summary=args['text'],",
+                "        )",
+                "",
+                "TOOLS = [CustomTool()]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    tools = load_tools_from_modules(["custom_tools"])
+
+    assert [tool.name for tool in tools] == ["custom_echo"]
+
+
+def test_load_tools_from_module_register_function(tmp_path, monkeypatch) -> None:
+    module_path = tmp_path / "custom_register_tools.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "from agentskeleton.tools.base import Tool, ToolResult",
+                "",
+                "class CustomTool(Tool):",
+                "    name = 'registered_echo'",
+                "    description = 'Registered echo.'",
+                "    risk = 'read'",
+                "    args_schema = {'type': 'object', 'properties': {}}",
+                "    def execute(self, args, context):",
+                "        return ToolResult(success=True, summary='ok')",
+                "",
+                "def register_tools(registry):",
+                "    registry.register(CustomTool())",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    tools = load_tools_from_modules(["custom_register_tools"])
+
+    assert [tool.name for tool in tools] == ["registered_echo"]
+
+
+def test_load_tools_from_module_requires_tool_provider(tmp_path, monkeypatch) -> None:
+    module_path = tmp_path / "empty_tools.py"
+    module_path.write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(ValueError, match="must define TOOLS or register_tools"):
+        load_tools_from_modules(["empty_tools"])

@@ -20,6 +20,7 @@ class RunConfig(BaseModel):
     logs_dir: Path = Path("runs")
     shell_timeout_seconds: int = Field(default=30, gt=0)
     shell_max_output_bytes: int = Field(default=20000, gt=0)
+    tool_modules: list[str] = Field(default_factory=list)
     enabled_tools: list[str] | None = None
 
     @field_validator("workspace")
@@ -35,6 +36,14 @@ class RunConfig(BaseModel):
         for name in value:
             if not name.strip():
                 raise ValueError("enabled_tools cannot contain empty names")
+        return value
+
+    @field_validator("tool_modules")
+    @classmethod
+    def reject_empty_tool_modules(cls, value: list[str]) -> list[str]:
+        for name in value:
+            if not name.strip():
+                raise ValueError("tool_modules cannot contain empty names")
         return value
 
 

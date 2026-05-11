@@ -16,6 +16,7 @@ from agentskeleton.core.trace import ConsoleTraceSink, NullTraceSink
 from agentskeleton.logging.run_logger import RunLogger
 from agentskeleton.policy.permissions import PermissionDecision
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
+from agentskeleton.tools.loading import load_tools_from_modules
 from agentskeleton.tools.registry import ToolRegistry
 from agentskeleton.tools.shell import ShellTool
 from agentskeleton.tools.user import AskUserTool
@@ -34,7 +35,10 @@ app = typer.Typer(help="Run a minimal local CLI agent.")
 console = Console()
 
 
-def build_default_registry(enabled_tools: list[str] | None = None) -> ToolRegistry:
+def build_default_registry(
+    enabled_tools: list[str] | None = None,
+    tool_modules: list[str] | None = None,
+) -> ToolRegistry:
     tools = [
         ListDirTool(),
         ReadFileTool(),
@@ -42,6 +46,7 @@ def build_default_registry(enabled_tools: list[str] | None = None) -> ToolRegist
         ShellTool(),
         AskUserTool(),
     ]
+    tools.extend(load_tools_from_modules(tool_modules))
     if enabled_tools is None:
         return ToolRegistry(tools)
 
@@ -61,7 +66,7 @@ def tools(
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
 ) -> None:
     loaded = load_config(config, {"enabled_tools": tool})
-    registry = build_default_registry(loaded.enabled_tools)
+    registry = build_default_registry(loaded.enabled_tools, loaded.tool_modules)
     table = Table(title="Registered Tools")
     table.add_column("Name")
     table.add_column("Description")
@@ -101,7 +106,7 @@ def run(
     )
     run_id = str(uuid4())
     logger = RunLogger(loaded.logs_dir, run_id)
-    registry = build_default_registry(loaded.enabled_tools)
+    registry = build_default_registry(loaded.enabled_tools, loaded.tool_modules)
     trace = NullTraceSink() if quiet else ConsoleTraceSink(console)
     session_store = SessionStore(loaded.logs_dir)
     conversation = []
@@ -184,7 +189,7 @@ def chat(
             "enabled_tools": tool,
         },
     )
-    registry = build_default_registry(loaded.enabled_tools)
+    registry = build_default_registry(loaded.enabled_tools, loaded.tool_modules)
     trace_sink = ConsoleTraceSink(console) if trace else NullTraceSink()
     session_store = SessionStore(loaded.logs_dir)
 
