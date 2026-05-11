@@ -57,13 +57,21 @@ class SessionStore:
         with self._transcript_path_for(name).open("a", encoding="utf-8") as file:
             file.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    def refresh_summary(self, name: str, keep_turns: int) -> None:
+    def refresh_summary(
+        self,
+        name: str,
+        keep_turns: int,
+        summary_turns: int = 40,
+    ) -> None:
         if keep_turns < 0:
             raise ValueError("keep_turns must be non-negative")
+        if summary_turns <= 0:
+            raise ValueError("summary_turns must be positive")
 
         transcript = self._load_transcript(name)
         older_turns = transcript[:-keep_turns] if keep_turns else transcript
-        summary = _summarize_transcript(older_turns)
+        summary_turns_source = older_turns[-summary_turns:]
+        summary = _summarize_transcript(summary_turns_source)
         session_dir = self._dir_for(name)
         session_dir.mkdir(parents=True, exist_ok=True)
         self._summary_path_for(name).write_text(summary, encoding="utf-8")

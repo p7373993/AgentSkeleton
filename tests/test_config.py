@@ -18,6 +18,7 @@ def test_default_config_uses_current_directory(tmp_path: Path) -> None:
     assert config.shell_timeout_seconds == 30
     assert config.shell_max_output_bytes == 20000
     assert config.session_context_turns == 20
+    assert config.session_summary_turns == 40
     assert config.tool_modules == []
     assert config.enabled_tools is None
     assert config.permission_profile == "standard"
@@ -34,6 +35,7 @@ def test_load_config_merges_yaml_and_overrides(tmp_path: Path) -> None:
                 "reasoning_effort: medium",
                 "max_steps: 7",
                 "session_context_turns: 5",
+                "session_summary_turns: 9",
                 "base_url: https://example.openai.azure.com/openai/v1/",
                 "permission_profile: read_only",
                 "tool_modules:",
@@ -53,6 +55,7 @@ def test_load_config_merges_yaml_and_overrides(tmp_path: Path) -> None:
     assert config.reasoning_effort == "medium"
     assert config.max_steps == 3
     assert config.session_context_turns == 5
+    assert config.session_summary_turns == 9
     assert config.base_url == "https://example.openai.azure.com/openai/v1/"
     assert config.permission_profile == "read_only"
     assert config.tool_modules == ["custom_tools"]
@@ -107,6 +110,9 @@ def test_config_rejects_non_positive_limits(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError):
         RunConfig(workspace=tmp_path, session_context_turns=0)
+
+    with pytest.raises(ValueError):
+        RunConfig(workspace=tmp_path, session_summary_turns=0)
 
 
 def test_config_rejects_unknown_permission_profile(tmp_path: Path) -> None:

@@ -15,6 +15,7 @@ class RunConfig(BaseModel):
     text_verbosity: str = "low"
     max_steps: int = Field(default=20, gt=0)
     session_context_turns: int = Field(default=20, gt=0)
+    session_summary_turns: int = Field(default=40, gt=0)
     workspace: Path = Path(".")
     permission_profile: Literal["standard", "read_only", "trusted"] = "standard"
     confirm_risky_actions: bool = True

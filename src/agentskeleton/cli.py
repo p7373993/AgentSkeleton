@@ -287,7 +287,11 @@ def run(
     session_store = SessionStore(loaded.logs_dir)
     conversation = []
     if not no_session:
-        session_store.refresh_summary(session, loaded.session_context_turns)
+        session_store.refresh_summary(
+            session,
+            loaded.session_context_turns,
+            loaded.session_summary_turns,
+        )
         session_state = session_store.load(session)
         conversation = session_state.context_messages()
 
@@ -399,7 +403,11 @@ def chat(
         logger = RunLogger(loaded.logs_dir, run_id)
         conversation = []
         if not no_session:
-            session_store.refresh_summary(session, loaded.session_context_turns)
+            session_store.refresh_summary(
+                session,
+                loaded.session_context_turns,
+                loaded.session_summary_turns,
+            )
             conversation = session_store.load(session).context_messages()
             session_store.append_transcript(
                 session,

@@ -64,6 +64,20 @@ def test_session_store_refreshes_summary_for_older_transcript_turns(tmp_path) ->
     ]
 
 
+def test_session_store_limits_summary_to_recent_older_turns(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    store.append_transcript("default", "user", "very old user")
+    store.append_transcript("default", "assistant", "very old answer")
+    store.append_transcript("default", "user", "old user")
+    store.append_transcript("default", "assistant", "old answer")
+    store.append_transcript("default", "user", "recent user")
+    store.append_transcript("default", "assistant", "recent answer")
+
+    store.refresh_summary("default", keep_turns=2, summary_turns=2)
+
+    assert store.load("default").summary == "- user: old user\n- assistant: old answer"
+
+
 def test_session_store_sanitizes_session_names(tmp_path) -> None:
     store = SessionStore(tmp_path)
 

@@ -542,7 +542,10 @@ def test_run_refreshes_session_summary_for_long_transcript(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
     config_path = tmp_path / "agent.yaml"
-    config_path.write_text("session_context_turns: 2\n", encoding="utf-8")
+    config_path.write_text(
+        "session_context_turns: 2\nsession_summary_turns: 1\n",
+        encoding="utf-8",
+    )
     store = SessionStore(tmp_path / "runs")
     store.append_transcript("default", "user", "old user")
     store.append_transcript("default", "assistant", "old answer")
@@ -587,7 +590,7 @@ def test_run_refreshes_session_summary_for_long_transcript(
     assert result.exit_code == 0
     assert seen_conversation[0][0] == (
         "user",
-        "Prior conversation summary:\n- user: old user\n- assistant: old answer",
+        "Prior conversation summary:\n- assistant: old answer",
         {"source": "session_summary", "sticky_context": True},
     )
     assert [item[1] for item in seen_conversation[0][1:]] == [
@@ -596,7 +599,7 @@ def test_run_refreshes_session_summary_for_long_transcript(
         "recent user",
         "recent answer",
     ]
-    assert store.load("default").summary == "- user: old user\n- assistant: old answer"
+    assert store.load("default").summary == "- assistant: old answer"
 
 
 def test_run_can_disable_session(monkeypatch, tmp_path) -> None:
