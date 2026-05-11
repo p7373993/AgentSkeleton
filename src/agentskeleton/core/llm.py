@@ -280,6 +280,8 @@ class LLMClient:
 
     def _parse_arguments(self, raw_arguments: str | dict[str, Any]) -> dict[str, Any]:
         if isinstance(raw_arguments, dict):
+            if _json_exceeds_depth(raw_arguments, MAX_JSON_SAFE_DEPTH):
+                raise LLMResponseError("Function call arguments are too deeply nested")
             if _json_size(raw_arguments) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
                 raise LLMResponseError(
                     "Function call arguments are too large "
@@ -294,12 +296,18 @@ class LLMClient:
                 )
         try:
             parsed = json.loads(raw_arguments)
+        except RecursionError as exc:
+            raise LLMResponseError(
+                "Function call arguments are too deeply nested"
+            ) from exc
         except (TypeError, json.JSONDecodeError) as exc:
             raise LLMResponseError(
                 "Function call arguments must be valid JSON"
             ) from exc
         if not isinstance(parsed, dict):
             raise LLMResponseError("Function call arguments must decode to an object")
+        if _json_exceeds_depth(parsed, MAX_JSON_SAFE_DEPTH):
+            raise LLMResponseError("Function call arguments are too deeply nested")
         return parsed
 
 
@@ -367,6 +375,28 @@ def _serialize_tool_result(result: Any) -> str:
 
 def _json_size(value: Any) -> int:
     return len(json.dumps(_json_safe(value), default=str).encode("utf-8"))
+
+
+def _json_exceeds_depth(value: Any, max_depth: int) -> bool:
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    seen: set[int] = set()
+    while stack:
+        item, depth = stack.pop()
+        if depth > max_depth:
+            return True
+        if isinstance(item, dict):
+            marker = id(item)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            stack.extend((child, depth + 1) for child in item.values())
+        elif isinstance(item, list | tuple):
+            marker = id(item)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            stack.extend((child, depth + 1) for child in item)
+    return False
 
 
 def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:

@@ -386,6 +386,34 @@ def test_llm_client_rejects_invalid_function_call_arguments_json(tmp_path) -> No
         ).next_action(state, ToolRegistry([DummyTool()]))
 
 
+def test_llm_client_rejects_too_deep_function_call_arguments_json(tmp_path) -> None:
+    arguments = "{}"
+    for _ in range(1_200):
+        arguments = f'{{"child":{arguments}}}'
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                name="read_file",
+                arguments=arguments,
+                call_id="call-1",
+            )
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Function call arguments are too deeply nested",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+
 def test_llm_client_rejects_oversized_function_call_arguments(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",
