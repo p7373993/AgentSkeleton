@@ -24,6 +24,8 @@ AGENT_INSTRUCTIONS = (
 MAX_TOOL_RESULT_OUTPUT_BYTES = 1_048_576
 MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
 MAX_RESPONSE_OUTPUT_ITEMS = 100
+MAX_RESPONSE_CONTEXT_ITEMS = 200
+MAX_RESPONSE_CONTEXT_ANCHOR_ITEMS = 50
 MAX_MESSAGE_CONTENT_PARTS = 200
 MAX_FUNCTION_CALL_ARGUMENT_BYTES = 2_097_152
 MAX_CONVERSATION_CONTENT_CHARS = 4_096
@@ -213,6 +215,9 @@ class LLMClient:
                 for item in output
                 if (serialized := self._serialize_output_item(item)) is not None
             )
+            state.response_context_items = _trim_response_context_items(
+                state.response_context_items
+            )
         self._emit_trace(
             "llm_response",
             {
@@ -265,11 +270,14 @@ class LLMClient:
                     for observation in unsent
                 )
                 state.sent_observation_count = len(state.observations)
+            state.response_context_items = _trim_response_context_items(
+                state.response_context_items
+            )
             return state.response_context_items
 
         conversation = getattr(state, "conversation", [])
         if conversation:
-            return self._conversation_items(state)
+            return _trim_response_context_items(self._conversation_items(state))
         return state.goal
 
     def _conversation_items(self, state: RunState) -> list[dict[str, str]]:
@@ -409,6 +417,37 @@ def _safe_conversation_role(role: object) -> str:
     if normalized not in ALLOWED_CONVERSATION_ROLES:
         return "user"
     return normalized
+
+
+def _trim_response_context_items(
+    items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if len(items) <= MAX_RESPONSE_CONTEXT_ITEMS:
+        return items
+    anchors = _leading_context_anchors(items)
+    tail_budget = MAX_RESPONSE_CONTEXT_ITEMS - len(anchors)
+    if tail_budget <= 0:
+        return anchors[:MAX_RESPONSE_CONTEXT_ITEMS]
+    return [*anchors, *items[-tail_budget:]]
+
+
+def _leading_context_anchors(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    anchors: list[dict[str, Any]] = []
+    for item in items:
+        if len(anchors) >= MAX_RESPONSE_CONTEXT_ANCHOR_ITEMS:
+            break
+        if not _is_conversation_context_item(item):
+            break
+        anchors.append(item)
+    return anchors
+
+
+def _is_conversation_context_item(item: dict[str, Any]) -> bool:
+    return (
+        "type" not in item
+        and isinstance(item.get("role"), str)
+        and "content" in item
+    )
 
 
 def _is_context_item(item: object) -> bool:

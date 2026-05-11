@@ -713,6 +713,87 @@ def test_llm_client_sends_tool_observations_as_stateless_input(tmp_path) -> None
     ]
 
 
+def test_llm_client_bounds_accumulated_response_context_items(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        response_context_items=[
+            {"role": "user", "content": "read"},
+            *[
+                {"type": "message", "role": "assistant", "content": f"old-{index}"}
+                for index in range(250)
+            ],
+        ],
+        observations=[
+            ToolObservation(
+                call_id="call-250",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult(
+                    success=True,
+                    payload={"content": "latest"},
+                    summary="ok",
+                ),
+            )
+        ],
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    request_input = fake_client.responses.calls[0]["input"]
+    assert isinstance(action, FinalAction)
+    assert len(request_input) == 200
+    assert len(state.response_context_items) == 200
+    assert request_input[0] == {"role": "user", "content": "read"}
+    assert "old-0" not in json.dumps(request_input)
+    assert "old-249" in json.dumps(request_input)
+    assert request_input[-1]["type"] == "function_call_output"
+    assert request_input[-1]["call_id"] == "call-250"
+    assert '"content": "latest"' in request_input[-1]["output"]
+
+
+def test_llm_client_bounds_response_context_after_output_items(tmp_path) -> None:
+    response = SimpleNamespace(
+        id="resp-2",
+        output_text="done",
+        output=[
+            {"type": "message", "role": "assistant", "content": "fresh-1"},
+            {"type": "message", "role": "assistant", "content": "fresh-2"},
+        ],
+    )
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        response_context_items=[
+            {"role": "user", "content": "read"},
+            *[
+                {"type": "message", "role": "assistant", "content": f"old-{index}"}
+                for index in range(198)
+            ],
+        ],
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    serialized_context = json.dumps(state.response_context_items)
+    assert isinstance(action, FinalAction)
+    assert len(state.response_context_items) == 200
+    assert state.response_context_items[0] == {"role": "user", "content": "read"}
+    assert "old-0" not in serialized_context
+    assert "fresh-1" in serialized_context
+    assert "fresh-2" in serialized_context
+
+
 def test_llm_client_skips_output_items_without_context_type(tmp_path) -> None:
     first_response = SimpleNamespace(
         id="resp-1",
