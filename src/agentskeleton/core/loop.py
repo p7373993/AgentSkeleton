@@ -431,8 +431,11 @@ def _action_fingerprint(action: ToolCallAction) -> str:
 
 def _validate_tool_arguments(
     schema: dict[str, object],
-    arguments: dict[str, object],
+    arguments: object,
 ) -> list[str]:
+    if not isinstance(arguments, dict):
+        return ["Tool arguments must be an object"]
+
     if schema.get("type") != "object":
         return []
 
