@@ -152,6 +152,19 @@ class AgentLoop:
             if isinstance(action, ToolCallAction):
                 self._execute_tool_action(state, action)
             elif isinstance(action, ToolCallBatchAction):
+                if not isinstance(action.tool_calls, list):
+                    self._record_invalid_action(
+                        state,
+                        action,
+                        reason=(
+                            "Model returned invalid tool call batch: "
+                            "tool_calls must be a list"
+                        ),
+                        error_type="invalid_tool_batch",
+                    )
+                    if state.final_status is not None:
+                        self._log_run_finished(state)
+                        return state
                 if not action.tool_calls:
                     self._record_invalid_action(
                         state,
