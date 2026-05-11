@@ -62,6 +62,9 @@ class PermissionPolicy:
         if any(pattern in normalized for pattern in destructive_patterns):
             return PermissionDecision("block", "Shell command looks destructive")
 
+        if _looks_like_recursive_delete(normalized):
+            return PermissionDecision("block", "Shell command looks destructive")
+
         secret_patterns = [
             ".env",
             "id_rsa",
@@ -102,3 +105,11 @@ class PermissionPolicy:
             )
 
         return PermissionDecision("allow", "shell command allowed")
+
+
+def _looks_like_recursive_delete(command: str) -> bool:
+    delete_commands = ("remove-item", "rm", "ri", "del", "erase", "rd", "rmdir")
+    tokens = command.replace(";", " ").replace("|", " ").split()
+    if not any(token in delete_commands for token in tokens):
+        return False
+    return any(token in {"-recurse", "-r", "/s"} for token in tokens)

@@ -77,6 +77,22 @@ def test_policy_blocks_clearly_destructive_shell_commands() -> None:
     assert "destructive" in decision.reason
 
 
+def test_policy_blocks_powershell_recursive_delete_commands() -> None:
+    decision = PermissionPolicy().decide(
+        "shell",
+        {
+            "command": (
+                "Remove-Item -LiteralPath C:\\code\\AgentSkeleton "
+                "-Recurse -Force"
+            )
+        },
+        "shell",
+    )
+
+    assert decision.outcome == "block"
+    assert "destructive" in decision.reason
+
+
 def test_policy_confirms_package_install_shell_commands() -> None:
     decision = PermissionPolicy().decide(
         "shell",
