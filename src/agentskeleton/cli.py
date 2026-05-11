@@ -43,6 +43,7 @@ app = typer.Typer(help="Run a minimal local CLI agent.")
 console = Console(markup=False)
 MAX_RUN_LOG_BYTES = 2_097_152
 MAX_RUN_LOG_TEXT_CHARS = 4_096
+MAX_RUN_LOG_EVENT_DEPTH = 64
 
 
 def build_default_registry(
@@ -846,7 +847,7 @@ def _summarize_run_log(
         "log": str(log_path.resolve()),
     }
     if include_events:
-        summary["events"] = events
+        summary["events"] = [_bounded_run_log_event(event) for event in events]
     return summary
 
 
@@ -876,6 +877,21 @@ def _bounded_run_log_text(value: str) -> str:
         return value
     omitted = len(value) - MAX_RUN_LOG_TEXT_CHARS
     return f"{value[:MAX_RUN_LOG_TEXT_CHARS]}\n[truncated {omitted} characters]"
+
+
+def _bounded_run_log_event(value: Any, depth: int = 0) -> Any:
+    if depth > MAX_RUN_LOG_EVENT_DEPTH:
+        return "<max-depth-exceeded>"
+    if isinstance(value, str):
+        return _bounded_run_log_text(value)
+    if isinstance(value, list):
+        return [_bounded_run_log_event(item, depth + 1) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(key): _bounded_run_log_event(item, depth + 1)
+            for key, item in value.items()
+        }
+    return value
 
 
 def _summary_transcript_content(summary: dict[str, object]) -> str | None:
