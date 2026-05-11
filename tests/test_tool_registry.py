@@ -101,6 +101,27 @@ def test_registry_rejects_non_string_tool_descriptions() -> None:
 
 
 @pytest.mark.parametrize(
+    ("description", "error"),
+    [
+        (" ", "Tool echo description cannot be empty"),
+        (" Echo text. ", "Tool echo description cannot contain surrounding whitespace"),
+    ],
+)
+def test_registry_rejects_invalid_tool_descriptions(
+    description: str,
+    error: str,
+) -> None:
+    class InvalidDescriptionTool(EchoTool):
+        pass
+
+    InvalidDescriptionTool.description = description
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match=error):
+        registry.register(InvalidDescriptionTool())
+
+
+@pytest.mark.parametrize(
     ("risk", "error"),
     [
         (123, "Tool echo risk must be a string"),

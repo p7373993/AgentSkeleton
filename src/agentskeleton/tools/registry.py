@@ -37,6 +37,12 @@ class ToolRegistry:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
         if not isinstance(tool.description, str):
             raise ValueError(f"Tool {name} description must be a string")
+        if not tool.description.strip():
+            raise ValueError(f"Tool {name} description cannot be empty")
+        if tool.description.strip() != tool.description:
+            raise ValueError(
+                f"Tool {name} description cannot contain surrounding whitespace"
+            )
         if not isinstance(tool.risk, str):
             raise ValueError(f"Tool {name} risk must be a string")
         if not tool.risk.strip():
