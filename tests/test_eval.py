@@ -796,6 +796,30 @@ def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:
         raise AssertionError("Expected missing scenario file to fail")
 
 
+def test_load_scenario_reports_malformed_yaml(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "broken.yaml"
+    scenario_path.write_text("goal: [unterminated\n", encoding="utf-8")
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file could not be parsed: {scenario_path}"
+    else:
+        raise AssertionError("Expected malformed scenario to fail")
+
+
+def test_load_scenario_reports_invalid_utf8_yaml(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "broken.yaml"
+    scenario_path.write_bytes(b"\xff\xfe\x00broken")
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file could not be read as UTF-8: {scenario_path}"
+    else:
+        raise AssertionError("Expected invalid UTF-8 scenario to fail")
+
+
 def test_load_scenario_requires_expectations(tmp_path: Path) -> None:
     scenario_path = tmp_path / "unchecked.yaml"
     scenario_path.write_text(
@@ -891,6 +915,38 @@ def test_load_scenario_suite_config_reads_manifest_required_domains(
 
     assert config.required_domains == ["finance", "writing"]
     assert [scenario.name for scenario in scenarios] == ["alpha"]
+
+
+def test_load_scenario_suite_config_reports_malformed_manifest(
+    tmp_path: Path,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    manifest = suite_dir / "suite.yaml"
+    manifest.write_text("required_domains: [unterminated\n", encoding="utf-8")
+
+    try:
+        load_scenario_suite_config(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Suite manifest could not be parsed: {manifest}"
+    else:
+        raise AssertionError("Expected malformed suite manifest to fail")
+
+
+def test_load_scenario_suite_config_reports_invalid_utf8_manifest(
+    tmp_path: Path,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    manifest = suite_dir / "suite.yaml"
+    manifest.write_bytes(b"\xff\xfe\x00broken")
+
+    try:
+        load_scenario_suite_config(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Suite manifest could not be read as UTF-8: {manifest}"
+    else:
+        raise AssertionError("Expected invalid UTF-8 suite manifest to fail")
 
 
 def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> None:

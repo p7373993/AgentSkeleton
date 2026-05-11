@@ -175,10 +175,21 @@ class ScriptedScenarioLLM:
         raise RuntimeError("Scenario actions exhausted")
 
 
+def _load_yaml_document(path: Path, label: str) -> object:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"{label} could not be read as UTF-8: {path}") from exc
+    try:
+        return yaml.safe_load(text) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"{label} could not be parsed: {path}") from exc
+
+
 def load_scenario(path: Path) -> Scenario:
     if not path.exists():
         raise ValueError(f"Scenario file not found: {path}")
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    raw = _load_yaml_document(path, "Scenario file")
     if not isinstance(raw, dict):
         raise ValueError(f"Scenario file must contain a mapping: {path}")
 
@@ -226,7 +237,7 @@ def load_scenario_suite_config(path: Path) -> ScenarioSuiteConfig:
     if manifest is None:
         return ScenarioSuiteConfig()
 
-    raw = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+    raw = _load_yaml_document(manifest, "Suite manifest")
     if not isinstance(raw, dict):
         raise ValueError(f"Suite manifest must contain a mapping: {manifest}")
     return ScenarioSuiteConfig(
