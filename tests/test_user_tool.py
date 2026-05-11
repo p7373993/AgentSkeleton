@@ -25,3 +25,48 @@ def test_ask_user_tool_fails_without_callback(tmp_path: Path) -> None:
 
     assert result.success is False
     assert result.error == "No user input callback configured"
+
+
+def test_ask_user_tool_rejects_missing_question(tmp_path: Path) -> None:
+    def fail_if_called(question: str) -> str:
+        raise AssertionError("ask_user callback should not be called")
+
+    result = AskUserTool().execute(
+        {},
+        ToolContext(workspace=tmp_path, ask_user=fail_if_called),
+    )
+
+    assert result.success is False
+    assert result.error == "Question invalid"
+    assert result.summary == "Question invalid: question must be a string"
+    assert result.payload == {}
+
+
+def test_ask_user_tool_rejects_non_string_question(tmp_path: Path) -> None:
+    def fail_if_called(question: str) -> str:
+        raise AssertionError("ask_user callback should not be called")
+
+    result = AskUserTool().execute(
+        {"question": 123},
+        ToolContext(workspace=tmp_path, ask_user=fail_if_called),
+    )
+
+    assert result.success is False
+    assert result.error == "Question invalid"
+    assert result.summary == "Question invalid: question must be a string"
+    assert result.payload == {}
+
+
+def test_ask_user_tool_rejects_blank_question(tmp_path: Path) -> None:
+    def fail_if_called(question: str) -> str:
+        raise AssertionError("ask_user callback should not be called")
+
+    result = AskUserTool().execute(
+        {"question": "   "},
+        ToolContext(workspace=tmp_path, ask_user=fail_if_called),
+    )
+
+    assert result.success is False
+    assert result.error == "Question invalid"
+    assert result.summary == "Question invalid: question cannot be blank"
+    assert result.payload == {}

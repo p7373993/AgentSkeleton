@@ -20,6 +20,21 @@ class AskUserTool(Tool):
     }
 
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        raw_question = args.get("question")
+        if not isinstance(raw_question, str):
+            return ToolResult(
+                success=False,
+                summary="Question invalid: question must be a string",
+                error="Question invalid",
+            )
+        question = raw_question
+        if not question.strip():
+            return ToolResult(
+                success=False,
+                summary="Question invalid: question cannot be blank",
+                error="Question invalid",
+            )
+
         if context.ask_user is None:
             return ToolResult(
                 success=False,
@@ -27,7 +42,6 @@ class AskUserTool(Tool):
                 error="No user input callback configured",
             )
 
-        question = str(args["question"])
         answer = context.ask_user(question)
         return ToolResult(
             success=True,
