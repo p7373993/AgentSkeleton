@@ -271,6 +271,30 @@ def test_registry_rejects_invalid_args_schema_members(
             {
                 "type": "object",
                 "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": 123,
+                    }
+                },
+            },
+            "schema property text description must be a string",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": " ",
+                    }
+                },
+            },
+            "schema property text description cannot be empty",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
                     "mode": {
                         "type": "string",
                         "enum": "fast",

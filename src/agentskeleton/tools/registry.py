@@ -91,6 +91,13 @@ def _validate_args_schema(tool: Tool) -> None:
 
 
 def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
+    description = schema.get("description")
+    if description is not None:
+        if not isinstance(description, str):
+            raise ValueError(f"Tool {tool_name} {label} description must be a string")
+        if not description.strip():
+            raise ValueError(f"Tool {tool_name} {label} description cannot be empty")
+
     schema_type = schema.get("type")
     if schema_type is not None:
         if isinstance(schema_type, list):
