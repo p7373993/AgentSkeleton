@@ -437,6 +437,9 @@ def test_policy_confirms_package_install_shell_commands(command: str) -> None:
             "python -c \"import urllib.request; "
             "urllib.request.urlopen('https://example.test')\""
         ),
+        "git clone https://example.test/repo.git",
+        "git fetch origin",
+        "git pull --rebase",
     ],
 )
 def test_policy_confirms_network_shell_commands(command: str) -> None:

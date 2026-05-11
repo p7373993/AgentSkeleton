@@ -34,7 +34,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "writing",
     ]
     assert result.passed is True
-    assert result.total == 42
+    assert result.total == 43
     assert result.failed_count == 0
     assert "invalid-tool-result" in {item.scenario for item in result.results}
     assert result.domains == {
@@ -43,7 +43,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "data": {"passed": 1, "failed": 0, "total": 1},
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
         "interactive": {"passed": 1, "failed": 0, "total": 1},
-        "reliability": {"passed": 32, "failed": 0, "total": 32},
+        "reliability": {"passed": 33, "failed": 0, "total": 33},
         "tool_packs": {"passed": 1, "failed": 0, "total": 1},
         "writing": {"passed": 1, "failed": 0, "total": 1},
     }
