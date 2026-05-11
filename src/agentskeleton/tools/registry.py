@@ -1,3 +1,4 @@
+import json
 import re
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
@@ -17,6 +18,7 @@ SUPPORTED_JSON_SCHEMA_TYPES = (
     "string",
 )
 MAX_TOOL_SCHEMA_DEPTH = 64
+MAX_TOOL_SCHEMA_BYTES = 2_097_152
 
 
 class ToolRegistry:
@@ -88,7 +90,17 @@ def _validate_args_schema(tool: Tool) -> None:
         raise ValueError(f"Tool {tool.name} schema must be a mapping")
     if schema.get("type") != "object":
         raise ValueError(f"Tool {tool.name} schema type must be object")
+    _validate_schema_size(tool.name, schema)
     _validate_schema_node(tool.name, schema, "schema", set(), 0)
+
+
+def _validate_schema_size(tool_name: str, schema: Mapping) -> None:
+    try:
+        size = len(json.dumps(schema, default=str).encode("utf-8"))
+    except (TypeError, ValueError, RecursionError):
+        return
+    if size > MAX_TOOL_SCHEMA_BYTES:
+        raise ValueError(f"Tool {tool_name} schema exceeds maximum size")
 
 
 def _validate_schema_node(

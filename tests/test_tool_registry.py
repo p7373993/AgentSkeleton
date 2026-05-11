@@ -252,6 +252,25 @@ def test_registry_rejects_overly_deep_args_schema() -> None:
         registry.register(DeepSchemaTool())
 
 
+def test_registry_rejects_oversized_args_schema() -> None:
+    class WideSchemaTool(EchoTool):
+        args_schema = {
+            "type": "object",
+            "properties": {
+                f"field_{index}": {
+                    "type": "string",
+                    "description": "x" * 300,
+                }
+                for index in range(9_000)
+            },
+        }
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="schema exceeds maximum size"):
+        registry.register(WideSchemaTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [
