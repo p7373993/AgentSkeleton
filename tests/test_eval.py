@@ -767,6 +767,28 @@ def test_eval_log_reader_reports_log_path_directory(tmp_path: Path) -> None:
     assert failures == [f"log file expected but was not a file: {log_path}"]
 
 
+def test_eval_log_reader_reports_log_read_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    log_path = tmp_path / "run.jsonl"
+    log_path.write_text('{"type": "run_started"}\n', encoding="utf-8")
+    original_read_bytes = Path.read_bytes
+
+    def fail_read_bytes(path: Path) -> bytes:
+        if path == log_path:
+            raise OSError("permission denied")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read_bytes)
+    failures: list[str] = []
+
+    events = _read_log_events(log_path, failures)
+
+    assert events == []
+    assert failures == [f"log file could not be read: {log_path}"]
+
+
 def test_run_scenario_reports_log_event_mismatch(tmp_path: Path) -> None:
     scenario_path = tmp_path / "event-mismatch.yaml"
     scenario_path.write_text(
@@ -864,6 +886,50 @@ def test_run_scenario_reports_invalid_utf8_expected_file(tmp_path: Path) -> None
     assert result.failures == [
         "file reports/summary.txt could not be decoded as UTF-8"
     ]
+
+
+def test_run_scenario_reports_expected_file_read_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report_path = tmp_path / "reports" / "summary.txt"
+    report_path.parent.mkdir()
+    report_path.write_text("summary", encoding="utf-8")
+    scenario_path = tmp_path / "unreadable-report.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: unreadable-report",
+                "goal: inspect report",
+                "actions:",
+                "  - type: final",
+                "    text: checked",
+                "expect:",
+                "  status: completed",
+                "  files:",
+                "    reports/summary.txt: summary",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scenario = load_scenario(scenario_path)
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == report_path:
+            raise OSError("permission denied")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == ["file reports/summary.txt could not be read"]
 
 
 def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:

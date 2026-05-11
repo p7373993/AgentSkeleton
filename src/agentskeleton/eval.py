@@ -643,6 +643,9 @@ def _expect_files(
             continue
         try:
             actual_content = target.read_text(encoding="utf-8")
+        except OSError:
+            failures.append(f"file {path_text} could not be read")
+            continue
         except UnicodeDecodeError:
             failures.append(f"file {path_text} could not be decoded as UTF-8")
             continue
@@ -779,7 +782,12 @@ def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]
         return []
 
     events: list[dict[str, Any]] = []
-    for line_number, raw_line in enumerate(log_path.read_bytes().splitlines(), 1):
+    try:
+        raw_lines = log_path.read_bytes().splitlines()
+    except OSError:
+        failures.append(f"log file could not be read: {log_path}")
+        return []
+    for line_number, raw_line in enumerate(raw_lines, 1):
         try:
             line = raw_line.decode("utf-8")
         except UnicodeDecodeError:
