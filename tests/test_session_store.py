@@ -105,6 +105,49 @@ def test_session_store_lists_saved_sessions(tmp_path) -> None:
     ]
 
 
+def test_session_store_ignores_malformed_transcript_lines(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"role": "user", "content": "first"}),
+                '{"role": "assistant"',
+                json.dumps({"role": "assistant", "content": "second"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    session = store.load("default")
+
+    assert [turn.content for turn in session.transcript] == ["first", "second"]
+    assert store.list_sessions()[0].transcript_turns == 2
+
+
+def test_session_store_refresh_summary_ignores_malformed_transcript_lines(
+    tmp_path,
+) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"role": "user", "content": "old"}),
+                '{"role": "assistant"',
+                json.dumps({"role": "assistant", "content": "recent"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    store.refresh_summary("default", keep_turns=1)
+
+    assert store.load("default").summary == "- user: old"
+
+
 def test_session_store_sanitizes_session_names(tmp_path) -> None:
     store = SessionStore(tmp_path)
 

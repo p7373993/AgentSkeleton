@@ -126,7 +126,12 @@ class SessionStore:
         for line in path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
-            row = json.loads(line)
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(row, dict):
+                continue
             metadata = row.get("metadata") or {}
             transcript.append(
                 ConversationMessage(
