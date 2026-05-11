@@ -1036,6 +1036,57 @@ def test_run_bounds_large_final_reason_output(monkeypatch, tmp_path) -> None:
     assert large_reason not in result.stdout
 
 
+def test_run_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    large_reason = "r" * 20_000
+    large_argument = "a" * 20_000
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            self.confirmer = kwargs["confirmer"]
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            decision = type("Decision", (), {"reason": large_reason})()
+            action = type(
+                "Action",
+                (),
+                {
+                    "tool_name": "write_file",
+                    "arguments": {"payload": large_argument},
+                },
+            )()
+            assert self.confirmer(decision, action) is False
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "denied",
+                    "final_answer": None,
+                    "final_reason": "user denied",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "confirm"], input="n\n")
+
+    assert result.exit_code == 0
+    assert result.stdout.count("[truncated") >= 2
+    assert large_reason not in result.stdout
+    assert large_argument not in result.stdout
+
+
 def test_run_persists_status_reason_when_no_final_answer(
     monkeypatch,
     tmp_path,
@@ -1411,6 +1462,57 @@ def test_chat_bounds_large_final_reason_output(monkeypatch, tmp_path) -> None:
     assert "r" * 40 in result.stdout
     assert "[truncated" in result.stdout
     assert large_reason not in result.stdout
+
+
+def test_chat_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    large_reason = "r" * 20_000
+    large_argument = "a" * 20_000
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            self.confirmer = kwargs["confirmer"]
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            decision = type("Decision", (), {"reason": large_reason})()
+            action = type(
+                "Action",
+                (),
+                {
+                    "tool_name": "write_file",
+                    "arguments": {"payload": large_argument},
+                },
+            )()
+            assert self.confirmer(decision, action) is False
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "denied",
+                    "final_answer": None,
+                    "final_reason": "user denied",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="first\nn\n/exit\n")
+
+    assert result.exit_code == 0
+    assert result.stdout.count("[truncated") >= 2
+    assert large_reason not in result.stdout
+    assert large_argument not in result.stdout
 
 
 def test_chat_persists_status_reason_for_next_turn(monkeypatch, tmp_path) -> None:

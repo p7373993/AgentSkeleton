@@ -381,9 +381,11 @@ def run(
         raise typer.Exit(1) from exc
 
     def confirm(decision: PermissionDecision, action) -> bool:
+        reason = _bounded_display_text(str(decision.reason))
+        arguments = _bounded_display_text(str(action.arguments))
         console.print(f"Tool requires confirmation: {action.tool_name}")
-        console.print(f"Reason: {decision.reason}")
-        console.print(f"Arguments: {action.arguments}")
+        console.print(f"Reason: {reason}")
+        console.print(f"Arguments: {arguments}")
         return typer.confirm("Allow this action?", default=False)
 
     loop = AgentLoop(
@@ -468,9 +470,11 @@ def chat(
         raise typer.Exit(1) from exc
 
     def confirm(decision: PermissionDecision, action) -> bool:
+        reason = _bounded_display_text(str(decision.reason))
+        arguments = _bounded_display_text(str(action.arguments))
         console.print(f"Tool requires confirmation: {action.tool_name}")
-        console.print(f"Reason: {decision.reason}")
-        console.print(f"Arguments: {action.arguments}")
+        console.print(f"Reason: {reason}")
+        console.print(f"Arguments: {arguments}")
         return typer.confirm("Allow this action?", default=False)
 
     console.print("Type /exit or /quit to leave.")
