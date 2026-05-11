@@ -125,8 +125,13 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
         raise ValueError(f"Tool {tool_name} {label} enum must be a list")
 
     properties = schema.get("properties")
-    if properties is not None and not isinstance(properties, Mapping):
-        raise ValueError(f"Tool {tool_name} {label} properties must be a mapping")
+    if properties is not None:
+        if not _schema_type_includes(schema_type, "object"):
+            raise ValueError(
+                f"Tool {tool_name} {label} properties require object type"
+            )
+        if not isinstance(properties, Mapping):
+            raise ValueError(f"Tool {tool_name} {label} properties must be a mapping")
     if isinstance(properties, Mapping):
         for property_name, property_schema in properties.items():
             if not isinstance(property_name, str):
@@ -145,6 +150,8 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
             )
     required = schema.get("required")
     if required is not None:
+        if not _schema_type_includes(schema_type, "object"):
+            raise ValueError(f"Tool {tool_name} {label} required requires object type")
         if not isinstance(required, list):
             raise ValueError(f"Tool {tool_name} {label} required must be a list")
         if not all(isinstance(item, str) for item in required):
@@ -160,13 +167,15 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
                 )
 
     additional_properties = schema.get("additionalProperties")
-    if additional_properties is not None and not isinstance(
-        additional_properties,
-        bool,
-    ):
-        raise ValueError(
-            f"Tool {tool_name} {label} additionalProperties must be a boolean"
-        )
+    if additional_properties is not None:
+        if not _schema_type_includes(schema_type, "object"):
+            raise ValueError(
+                f"Tool {tool_name} {label} additionalProperties require object type"
+            )
+        if not isinstance(additional_properties, bool):
+            raise ValueError(
+                f"Tool {tool_name} {label} additionalProperties must be a boolean"
+            )
 
     items = schema.get("items")
     if items is not None:

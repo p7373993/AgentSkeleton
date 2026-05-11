@@ -295,6 +295,42 @@ def test_registry_rejects_invalid_args_schema_members(
             {
                 "type": "object",
                 "properties": {
+                    "text": {
+                        "type": "string",
+                        "properties": {"child": {"type": "string"}},
+                    }
+                },
+            },
+            "schema property text properties require object type",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "required": [],
+                    }
+                },
+            },
+            "schema property text required requires object type",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "additionalProperties": False,
+                    }
+                },
+            },
+            "schema property text additionalProperties require object type",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
                     "mode": {
                         "type": "string",
                         "enum": "fast",
