@@ -379,6 +379,18 @@ def test_registry_rejects_invalid_args_schema_members(
             },
             "schema property tags items must be a mapping",
         ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "items": {"type": "string"},
+                    }
+                },
+            },
+            "schema property text items require array type",
+        ),
     ],
 )
 def test_registry_rejects_invalid_nested_args_schema_members(

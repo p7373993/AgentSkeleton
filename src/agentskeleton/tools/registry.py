@@ -170,6 +170,16 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
 
     items = schema.get("items")
     if items is not None:
+        if not _schema_type_includes(schema_type, "array"):
+            raise ValueError(f"Tool {tool_name} {label} items require array type")
         if not isinstance(items, Mapping):
             raise ValueError(f"Tool {tool_name} {label} items must be a mapping")
         _validate_schema_node(tool_name, items, f"{label} items")
+
+
+def _schema_type_includes(raw_type: object, expected_type: str) -> bool:
+    if isinstance(raw_type, str):
+        return raw_type == expected_type
+    if isinstance(raw_type, list):
+        return expected_type in raw_type
+    return False
