@@ -718,8 +718,8 @@ def _summarize_run_log(
         (event for event in reversed(events) if event.get("type") == "run_finished"),
         None,
     )
-    start_payload = start_event.get("payload", {}) if start_event else {}
-    final_payload = final_event.get("payload", {}) if final_event else {}
+    start_payload = _event_payload(start_event)
+    final_payload = _event_payload(final_event)
     step = final_event.get("step") if final_event else None
     tool_events = [
         event
@@ -766,6 +766,13 @@ def _summarize_run_log(
     if include_events:
         summary["events"] = events
     return summary
+
+
+def _event_payload(event: dict[str, Any] | None) -> dict[str, Any]:
+    if event is None:
+        return {}
+    payload = event.get("payload")
+    return payload if isinstance(payload, dict) else {}
 
 
 def _summary_transcript_content(summary: dict[str, object]) -> str | None:

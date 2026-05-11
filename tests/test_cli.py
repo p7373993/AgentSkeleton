@@ -1544,6 +1544,49 @@ def test_show_run_ignores_non_object_jsonl_lines(monkeypatch, tmp_path) -> None:
     assert payload["events"] == events
 
 
+def test_show_run_treats_non_object_event_payloads_as_empty(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    log_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-1",
+                        "step": 0,
+                        "payload": ["not", "a", "mapping"],
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 3,
+                        "payload": "also not a mapping",
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["run_id"] == "run-1"
+    assert payload["goal"] is None
+    assert payload["status"] == "unknown"
+    assert payload["steps"] == 3
+
+
 def test_show_run_ignores_invalid_utf8_log_lines(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
