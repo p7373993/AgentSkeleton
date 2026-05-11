@@ -98,3 +98,27 @@ def test_shell_tool_handles_missing_captured_streams(
     assert result.success is True
     assert result.payload["stdout"] == ""
     assert result.payload["stderr"] == ""
+
+
+def test_shell_tool_returns_error_when_process_launch_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def fake_run(*args, **kwargs):
+        raise OSError("workspace unavailable")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": "echo test"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Command launch failed"
+    assert result.summary == "Command launch failed: OSError"
+    assert result.payload["command"] == "echo test"
+    assert result.payload["working_directory"] == str(tmp_path)
+    assert result.payload["exit_code"] is None
+    assert result.payload["timed_out"] is False
+    assert result.payload["stderr"] == "workspace unavailable"

@@ -100,3 +100,25 @@ class ShellTool(Tool):
                 ),
                 error="Command timed out",
             )
+        except OSError as exc:
+            duration = time.perf_counter() - started
+            stderr, stderr_truncated = _truncate(
+                str(exc),
+                context.shell_max_output_bytes,
+            )
+            return ToolResult(
+                success=False,
+                payload={
+                    "command": command,
+                    "working_directory": str(context.workspace),
+                    "exit_code": None,
+                    "stdout": "",
+                    "stderr": stderr,
+                    "duration_seconds": duration,
+                    "timed_out": False,
+                    "stdout_truncated": False,
+                    "stderr_truncated": stderr_truncated,
+                },
+                summary=f"Command launch failed: {type(exc).__name__}",
+                error="Command launch failed",
+            )
