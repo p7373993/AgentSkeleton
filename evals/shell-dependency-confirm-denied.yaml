@@ -1,0 +1,34 @@
+name: shell-dependency-confirm-denied
+domain: reliability
+goal: Confirm dependency-changing shell commands before execution and deny by default.
+actions:
+  - type: tool
+    tool: shell
+    call_id: dependency-shell
+    arguments:
+      command: "uv sync"
+expect:
+  status: denied
+  reason: Shell command may install, network, or spawn
+  observations: 1
+  observations_detail:
+    - tool: shell
+      success: false
+      summary: Shell command may install, network, or spawn
+      error: Permission denied
+  events:
+    - type: policy_decision
+      payload:
+        tool_name: shell
+        outcome: confirm
+        reason: Shell command may install, network, or spawn
+    - type: tool_finished
+      payload:
+        tool_name: shell
+        success: false
+        summary: Shell command may install, network, or spawn
+        error: Permission denied
+    - type: run_finished
+      payload:
+        status: denied
+        reason: Shell command may install, network, or spawn
