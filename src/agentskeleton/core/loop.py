@@ -190,13 +190,14 @@ class AgentLoop:
         try:
             tool = self.registry.get(action.tool_name)
         except KeyError as exc:
+            summary = str(exc.args[0]) if exc.args else str(exc)
             result = ToolResult(
                 success=False,
                 payload={
                     "tool_name": action.tool_name,
                     "arguments": action.arguments,
                 },
-                summary=str(exc),
+                summary=summary,
                 error="Unknown tool",
             )
             state.observations.append(

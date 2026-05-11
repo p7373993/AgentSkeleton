@@ -255,11 +255,13 @@ def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:
     assert observation.tool_name == "missing"
     assert observation.policy_decision == "block"
     assert observation.result.success is False
+    assert observation.result.summary == "Unknown tool: missing"
     assert observation.result.error == "Unknown tool"
     assert observation.result.payload == {
         "tool_name": "missing",
         "arguments": {"value": "x"},
     }
+    assert state.final_reason == "Unknown tool: missing"
 
 
 @pytest.mark.parametrize(

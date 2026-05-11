@@ -1,0 +1,20 @@
+name: unknown-tool
+domain: reliability
+goal: Stop clearly when the model requests an unavailable tool.
+actions:
+  - type: tool
+    tool: missing_domain_tool
+    call_id: missing-tool
+    arguments:
+      value: unavailable
+expect:
+  status: unknown_tool
+  reason: "Unknown tool: missing_domain_tool"
+  observations: 1
+  observations_detail:
+    - tool: missing_domain_tool
+      success: false
+      summary: "Unknown tool: missing_domain_tool"
+      error: Unknown tool
+      payload:
+        tool_name: missing_domain_tool

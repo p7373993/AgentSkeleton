@@ -1,0 +1,25 @@
+name: tool-error
+domain: reliability
+goal: Convert a tool exception into observable run state.
+config:
+  tool_modules:
+    - agentskeleton.eval_tools
+  enabled_tools:
+    - explode
+actions:
+  - type: tool
+    tool: explode
+    call_id: explode-1
+    arguments:
+      value: unstable
+expect:
+  status: tool_error
+  reason: "Tool raised an exception: RuntimeError"
+  observations: 1
+  observations_detail:
+    - tool: explode
+      success: false
+      summary: "Tool raised an exception: RuntimeError"
+      error: boom
+      payload:
+        tool_name: explode
