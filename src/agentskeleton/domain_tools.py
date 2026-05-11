@@ -15,7 +15,20 @@ class ClassifyDomainTool(Tool):
     }
 
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
-        text = str(args["text"]).lower()
+        raw_text = args.get("text")
+        if not isinstance(raw_text, str):
+            return ToolResult(
+                success=False,
+                summary="Text invalid: text must be a string",
+                error="Text invalid",
+            )
+        if not raw_text.strip():
+            return ToolResult(
+                success=False,
+                summary="Text invalid: text cannot be blank",
+                error="Text invalid",
+            )
+        text = raw_text.lower()
         domain = "finance" if "invoice" in text or "reconcile" in text else "general"
         return ToolResult(
             success=True,
