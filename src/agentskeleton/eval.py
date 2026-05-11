@@ -908,10 +908,14 @@ def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]
 
     events: list[dict[str, Any]] = []
     try:
-        raw_lines = log_path.read_bytes().splitlines()
+        raw_log = log_path.read_bytes()
     except OSError:
         failures.append(f"log file could not be read: {log_path}")
         return []
+    if len(raw_log) > MAX_SCENARIO_FILE_BYTES:
+        failures.append(f"log file exceeds {MAX_SCENARIO_FILE_BYTES} bytes: {log_path}")
+        return []
+    raw_lines = raw_log.splitlines()
     for line_number, raw_line in enumerate(raw_lines, 1):
         try:
             line = raw_line.decode("utf-8")
