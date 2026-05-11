@@ -5,6 +5,7 @@ import pytest
 from agentskeleton.config import RunConfig
 from agentskeleton.core.actions import FinalAction, ToolCallAction, ToolCallBatchAction
 from agentskeleton.core.loop import AgentLoop
+from agentskeleton.core.state import ConversationMessage
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 from agentskeleton.tools.registry import ToolRegistry
 from agentskeleton.tools.user import AskUserTool
@@ -1124,3 +1125,36 @@ def test_loop_normalizes_non_mapping_conversation_entries(tmp_path: Path) -> Non
     ]
     assert logger.events[0][2]["resumed"] is True
     assert logger.events[0][2]["conversation_turns"] == 2
+
+
+def test_loop_sanitizes_conversation_message_entries(tmp_path: Path) -> None:
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in state.conversation
+                ]
+            )
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+    ).run(
+        "continue",
+        conversation=[
+            ConversationMessage(
+                role=123,  # type: ignore[arg-type]
+                content=None,  # type: ignore[arg-type]
+                metadata=["bad"],  # type: ignore[arg-type]
+            ),
+        ],
+    )
+
+    assert state.final_status == "completed"
+    assert seen_conversation == [[("123", "None", {})]]

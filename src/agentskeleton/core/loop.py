@@ -172,19 +172,24 @@ class AgentLoop:
         normalized: list[ConversationMessage] = []
         for turn in conversation:
             if isinstance(turn, ConversationMessage):
-                normalized.append(turn)
+                normalized.append(
+                    _conversation_message(
+                        turn.role,
+                        turn.content,
+                        turn.metadata,
+                    )
+                )
                 continue
             if not isinstance(turn, Mapping):
                 normalized.append(
                     ConversationMessage(role="user", content=str(turn)),
                 )
                 continue
-            metadata = turn.get("metadata") or {}
             normalized.append(
-                ConversationMessage(
-                    role=str(turn.get("role", "user")),
-                    content=str(turn.get("content", "")),
-                    metadata=metadata if isinstance(metadata, dict) else {},
+                _conversation_message(
+                    turn.get("role", "user"),
+                    turn.get("content", ""),
+                    turn.get("metadata") or {},
                 )
             )
         return normalized
@@ -515,6 +520,18 @@ def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
     if not isinstance(action.call_id, str) or not action.call_id.strip():
         return "call_id must be a non-empty string"
     return None
+
+
+def _conversation_message(
+    role: object,
+    content: object,
+    metadata: object,
+) -> ConversationMessage:
+    return ConversationMessage(
+        role=str(role),
+        content=str(content),
+        metadata=metadata if isinstance(metadata, dict) else {},
+    )
 
 
 def _validate_tool_arguments(
