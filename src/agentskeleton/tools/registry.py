@@ -56,3 +56,18 @@ def _validate_args_schema(tool: Tool) -> None:
     properties = schema.get("properties")
     if properties is not None and not isinstance(properties, Mapping):
         raise ValueError(f"Tool {tool.name} schema properties must be a mapping")
+    if isinstance(properties, Mapping):
+        for property_name, property_schema in properties.items():
+            if not isinstance(property_schema, Mapping):
+                raise ValueError(
+                    f"Tool {tool.name} schema property {property_name} "
+                    "must be a mapping"
+                )
+    required = schema.get("required")
+    if required is not None:
+        if not isinstance(required, list):
+            raise ValueError(f"Tool {tool.name} schema required must be a list")
+        if not all(isinstance(item, str) for item in required):
+            raise ValueError(
+                f"Tool {tool.name} schema required entries must be strings"
+            )

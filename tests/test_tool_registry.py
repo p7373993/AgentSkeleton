@@ -94,6 +94,36 @@ def test_registry_rejects_invalid_args_schema_shape(
         registry.register(InvalidSchemaTool())
 
 
+@pytest.mark.parametrize(
+    ("schema", "error"),
+    [
+        (
+            {"type": "object", "properties": {"text": []}},
+            "schema property text must be a mapping",
+        ),
+        (
+            {"type": "object", "properties": {}, "required": "text"},
+            "schema required must be a list",
+        ),
+        (
+            {"type": "object", "properties": {}, "required": [1]},
+            "schema required entries must be strings",
+        ),
+    ],
+)
+def test_registry_rejects_invalid_args_schema_members(
+    schema: object,
+    error: str,
+) -> None:
+    class InvalidSchemaTool(EchoTool):
+        args_schema = schema
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match=error):
+        registry.register(InvalidSchemaTool())
+
+
 def test_registry_exports_openai_function_schemas() -> None:
     registry = ToolRegistry([EchoTool()])
 
