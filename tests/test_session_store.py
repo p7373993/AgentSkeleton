@@ -365,6 +365,28 @@ def test_session_store_ignores_malformed_transcript_lines(tmp_path) -> None:
     assert store.list_sessions()[0].transcript_turns == 2
 
 
+def test_session_store_ignores_too_deep_transcript_lines(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    too_deep = '{"child":' * 20_000 + "null" + "}" * 20_000
+    transcript_path.write_text(
+        "\n".join(
+            [
+                json.dumps({"role": "user", "content": "first"}),
+                too_deep,
+                json.dumps({"role": "assistant", "content": "second"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    session = store.load("default")
+
+    assert [turn.content for turn in session.transcript] == ["first", "second"]
+    assert store.list_sessions()[0].transcript_turns == 2
+
+
 def test_session_store_ignores_transcript_directory(tmp_path) -> None:
     transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
     transcript_path.mkdir(parents=True)

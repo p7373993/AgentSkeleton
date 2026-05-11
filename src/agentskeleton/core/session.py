@@ -225,7 +225,7 @@ class SessionStore:
                 continue
             try:
                 row = json.loads(line)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, RecursionError):
                 continue
             if not isinstance(row, dict):
                 continue
