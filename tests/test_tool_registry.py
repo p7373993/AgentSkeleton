@@ -191,6 +191,22 @@ def test_registry_exports_openai_function_schemas() -> None:
     ]
 
 
+def test_registry_exports_openai_function_schemas_as_isolated_copies() -> None:
+    registry = ToolRegistry([EchoTool()])
+
+    schemas = registry.to_openai_tools()
+    schemas[0]["parameters"]["required"].append("extra")
+    schemas[0]["parameters"]["properties"]["text"]["type"] = "integer"
+
+    assert EchoTool.args_schema == {
+        "type": "object",
+        "properties": {"text": {"type": "string"}},
+        "required": ["text"],
+        "additionalProperties": False,
+    }
+    assert registry.to_openai_tools()[0]["parameters"] == EchoTool.args_schema
+
+
 def test_registry_raises_for_unknown_tool() -> None:
     registry = ToolRegistry()
 

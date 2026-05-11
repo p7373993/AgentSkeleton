@@ -1,5 +1,6 @@
 import re
 from collections.abc import Iterable, Mapping
+from copy import deepcopy
 from typing import Any
 
 from agentskeleton.tools.base import Tool
@@ -51,7 +52,7 @@ class ToolRegistry:
                 "type": "function",
                 "name": tool.name,
                 "description": tool.description,
-                "parameters": tool.args_schema,
+                "parameters": deepcopy(tool.args_schema),
             }
             for tool in self.all()
         ]
