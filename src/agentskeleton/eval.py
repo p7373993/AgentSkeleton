@@ -175,8 +175,22 @@ class ScriptedScenarioLLM:
         raise RuntimeError("Scenario actions exhausted")
 
 
+def _path_exists_or_error(path: Path, label: str) -> bool:
+    try:
+        return path.exists()
+    except OSError as exc:
+        raise ValueError(f"{label} could not be checked: {path}") from exc
+
+
+def _path_is_file_or_error(path: Path, label: str) -> bool:
+    try:
+        return path.is_file()
+    except OSError as exc:
+        raise ValueError(f"{label} could not be checked: {path}") from exc
+
+
 def _load_yaml_document(path: Path, label: str) -> object:
-    if not path.is_file():
+    if not _path_is_file_or_error(path, label):
         raise ValueError(f"{label} must be a file: {path}")
     try:
         text = path.read_text(encoding="utf-8")
@@ -191,7 +205,7 @@ def _load_yaml_document(path: Path, label: str) -> object:
 
 
 def load_scenario(path: Path) -> Scenario:
-    if not path.exists():
+    if not _path_exists_or_error(path, "Scenario file"):
         raise ValueError(f"Scenario file not found: {path}")
     raw = _load_yaml_document(path, "Scenario file")
     if not isinstance(raw, dict):
@@ -322,9 +336,9 @@ def run_scenario_suite(
 
 
 def _scenario_paths(path: Path) -> list[Path]:
-    if not path.exists():
+    if not _path_exists_or_error(path, "Scenario path"):
         raise ValueError(f"Scenario path not found: {path}")
-    if path.is_file():
+    if _path_is_file_or_error(path, "Scenario path"):
         if path.name in SUITE_MANIFEST_NAMES:
             return []
         return [path]
@@ -341,10 +355,19 @@ def _scenario_paths(path: Path) -> list[Path]:
 
 
 def _suite_manifest_path(path: Path) -> Path | None:
-    if path.is_file():
+    if _path_is_file_or_error(path, "Suite manifest path"):
         return None
     candidates = [path / name for name in sorted(SUITE_MANIFEST_NAMES)]
-    existing = [candidate for candidate in candidates if candidate.exists()]
+    existing = []
+    for candidate in candidates:
+        try:
+            candidate_exists = candidate.exists()
+        except OSError as exc:
+            raise ValueError(
+                f"Suite manifest path could not be checked: {path}"
+            ) from exc
+        if candidate_exists:
+            existing.append(candidate)
     if not existing:
         return None
     if len(existing) > 1:

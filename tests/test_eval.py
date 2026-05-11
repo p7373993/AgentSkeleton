@@ -1160,6 +1160,28 @@ def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:
         raise AssertionError("Expected missing scenario file to fail")
 
 
+def test_load_scenario_reports_exists_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "stat.yaml"
+    original_exists = Path.exists
+
+    def fail_scenario_exists(path: Path) -> bool:
+        if path == scenario_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_scenario_exists)
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file could not be checked: {scenario_path}"
+    else:
+        raise AssertionError("Expected scenario stat failure to fail")
+
+
 def test_load_scenario_rejects_directory_path(tmp_path: Path) -> None:
     scenario_path = tmp_path / "directory.yaml"
     scenario_path.mkdir()
@@ -1170,6 +1192,41 @@ def test_load_scenario_rejects_directory_path(tmp_path: Path) -> None:
         assert str(exc) == f"Scenario file must be a file: {scenario_path}"
     else:
         raise AssertionError("Expected scenario directory path to fail")
+
+
+def test_load_scenario_reports_file_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "stat.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    original_is_file = Path.is_file
+
+    def fail_scenario_is_file(path: Path) -> bool:
+        if path == scenario_path:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_scenario_is_file)
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file could not be checked: {scenario_path}"
+    else:
+        raise AssertionError("Expected scenario file stat failure to fail")
 
 
 def test_load_scenario_reports_malformed_yaml(tmp_path: Path) -> None:
@@ -1312,6 +1369,51 @@ def test_load_scenario_suite_reports_directory_read_failure(
         raise AssertionError("Expected unreadable scenario suite to fail")
 
 
+def test_load_scenario_suite_reports_exists_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    original_exists = Path.exists
+
+    def fail_suite_exists(path: Path) -> bool:
+        if path == suite_dir:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_suite_exists)
+
+    try:
+        load_scenario_suite(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario path could not be checked: {suite_dir}"
+    else:
+        raise AssertionError("Expected scenario suite stat failure to fail")
+
+
+def test_load_scenario_suite_reports_file_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    original_is_file = Path.is_file
+
+    def fail_suite_is_file(path: Path) -> bool:
+        if path == suite_dir:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_suite_is_file)
+
+    try:
+        load_scenario_suite(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario path could not be checked: {suite_dir}"
+    else:
+        raise AssertionError("Expected scenario suite file stat failure to fail")
+
+
 def test_load_scenario_suite_config_reads_manifest_required_domains(
     tmp_path: Path,
 ) -> None:
@@ -1414,6 +1516,30 @@ def test_load_scenario_suite_config_reports_manifest_read_failure(
         assert str(exc) == f"Suite manifest could not be read: {manifest}"
     else:
         raise AssertionError("Expected unreadable suite manifest to fail")
+
+
+def test_load_scenario_suite_config_reports_manifest_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    manifest = suite_dir / "suite.yaml"
+    original_exists = Path.exists
+
+    def fail_manifest_exists(path: Path) -> bool:
+        if path == manifest:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_manifest_exists)
+
+    try:
+        load_scenario_suite_config(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Suite manifest path could not be checked: {suite_dir}"
+    else:
+        raise AssertionError("Expected suite manifest stat failure to fail")
 
 
 def test_load_scenario_suite_config_rejects_manifest_directory(
