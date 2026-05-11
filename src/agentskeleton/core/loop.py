@@ -89,7 +89,30 @@ class AgentLoop:
             state.step_count += 1
             self.trace.emit("step_started", {"step": state.step_count})
             self.logger.log("model_requested", state.step_count, {"goal": goal})
-            action = self.llm.next_action(state, self.registry)
+            try:
+                action = self.llm.next_action(state, self.registry)
+            except Exception as exc:
+                state.final_status = "model_error"
+                state.final_reason = f"Model call failed: {type(exc).__name__}"
+                self.logger.log(
+                    "run_error",
+                    state.step_count,
+                    {
+                        "status": state.final_status,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
+                self.trace.emit(
+                    "run_error",
+                    {
+                        "status": state.final_status,
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                    },
+                )
+                self._log_run_finished(state)
+                return state
 
             if isinstance(action, FinalAction):
                 state.final_status = action.status
