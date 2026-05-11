@@ -1,3 +1,5 @@
+import json
+
 from typer.testing import CliRunner
 
 from agentskeleton.cli import app, build_default_registry, configure_streams_for_unicode
@@ -451,3 +453,52 @@ def test_resume_reuses_named_session_transcript(monkeypatch, tmp_path) -> None:
         "answer: next",
     ]
     assert "assistant> answer: next" in result.stdout
+
+
+def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "finish"},
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 3,
+            "payload": {
+                "status": "completed",
+                "answer": "done",
+                "reason": "finished cleanly",
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert "Run id: run-1" in result.stdout
+    assert "Status: completed" in result.stdout
+    assert "Reason: finished cleanly" in result.stdout
+    assert "Steps: 3" in result.stdout
+    assert f"Log: {log_path}" in result.stdout
+
+
+def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "missing"])
+
+    assert result.exit_code == 1
+    assert "Run log not found: missing" in result.stdout

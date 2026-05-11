@@ -1,6 +1,7 @@
+import json
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import uuid4
 
 import typer
@@ -278,5 +279,46 @@ def resume(
     )
 
 
+@app.command()
+def show_run(
+    run_id: str,
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+) -> None:
+    loaded = load_config(config)
+    log_path = _find_run_log(loaded.logs_dir, run_id)
+    if log_path is None:
+        console.print(f"Run log not found: {run_id}")
+        raise typer.Exit(1)
+
+    events = _read_run_events(log_path)
+    final_event = next(
+        (event for event in reversed(events) if event.get("type") == "run_finished"),
+        None,
+    )
+    payload = final_event.get("payload", {}) if final_event else {}
+    step = final_event.get("step") if final_event else None
+
+    console.print(f"Run id: {run_id}")
+    console.print(f"Status: {payload.get('status', 'unknown')}")
+    if payload.get("reason"):
+        console.print(f"Reason: {payload['reason']}")
+    if step is not None:
+        console.print(f"Steps: {step}")
+    console.print(f"Log: {log_path}", soft_wrap=True)
+
+
 def main() -> None:
     app()
+
+
+def _find_run_log(logs_dir: Path, run_id: str) -> Path | None:
+    matches = sorted(logs_dir.glob(f"*/{run_id}.jsonl"), reverse=True)
+    return matches[0].resolve() if matches else None
+
+
+def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            events.append(json.loads(line))
+    return events
