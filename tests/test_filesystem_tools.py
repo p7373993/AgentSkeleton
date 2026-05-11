@@ -309,6 +309,31 @@ def test_read_file_rejects_large_text_files(tmp_path: Path) -> None:
     assert result.summary == "File too large: large.txt"
 
 
+def test_read_file_rejects_file_that_grows_after_size_check(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "growing.txt"
+    target.write_text("small", encoding="utf-8")
+    original_read_bytes = Path.read_bytes
+
+    def grow_before_read(path: Path) -> bytes:
+        if path == target:
+            return b"a" * 1_048_577
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", grow_before_read)
+
+    result = ReadFileTool().execute(
+        {"path": "growing.txt"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "File too large"
+    assert result.summary == "File too large: growing.txt"
+
+
 def test_read_file_returns_error_when_read_fails(tmp_path: Path, monkeypatch) -> None:
     target = tmp_path / "note.txt"
     target.write_text("hello", encoding="utf-8")

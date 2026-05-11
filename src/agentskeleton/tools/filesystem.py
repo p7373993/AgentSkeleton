@@ -206,6 +206,8 @@ class ReadFileTool(Tool):
             raw = path.read_bytes()
         except OSError:
             return _error(f"File read failed: {requested}", "File read failed")
+        if len(raw) > MAX_READ_FILE_BYTES:
+            return _error(f"File too large: {requested}", "File too large")
         if b"\x00" in raw:
             return _error(f"Binary file rejected: {requested}", "Binary file rejected")
         try:
