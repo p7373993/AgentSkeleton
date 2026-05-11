@@ -94,6 +94,15 @@ class ToolRegistry:
 
 
 def _validate_args_schema(tool: Tool) -> None:
+    try:
+        _validate_args_schema_inner(tool)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Tool {tool.name} schema could not be inspected") from exc
+
+
+def _validate_args_schema_inner(tool: Tool) -> None:
     schema = tool.args_schema
     if not isinstance(schema, Mapping):
         raise ValueError(f"Tool {tool.name} schema must be a mapping")

@@ -309,6 +309,25 @@ def test_registry_rejects_oversized_args_schema() -> None:
         registry.register(WideSchemaTool())
 
 
+def test_registry_rejects_uninspectable_args_schema() -> None:
+    class ExplodingProperties(dict):
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("properties unavailable")
+
+    class UninspectableSchemaTool(EchoTool):
+        args_schema = {
+            "type": "object",
+            "properties": ExplodingProperties(
+                {"text": {"type": "string"}},
+            ),
+        }
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool echo schema could not be inspected"):
+        registry.register(UninspectableSchemaTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [
