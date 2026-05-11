@@ -786,6 +786,57 @@ def test_loop_handles_empty_tool_call_batch_as_invalid_action(
     )
 
 
+def test_loop_rejects_duplicate_batch_call_ids_before_execution(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallBatchAction(
+                tool_calls=[
+                    ToolCallAction(
+                        tool_name="record",
+                        arguments={"value": "x"},
+                        call_id="call-1",
+                    ),
+                    ToolCallAction(
+                        tool_name="record",
+                        arguments={"value": "y"},
+                        call_id="call-1",
+                    ),
+                ]
+            )
+        ],
+        logger,
+    ).run("record")
+
+    reason = "Model returned invalid tool call batch: duplicate call_id: call-1"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_batch",
+            "error": reason,
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": reason,
+        },
+    )
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_rejects_oversized_tool_call_batch_before_execution(
     tmp_path: Path,
 ) -> None:

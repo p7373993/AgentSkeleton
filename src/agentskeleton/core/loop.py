@@ -184,6 +184,20 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
+                duplicate_call_id = _duplicate_batch_call_id(action.tool_calls)
+                if duplicate_call_id is not None:
+                    self._record_invalid_action(
+                        state,
+                        action,
+                        reason=(
+                            "Model returned invalid tool call batch: "
+                            f"duplicate call_id: {duplicate_call_id}"
+                        ),
+                        error_type="invalid_tool_batch",
+                    )
+                    if state.final_status is not None:
+                        self._log_run_finished(state)
+                        return state
                 for tool_call in action.tool_calls:
                     if not isinstance(tool_call, ToolCallAction):
                         self._record_invalid_action(state, tool_call)
@@ -682,6 +696,20 @@ def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
         return "tool_name must be a non-empty string"
     if not isinstance(action.call_id, str) or not action.call_id.strip():
         return "call_id must be a non-empty string"
+    return None
+
+
+def _duplicate_batch_call_id(tool_calls: list[object]) -> str | None:
+    seen: set[str] = set()
+    for tool_call in tool_calls:
+        if not isinstance(tool_call, ToolCallAction):
+            continue
+        call_id = tool_call.call_id
+        if not isinstance(call_id, str) or not call_id.strip():
+            continue
+        if call_id in seen:
+            return call_id
+        seen.add(call_id)
     return None
 
 

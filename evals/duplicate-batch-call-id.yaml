@@ -1,0 +1,28 @@
+name: duplicate-batch-call-id
+domain: reliability
+goal: Stop cleanly when a tool-call batch reuses a call_id.
+actions:
+  - type: batch
+    calls:
+      - tool: list_dir
+        call_id: duplicate-call
+        arguments:
+          path: .
+      - tool: list_dir
+        call_id: duplicate-call
+        arguments:
+          path: .
+expect:
+  status: invalid_action
+  reason: "Model returned invalid tool call batch: duplicate call_id: duplicate-call"
+  observations: 0
+  events:
+    - type: run_error
+      payload:
+        status: invalid_action
+        error_type: invalid_tool_batch
+        error: "Model returned invalid tool call batch: duplicate call_id: duplicate-call"
+    - type: run_finished
+      payload:
+        status: invalid_action
+        reason: "Model returned invalid tool call batch: duplicate call_id: duplicate-call"
