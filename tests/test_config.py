@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+import agentskeleton.config as config_module
 from agentskeleton.config import RunConfig, load_config
 
 
@@ -113,6 +114,27 @@ def test_load_config_reports_config_file_stat_failures(
         load_config(config_path)
 
 
+def test_load_config_rejects_oversized_config_before_reading(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("x" * 11, encoding="utf-8")
+    monkeypatch.setattr(config_module, "MAX_CONFIG_FILE_BYTES", 10)
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == config_path:
+            raise AssertionError("oversized config file should not be read")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    with pytest.raises(ValueError, match=r"Config file exceeds 10 bytes"):
+        load_config(config_path)
+
+
 def test_load_config_reports_malformed_yaml(tmp_path: Path) -> None:
     config_path = tmp_path / "agent.yaml"
     config_path.write_text("model: [unterminated\n", encoding="utf-8")
@@ -218,6 +240,26 @@ def test_load_config_reports_dotenv_file_stat_failures(
     monkeypatch.setattr(Path, "is_file", fail_dotenv_is_file)
 
     with pytest.raises(ValueError, match="Dotenv file could not be checked"):
+        load_config()
+
+
+def test_load_config_rejects_oversized_dotenv_before_reading(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("x" * 11, encoding="utf-8")
+    monkeypatch.setattr(config_module, "MAX_CONFIG_FILE_BYTES", 10)
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == Path(".env"):
+            raise AssertionError("oversized dotenv file should not be read")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    with pytest.raises(ValueError, match=r"Dotenv file exceeds 10 bytes"):
         load_config()
 
 

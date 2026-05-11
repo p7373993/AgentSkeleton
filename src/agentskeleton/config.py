@@ -5,6 +5,8 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+MAX_CONFIG_FILE_BYTES = 2_097_152
+
 
 def _ensure_existing_parent_directory(value: Path, field_name: str) -> Path:
     expanded = value.expanduser()
@@ -41,6 +43,15 @@ def _path_is_file_or_error(path: Path, label: str) -> bool:
         return path.is_file()
     except OSError as exc:
         raise ValueError(f"{label} could not be checked: {path}") from exc
+
+
+def _ensure_file_size_or_error(path: Path, label: str) -> None:
+    try:
+        size = path.stat().st_size
+    except OSError as exc:
+        raise ValueError(f"{label} could not be checked: {path}") from exc
+    if size > MAX_CONFIG_FILE_BYTES:
+        raise ValueError(f"{label} exceeds {MAX_CONFIG_FILE_BYTES} bytes: {path}")
 
 
 class RunConfig(BaseModel):
@@ -108,6 +119,7 @@ def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:
         return {}
     if not _path_is_file_or_error(path, "Dotenv file"):
         raise ValueError(f"Dotenv file must be a file: {path}")
+    _ensure_file_size_or_error(path, "Dotenv file")
 
     values: dict[str, str] = {}
     try:
@@ -163,6 +175,7 @@ def load_config(
             raise ValueError(f"Config file not found: {config_path}")
         if not _path_is_file_or_error(config_path, "Config file"):
             raise ValueError(f"Config file must be a file: {config_path}")
+        _ensure_file_size_or_error(config_path, "Config file")
         try:
             config_text = config_path.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:
