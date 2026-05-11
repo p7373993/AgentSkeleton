@@ -135,10 +135,19 @@ def test_trusted_profile_blocks_python_credential_exfiltration(
     assert "credentials" in decision.reason
 
 
-def test_trusted_profile_blocks_encoded_shell_commands() -> None:
+@pytest.mark.parametrize(
+    "command",
+    [
+        "powershell -NoProfile -EncodedCommand SQBFAFgA",
+        "powershell -NoProfile -enc SQBFAFgA",
+        "powershell -NoProfile -e SQBFAFgA",
+        "pwsh -NoProfile -ec SQBFAFgA",
+    ],
+)
+def test_trusted_profile_blocks_encoded_shell_commands(command: str) -> None:
     decision = PermissionPolicy(profile="trusted").decide(
         "shell",
-        {"command": "powershell -NoProfile -EncodedCommand SQBFAFgA"},
+        {"command": command},
         "shell",
     )
 

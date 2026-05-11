@@ -144,7 +144,8 @@ def _is_compact_recursive_flag(token: str) -> bool:
 
 def _looks_like_encoded_command(command: str) -> bool:
     tokens = command.replace(";", " ").replace("|", " ").split()
-    return any(token in {"-encodedcommand", "-enc"} for token in tokens)
+    encoded_flags = {"-encodedcommand", "-encoded", "-enco", "-enc", "-ec", "-e"}
+    return any(token in encoded_flags for token in tokens)
 
 
 def _looks_like_remote_execution(command: str) -> bool:
