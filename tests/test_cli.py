@@ -975,6 +975,7 @@ def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:
     assert "Run id: run-1" in result.stdout
     assert "Status: completed" in result.stdout
     assert "Reason: finished cleanly" in result.stdout
+    assert "Goal: finish" in result.stdout
     assert "Steps: 3" in result.stdout
     assert f"Log: {log_path}" in result.stdout
 
@@ -1008,12 +1009,123 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
     payload = json.loads(result.stdout)
     assert payload == {
         "run_id": "run-1",
+        "goal": None,
         "status": "completed",
         "reason": "finished cleanly",
         "answer": "done",
         "steps": 3,
         "log": str(log_path.resolve()),
     }
+
+
+def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    first_dir = tmp_path / "runs" / "20260510"
+    second_dir = tmp_path / "runs" / "20260511"
+    first_dir.mkdir(parents=True)
+    second_dir.mkdir(parents=True)
+    (first_dir / "run-old.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-old",
+                        "step": 0,
+                        "payload": {"goal": "old goal"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-old",
+                        "step": 2,
+                        "payload": {"status": "completed", "answer": "old done"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (second_dir / "run-new.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-new",
+                        "step": 0,
+                        "payload": {"goal": "new goal"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-new",
+                        "step": 4,
+                        "payload": {"status": "max_steps", "reason": "step limit"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs", "--limit", "1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "runs": [
+            {
+                "run_id": "run-new",
+                "goal": "new goal",
+                "status": "max_steps",
+                "reason": "step limit",
+                "answer": None,
+                "steps": 4,
+                "log": str((second_dir / "run-new.jsonl").resolve()),
+            }
+        ]
+    }
+
+
+def test_list_runs_prints_recent_runs(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    (log_dir / "run-1.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-1",
+                        "step": 0,
+                        "payload": {"goal": "finish"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 3,
+                        "payload": {"status": "completed", "answer": "done"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs"])
+
+    assert result.exit_code == 0
+    assert "run-1" in result.stdout
+    assert "completed" in result.stdout
+    assert "finish" in result.stdout
 
 
 def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:

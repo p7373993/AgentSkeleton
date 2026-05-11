@@ -486,21 +486,7 @@ def show_run(
         console.print(f"Run log not found: {run_id}")
         raise typer.Exit(1)
 
-    events = _read_run_events(log_path)
-    final_event = next(
-        (event for event in reversed(events) if event.get("type") == "run_finished"),
-        None,
-    )
-    payload = final_event.get("payload", {}) if final_event else {}
-    step = final_event.get("step") if final_event else None
-    summary = {
-        "run_id": run_id,
-        "status": payload.get("status", "unknown"),
-        "reason": payload.get("reason"),
-        "answer": payload.get("answer"),
-        "steps": step,
-        "log": str(log_path),
-    }
+    summary = _summarize_run_log(log_path, run_id=run_id)
 
     if as_json:
         console.print(
@@ -513,9 +499,51 @@ def show_run(
     console.print(f"Status: {summary['status']}")
     if summary["reason"]:
         console.print(f"Reason: {summary['reason']}")
-    if step is not None:
-        console.print(f"Steps: {step}")
+    if summary["goal"]:
+        console.print(f"Goal: {summary['goal']}", soft_wrap=True)
+    if summary["steps"] is not None:
+        console.print(f"Steps: {summary['steps']}")
     console.print(f"Log: {summary['log']}", soft_wrap=True)
+
+
+@app.command(name="list-runs")
+def list_runs(
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    limit: Annotated[int, typer.Option("--limit", min=1)] = 20,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    loaded = _load_config_or_exit(config)
+    summaries = [
+        _summarize_run_log(log_path)
+        for log_path in _run_log_paths(loaded.logs_dir)[:limit]
+    ]
+
+    if as_json:
+        console.print(
+            json.dumps({"runs": summaries}, ensure_ascii=False, indent=2),
+            soft_wrap=True,
+        )
+        return
+
+    if not summaries:
+        console.print("No run logs found.")
+        return
+
+    table = Table(title="Recent Runs")
+    table.add_column("Run ID")
+    table.add_column("Status")
+    table.add_column("Steps")
+    table.add_column("Goal")
+    table.add_column("Log")
+    for summary in summaries:
+        table.add_row(
+            str(summary["run_id"]),
+            str(summary["status"]),
+            "" if summary["steps"] is None else str(summary["steps"]),
+            str(summary["goal"] or ""),
+            str(summary["log"]),
+        )
+    console.print(table)
 
 
 def main() -> None:
@@ -525,6 +553,44 @@ def main() -> None:
 def _find_run_log(logs_dir: Path, run_id: str) -> Path | None:
     matches = sorted(logs_dir.glob(f"*/{run_id}.jsonl"), reverse=True)
     return matches[0].resolve() if matches else None
+
+
+def _run_log_paths(logs_dir: Path) -> list[Path]:
+    return sorted(logs_dir.glob("*/*.jsonl"), reverse=True)
+
+
+def _summarize_run_log(
+    log_path: Path,
+    run_id: str | None = None,
+) -> dict[str, object]:
+    events = _read_run_events(log_path)
+    start_event = next(
+        (event for event in events if event.get("type") == "run_started"),
+        None,
+    )
+    final_event = next(
+        (event for event in reversed(events) if event.get("type") == "run_finished"),
+        None,
+    )
+    start_payload = start_event.get("payload", {}) if start_event else {}
+    final_payload = final_event.get("payload", {}) if final_event else {}
+    step = final_event.get("step") if final_event else None
+    resolved_run_id = run_id
+    if resolved_run_id is None and final_event and final_event.get("run_id"):
+        resolved_run_id = str(final_event["run_id"])
+    if resolved_run_id is None and start_event and start_event.get("run_id"):
+        resolved_run_id = str(start_event["run_id"])
+    if resolved_run_id is None:
+        resolved_run_id = log_path.stem
+    return {
+        "run_id": resolved_run_id,
+        "goal": start_payload.get("goal"),
+        "status": final_payload.get("status", "unknown"),
+        "reason": final_payload.get("reason"),
+        "answer": final_payload.get("answer"),
+        "steps": step,
+        "log": str(log_path.resolve()),
+    }
 
 
 def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
