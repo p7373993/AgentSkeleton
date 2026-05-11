@@ -68,7 +68,9 @@ def _validate_module_name(module_name: object) -> None:
         raise ValueError("Tool module name must be a string")
     if not module_name.strip():
         raise ValueError("Tool module name cannot be blank")
-    if module_name.strip() != module_name:
+    if any(ord(character) < 32 for character in module_name):
+        raise ValueError("Tool module name cannot contain control characters")
+    if any(character.isspace() for character in module_name):
         raise ValueError("Tool module name cannot contain whitespace")
 
 
