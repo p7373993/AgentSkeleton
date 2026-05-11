@@ -68,6 +68,9 @@ class PermissionPolicy:
         secret_patterns = [
             ".env",
             "id_rsa",
+            "authorization:",
+            "bearer ",
+            "sk-",
             "api_key",
             "apikey",
             "password",
