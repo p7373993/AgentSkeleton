@@ -6,6 +6,15 @@ from typing import Any
 
 from agentskeleton.core.state import ConversationMessage
 
+_WINDOWS_RESERVED_SESSION_BASENAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
+
 
 @dataclass(frozen=True)
 class SessionState:
@@ -276,7 +285,11 @@ class SessionStore:
 
     def _safe_name(self, name: str) -> str:
         safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")
-        return safe_name or "default"
+        safe_name = safe_name or "default"
+        base_name = safe_name.split(".", 1)[0].upper()
+        if base_name in _WINDOWS_RESERVED_SESSION_BASENAMES:
+            return f"{safe_name}_"
+        return safe_name
 
 
 def _summarize_transcript(

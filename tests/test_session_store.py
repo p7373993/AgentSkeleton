@@ -486,6 +486,28 @@ def test_session_store_sanitizes_session_names(tmp_path) -> None:
     assert not (tmp_path.parent / "bad name" / "transcript.jsonl").exists()
 
 
+@pytest.mark.parametrize(
+    ("raw_name", "safe_dir"),
+    [
+        ("CON", "CON_"),
+        ("nul.session", "nul.session_"),
+        ("COM1", "COM1_"),
+    ],
+)
+def test_session_store_suffixes_windows_reserved_session_names(
+    tmp_path: Path,
+    raw_name: str,
+    safe_dir: str,
+) -> None:
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(raw_name, "user", "safe")
+
+    session = store.load(raw_name)
+    assert [turn.content for turn in session.transcript] == ["safe"]
+    assert (tmp_path / "sessions" / safe_dir / "transcript.jsonl").is_file()
+
+
 def test_session_store_ignores_legacy_previous_response_id_file(tmp_path) -> None:
     legacy_path = tmp_path / "sessions" / "default.json"
     legacy_path.parent.mkdir(parents=True)
