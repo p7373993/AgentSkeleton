@@ -177,7 +177,7 @@ def _assistant_transcript_metadata(run_id: str, state) -> dict[str, object]:
         "status": state.final_status,
     }
     if getattr(state, "final_reason", None):
-        metadata["reason"] = state.final_reason
+        metadata["reason"] = _bounded_display_text(str(state.final_reason))
     return metadata
 
 

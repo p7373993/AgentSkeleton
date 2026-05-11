@@ -1188,6 +1188,28 @@ def test_assistant_transcript_content_bounds_large_text() -> None:
     assert large_reason not in reason_content
 
 
+def test_assistant_transcript_metadata_bounds_large_reason() -> None:
+    large_reason = "r" * 20_000
+    state = type(
+        "State",
+        (),
+        {
+            "final_status": "model_error",
+            "final_reason": large_reason,
+        },
+    )()
+
+    metadata = cli_module._assistant_transcript_metadata("run-fixed", state)
+
+    assert metadata["run_id"] == "run-fixed"
+    assert metadata["status"] == "model_error"
+    assert isinstance(metadata["reason"], str)
+    assert len(metadata["reason"]) < 5_000
+    assert str(metadata["reason"]).startswith("rrrrrrrrrrrrrrrr")
+    assert "[truncated" in str(metadata["reason"])
+    assert large_reason not in str(metadata["reason"])
+
+
 def test_run_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
