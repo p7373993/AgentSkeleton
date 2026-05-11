@@ -890,6 +890,44 @@ def test_chat_can_disable_session(monkeypatch, tmp_path) -> None:
     ]
 
 
+def test_chat_prints_final_reason_when_no_answer(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "invalid_action",
+                    "final_answer": None,
+                    "final_reason": "Model returned unsupported action: dict",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="first\n/exit\n")
+
+    assert result.exit_code == 0
+    assert "Status: invalid_action" in result.stdout
+    assert "Reason: Model returned unsupported action: dict" in result.stdout
+
+
 def test_resume_reuses_named_session_transcript(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
