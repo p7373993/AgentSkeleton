@@ -19,6 +19,60 @@ def test_tools_command_lists_default_tools() -> None:
     assert "ask_user" in result.stdout
 
 
+def test_tools_command_uses_enabled_tools_from_config(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "enabled_tools:",
+                "  - read_file",
+                "  - ask_user",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["tools", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "read_file" in result.stdout
+    assert "ask_user" in result.stdout
+    assert "write_file" not in result.stdout
+    assert "shell" not in result.stdout
+
+
+def test_tools_command_tool_option_overrides_config(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "enabled_tools:",
+                "  - shell",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "tools",
+            "--config",
+            str(config_path),
+            "--tool",
+            "read_file",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "read_file" in result.stdout
+    assert "shell" not in result.stdout
+
+
 def test_default_registry_can_filter_enabled_tools() -> None:
     registry = build_default_registry(["read_file", "ask_user"])
 

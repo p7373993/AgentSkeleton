@@ -56,8 +56,12 @@ def build_default_registry(enabled_tools: list[str] | None = None) -> ToolRegist
 
 
 @app.command()
-def tools() -> None:
-    registry = build_default_registry()
+def tools(
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
+) -> None:
+    loaded = load_config(config, {"enabled_tools": tool})
+    registry = build_default_registry(loaded.enabled_tools)
     table = Table(title="Registered Tools")
     table.add_column("Name")
     table.add_column("Description")
