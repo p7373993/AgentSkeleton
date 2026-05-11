@@ -140,3 +140,101 @@ def test_run_can_disable_session(monkeypatch, tmp_path) -> None:
     assert seen_conversation == [[]]
     session = SessionStore(tmp_path / "runs").load("default")
     assert [turn.content for turn in session.transcript] == ["remember alpha"]
+
+
+def test_chat_reuses_session_transcript_between_inputs(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    store = SessionStore(tmp_path / "runs")
+    store.append_transcript("default", "user", "remember alpha")
+    store.append_transcript("default", "assistant", "alpha stored")
+    seen_conversation: list[list[str]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            seen_conversation.append([turn.content for turn in conversation or []])
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": f"answer: {goal}",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="first\nsecond\n/exit\n")
+
+    assert result.exit_code == 0
+    assert seen_conversation == [
+        ["remember alpha", "alpha stored"],
+        ["remember alpha", "alpha stored", "first", "answer: first"],
+    ]
+    session = SessionStore(tmp_path / "runs").load("default")
+    assert [turn.content for turn in session.transcript] == [
+        "remember alpha",
+        "alpha stored",
+        "first",
+        "answer: first",
+        "second",
+        "answer: second",
+    ]
+    assert "assistant> answer: first" in result.stdout
+    assert "assistant> answer: second" in result.stdout
+
+
+def test_chat_can_disable_session(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    store = SessionStore(tmp_path / "runs")
+    store.append_transcript("default", "user", "remember alpha")
+    seen_conversation: list[list[str]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            seen_conversation.append([turn.content for turn in conversation or []])
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat", "--no-session"], input="first\n/exit\n")
+
+    assert result.exit_code == 0
+    assert seen_conversation == [[]]
+    assert [turn.content for turn in store.load("default").transcript] == [
+        "remember alpha"
+    ]

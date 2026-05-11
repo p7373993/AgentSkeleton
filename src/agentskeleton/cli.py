@@ -140,5 +140,100 @@ def run(
     console.print(f"Run log: {logger.path}")
 
 
+@app.command()
+def chat(
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    base_url: Annotated[str | None, typer.Option("--base-url")] = None,
+    reasoning_effort: Annotated[
+        str | None,
+        typer.Option("--reasoning-effort"),
+    ] = None,
+    max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    session: Annotated[str, typer.Option("--session")] = "default",
+    no_session: Annotated[bool, typer.Option("--no-session")] = False,
+    trace: Annotated[bool, typer.Option("--trace")] = False,
+) -> None:
+    loaded = load_config(
+        config,
+        {
+            "model": model,
+            "base_url": base_url,
+            "reasoning_effort": reasoning_effort,
+            "max_steps": max_steps,
+        },
+    )
+    registry = build_default_registry()
+    trace_sink = ConsoleTraceSink(console) if trace else NullTraceSink()
+    session_store = SessionStore(loaded.logs_dir)
+
+    try:
+        llm = LLMClient(loaded, trace=trace_sink)
+    except MissingAPIKeyError as exc:
+        console.print(str(exc))
+        raise typer.Exit(1) from exc
+
+    def confirm(decision: PermissionDecision, action) -> bool:
+        console.print(f"Tool requires confirmation: {action.tool_name}")
+        console.print(f"Reason: {decision.reason}")
+        console.print(f"Arguments: {action.arguments}")
+        return typer.confirm("Allow this action?", default=False)
+
+    console.print("Type /exit or /quit to leave.")
+    while True:
+        try:
+            goal = typer.prompt("agent")
+        except (EOFError, KeyboardInterrupt):
+            console.print()
+            break
+
+        if goal.strip().lower() in {"/exit", "/quit", "exit", "quit"}:
+            break
+        if not goal.strip():
+            continue
+
+        run_id = str(uuid4())
+        logger = RunLogger(loaded.logs_dir, run_id)
+        conversation = []
+        if not no_session:
+            conversation = session_store.load(session).transcript
+            session_store.append_transcript(
+                session,
+                "user",
+                goal,
+                {"run_id": run_id},
+            )
+
+        loop = AgentLoop(
+            config=loaded,
+            llm=llm,
+            registry=registry,
+            logger=logger,
+            confirmer=confirm,
+            ask_user=lambda question: typer.prompt(question),
+            run_id=run_id,
+            trace=trace_sink,
+        )
+        state = loop.run(
+            goal,
+            conversation=conversation,
+            trace_context={"session": None if no_session else session},
+        )
+        if not no_session and state.final_answer:
+            session_store.append_transcript(
+                session,
+                "assistant",
+                state.final_answer,
+                {"run_id": run_id, "status": state.final_status},
+            )
+
+        if state.final_answer:
+            console.print(f"assistant> {state.final_answer}")
+        else:
+            console.print(f"Status: {state.final_status}")
+        if trace:
+            console.print(f"Run log: {logger.path}")
+
+
 def main() -> None:
     app()
