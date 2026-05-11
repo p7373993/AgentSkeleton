@@ -58,6 +58,46 @@ def test_list_dir_returns_error_when_listing_fails(
     assert result.error == "Directory listing failed"
 
 
+def test_list_dir_returns_error_when_exists_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    original_exists = Path.exists
+
+    def fail_exists(path: Path) -> bool:
+        if path == tmp_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_exists)
+
+    result = ListDirTool().execute({"path": "."}, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.summary == "Directory listing failed: ."
+    assert result.error == "Directory listing failed"
+
+
+def test_list_dir_returns_error_when_directory_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    original_is_dir = Path.is_dir
+
+    def fail_is_dir(path: Path) -> bool:
+        if path == tmp_path:
+            raise OSError("permission denied")
+        return original_is_dir(path)
+
+    monkeypatch.setattr(Path, "is_dir", fail_is_dir)
+
+    result = ListDirTool().execute({"path": "."}, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.summary == "Directory listing failed: ."
+    assert result.error == "Directory listing failed"
+
+
 def test_list_dir_returns_error_when_entry_type_check_fails(
     tmp_path: Path,
     monkeypatch,
@@ -127,6 +167,56 @@ def test_read_file_returns_error_when_read_fails(tmp_path: Path, monkeypatch) ->
     assert result.error == "File read failed"
 
 
+def test_read_file_returns_error_when_exists_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "note.txt"
+    target.write_text("hello", encoding="utf-8")
+    original_exists = Path.exists
+
+    def fail_exists(path: Path) -> bool:
+        if path == target:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_exists)
+
+    result = ReadFileTool().execute(
+        {"path": "note.txt"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File read failed: note.txt"
+    assert result.error == "File read failed"
+
+
+def test_read_file_returns_error_when_file_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "note.txt"
+    target.write_text("hello", encoding="utf-8")
+    original_is_file = Path.is_file
+
+    def fail_is_file(path: Path) -> bool:
+        if path == target:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_is_file)
+
+    result = ReadFileTool().execute(
+        {"path": "note.txt"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File read failed: note.txt"
+    assert result.error == "File read failed"
+
+
 def test_write_file_writes_text_and_reports_bytes(tmp_path: Path) -> None:
     result = WriteFileTool().execute(
         {"path": "nested/out.txt", "content": "hello", "create_parent_dirs": True},
@@ -175,6 +265,104 @@ def test_write_file_returns_error_when_write_fails(
     assert result.summary == "File write failed: out.txt"
     assert result.error == "File write failed"
     assert not (tmp_path / "out.txt").exists()
+
+
+def test_write_file_returns_error_when_parent_exists_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    parent = tmp_path / "nested"
+    original_exists = Path.exists
+
+    def fail_exists(path: Path) -> bool:
+        if path == parent:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_exists)
+
+    result = WriteFileTool().execute(
+        {"path": "nested/out.txt", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File write failed: nested/out.txt"
+    assert result.error == "File write failed"
+
+
+def test_write_file_returns_error_when_parent_type_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    parent = tmp_path / "nested"
+    parent.mkdir()
+    original_is_dir = Path.is_dir
+
+    def fail_is_dir(path: Path) -> bool:
+        if path == parent:
+            raise OSError("permission denied")
+        return original_is_dir(path)
+
+    monkeypatch.setattr(Path, "is_dir", fail_is_dir)
+
+    result = WriteFileTool().execute(
+        {"path": "nested/out.txt", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File write failed: nested/out.txt"
+    assert result.error == "File write failed"
+
+
+def test_write_file_returns_error_when_target_exists_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "out.txt"
+    original_exists = Path.exists
+
+    def fail_exists(path: Path) -> bool:
+        if path == target:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_exists)
+
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File write failed: out.txt"
+    assert result.error == "File write failed"
+
+
+def test_write_file_returns_error_when_target_type_stat_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "out.txt"
+    target.write_text("", encoding="utf-8")
+    original_is_file = Path.is_file
+
+    def fail_is_file(path: Path) -> bool:
+        if path == target:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_is_file)
+
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File write failed: out.txt"
+    assert result.error == "File write failed"
 
 
 def test_write_file_rejects_directory_target(tmp_path: Path) -> None:

@@ -9,6 +9,18 @@ def _error(summary: str, error: str) -> ToolResult:
     return ToolResult(success=False, summary=summary, error=error)
 
 
+def _path_exists(path) -> bool:
+    return path.exists()
+
+
+def _path_is_dir(path) -> bool:
+    return path.is_dir()
+
+
+def _path_is_file(path) -> bool:
+    return path.is_file()
+
+
 class ListDirTool(Tool):
     name: ClassVar[str] = "list_dir"
     description: ClassVar[str] = (
@@ -29,9 +41,23 @@ class ListDirTool(Tool):
         except PathSecurityError as exc:
             return _error(str(exc), "Path escapes workspace")
 
-        if not path.exists():
+        try:
+            path_exists = _path_exists(path)
+        except OSError:
+            return _error(
+                f"Directory listing failed: {requested}",
+                "Directory listing failed",
+            )
+        if not path_exists:
             return _error(f"Directory not found: {requested}", "Directory not found")
-        if not path.is_dir():
+        try:
+            path_is_directory = _path_is_dir(path)
+        except OSError:
+            return _error(
+                f"Directory listing failed: {requested}",
+                "Directory listing failed",
+            )
+        if not path_is_directory:
             return _error(f"Not a directory: {requested}", "Not a directory")
 
         try:
@@ -79,9 +105,17 @@ class ReadFileTool(Tool):
         except PathSecurityError as exc:
             return _error(str(exc), "Path escapes workspace")
 
-        if not path.exists():
+        try:
+            path_exists = _path_exists(path)
+        except OSError:
+            return _error(f"File read failed: {requested}", "File read failed")
+        if not path_exists:
             return _error(f"File not found: {requested}", "File not found")
-        if not path.is_file():
+        try:
+            path_is_file = _path_is_file(path)
+        except OSError:
+            return _error(f"File read failed: {requested}", "File read failed")
+        if not path_is_file:
             return _error(f"Not a file: {requested}", "Not a file")
 
         try:
@@ -130,7 +164,11 @@ class WriteFileTool(Tool):
         except PathSecurityError as exc:
             return _error(str(exc), "Path escapes workspace")
 
-        if not path.parent.exists():
+        try:
+            parent_exists = _path_exists(path.parent)
+        except OSError:
+            return _error(f"File write failed: {requested}", "File write failed")
+        if not parent_exists:
             if not create_parent_dirs:
                 return _error(
                     f"Parent directory not found: {requested}",
@@ -140,14 +178,28 @@ class WriteFileTool(Tool):
                 path.parent.mkdir(parents=True, exist_ok=True)
             except OSError:
                 return _error(f"File write failed: {requested}", "File write failed")
-        elif not path.parent.is_dir():
-            return _error(
-                f"Parent is not a directory: {requested}",
-                "Parent is not a directory",
-            )
+        else:
+            try:
+                parent_is_directory = _path_is_dir(path.parent)
+            except OSError:
+                return _error(f"File write failed: {requested}", "File write failed")
+            if not parent_is_directory:
+                return _error(
+                    f"Parent is not a directory: {requested}",
+                    "Parent is not a directory",
+                )
 
-        if path.exists() and not path.is_file():
-            return _error(f"Not a file: {requested}", "Not a file")
+        try:
+            target_exists = _path_exists(path)
+        except OSError:
+            return _error(f"File write failed: {requested}", "File write failed")
+        if target_exists:
+            try:
+                target_is_file = _path_is_file(path)
+            except OSError:
+                return _error(f"File write failed: {requested}", "File write failed")
+            if not target_is_file:
+                return _error(f"Not a file: {requested}", "Not a file")
 
         encoded = content.encode("utf-8")
         temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
