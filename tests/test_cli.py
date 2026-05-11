@@ -535,6 +535,70 @@ def test_run_reuses_default_session_transcript(monkeypatch, tmp_path) -> None:
     ]
 
 
+def test_run_refreshes_session_summary_for_long_transcript(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("session_context_turns: 2\n", encoding="utf-8")
+    store = SessionStore(tmp_path / "runs")
+    store.append_transcript("default", "user", "old user")
+    store.append_transcript("default", "assistant", "old answer")
+    store.append_transcript("default", "user", "recent user")
+    store.append_transcript("default", "assistant", "recent answer")
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in conversation or []
+                ]
+            )
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "continue", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert seen_conversation[0][0] == (
+        "user",
+        "Prior conversation summary:\n- user: old user\n- assistant: old answer",
+        {"source": "session_summary", "sticky_context": True},
+    )
+    assert [item[1] for item in seen_conversation[0][1:]] == [
+        "old user",
+        "old answer",
+        "recent user",
+        "recent answer",
+    ]
+    assert store.load("default").summary == "- user: old user\n- assistant: old answer"
+
+
 def test_run_can_disable_session(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")

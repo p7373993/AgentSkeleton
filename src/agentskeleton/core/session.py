@@ -11,6 +11,22 @@ from agentskeleton.core.state import ConversationMessage
 class SessionState:
     name: str
     transcript: list[ConversationMessage] = field(default_factory=list)
+    summary: str | None = None
+
+    def context_messages(self) -> list[ConversationMessage]:
+        if not self.summary:
+            return list(self.transcript)
+        return [
+            ConversationMessage(
+                role="user",
+                content=f"Prior conversation summary:\n{self.summary}",
+                metadata={
+                    "source": "session_summary",
+                    "sticky_context": True,
+                },
+            ),
+            *self.transcript,
+        ]
 
 
 class SessionStore:
@@ -21,6 +37,7 @@ class SessionStore:
         return SessionState(
             name=name,
             transcript=self._load_transcript(name),
+            summary=self._load_summary(name),
         )
 
     def append_transcript(
@@ -39,6 +56,17 @@ class SessionStore:
         }
         with self._transcript_path_for(name).open("a", encoding="utf-8") as file:
             file.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    def refresh_summary(self, name: str, keep_turns: int) -> None:
+        if keep_turns < 0:
+            raise ValueError("keep_turns must be non-negative")
+
+        transcript = self._load_transcript(name)
+        older_turns = transcript[:-keep_turns] if keep_turns else transcript
+        summary = _summarize_transcript(older_turns)
+        session_dir = self._dir_for(name)
+        session_dir.mkdir(parents=True, exist_ok=True)
+        self._summary_path_for(name).write_text(summary, encoding="utf-8")
 
     def _load_transcript(self, name: str) -> list[ConversationMessage]:
         path = self._transcript_path_for(name)
@@ -60,12 +88,35 @@ class SessionStore:
             )
         return transcript
 
+    def _load_summary(self, name: str) -> str | None:
+        path = self._summary_path_for(name)
+        if not path.exists():
+            return None
+        summary = path.read_text(encoding="utf-8").strip()
+        return summary or None
+
     def _dir_for(self, name: str) -> Path:
         return self.sessions_dir / self._safe_name(name)
 
     def _transcript_path_for(self, name: str) -> Path:
         return self._dir_for(name) / "transcript.jsonl"
 
+    def _summary_path_for(self, name: str) -> Path:
+        return self._dir_for(name) / "summary.md"
+
     def _safe_name(self, name: str) -> str:
         safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")
         return safe_name or "default"
+
+
+def _summarize_transcript(
+    turns: list[ConversationMessage],
+    max_turn_chars: int = 160,
+) -> str:
+    lines = []
+    for turn in turns:
+        content = re.sub(r"\s+", " ", turn.content).strip()
+        if len(content) > max_turn_chars:
+            content = f"{content[: max_turn_chars - 1]}..."
+        lines.append(f"- {turn.role}: {content}")
+    return "\n".join(lines)

@@ -29,6 +29,41 @@ def test_session_store_appends_and_loads_transcript_turns(tmp_path) -> None:
     assert [row["role"] for row in rows] == ["user", "assistant"]
 
 
+def test_session_store_refreshes_summary_for_older_transcript_turns(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    store.append_transcript("default", "user", "old user")
+    store.append_transcript("default", "assistant", "old answer")
+    store.append_transcript("default", "user", "recent user")
+    store.append_transcript("default", "assistant", "recent answer")
+
+    store.refresh_summary("default", keep_turns=2)
+    session = store.load("default")
+    context = session.context_messages()
+
+    assert session.summary == "- user: old user\n- assistant: old answer"
+    assert [turn.content for turn in session.transcript] == [
+        "old user",
+        "old answer",
+        "recent user",
+        "recent answer",
+    ]
+    assert context[0].content == (
+        "Prior conversation summary:\n"
+        "- user: old user\n"
+        "- assistant: old answer"
+    )
+    assert context[0].metadata == {
+        "source": "session_summary",
+        "sticky_context": True,
+    }
+    assert [turn.content for turn in context[1:]] == [
+        "old user",
+        "old answer",
+        "recent user",
+        "recent answer",
+    ]
+
+
 def test_session_store_sanitizes_session_names(tmp_path) -> None:
     store = SessionStore(tmp_path)
 

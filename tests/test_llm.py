@@ -296,3 +296,45 @@ def test_llm_client_limits_transcript_context_to_recent_turns(tmp_path) -> None:
         {"role": "assistant", "content": "recent answer"},
         {"role": "user", "content": "current request"},
     ]
+
+
+def test_llm_client_keeps_sticky_summary_when_limiting_transcript_context(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-2",
+        workspace=tmp_path,
+        goal="current request",
+        conversation=[
+            ConversationMessage(
+                role="user",
+                content="Prior conversation summary:\n- user: old user",
+                metadata={"sticky_context": True},
+            ),
+            ConversationMessage(role="user", content="old user"),
+            ConversationMessage(role="assistant", content="old answer"),
+            ConversationMessage(role="user", content="recent user"),
+            ConversationMessage(role="assistant", content="recent answer"),
+        ],
+    )
+
+    LLMClient(
+        RunConfig(workspace=tmp_path, session_context_turns=2),
+        client=fake_client,
+    ).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    call = fake_client.responses.calls[0]
+    assert call["input"] == [
+        {
+            "role": "user",
+            "content": "Prior conversation summary:\n- user: old user",
+        },
+        {"role": "user", "content": "recent user"},
+        {"role": "assistant", "content": "recent answer"},
+        {"role": "user", "content": "current request"},
+    ]
