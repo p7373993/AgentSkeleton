@@ -607,6 +607,33 @@ def test_registry_exports_openai_function_schemas_as_isolated_copies() -> None:
     assert registry.to_openai_tools()[0]["parameters"] == EchoTool.args_schema
 
 
+def test_registry_snapshots_tool_schema_on_register() -> None:
+    schema = {
+        "type": "object",
+        "properties": {"text": {"type": "string"}},
+        "required": ["text"],
+        "additionalProperties": False,
+    }
+
+    class MutableSchemaTool(EchoTool):
+        args_schema = schema
+
+    tool = MutableSchemaTool()
+    registry = ToolRegistry([tool])
+
+    schema["properties"]["text"]["type"] = "integer"
+    schema["required"].append("extra")
+
+    exported = registry.to_openai_tools()[0]["parameters"]
+    assert exported == {
+        "type": "object",
+        "properties": {"text": {"type": "string"}},
+        "required": ["text"],
+        "additionalProperties": False,
+    }
+    assert tool.args_schema == exported
+
+
 def test_registry_raises_for_unknown_tool() -> None:
     registry = ToolRegistry()
 

@@ -65,11 +65,12 @@ class ToolRegistry:
                 f"Tool {name} risk must be one of: "
                 f"{', '.join(SUPPORTED_TOOL_RISKS)}"
             )
-        _validate_args_schema(tool)
+        schema_snapshot = _validate_args_schema(tool)
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")
         if len(self._tools) >= MAX_REGISTERED_TOOLS:
             raise ValueError(f"Too many tools registered (max {MAX_REGISTERED_TOOLS})")
+        tool.args_schema = schema_snapshot
         self._tools[name] = tool
 
     def get(self, name: str) -> Tool:
@@ -93,16 +94,16 @@ class ToolRegistry:
         ]
 
 
-def _validate_args_schema(tool: Tool) -> None:
+def _validate_args_schema(tool: Tool) -> dict[str, Any]:
     try:
-        _validate_args_schema_inner(tool)
+        return _validate_args_schema_inner(tool)
     except ValueError:
         raise
     except Exception as exc:
         raise ValueError(f"Tool {tool.name} schema could not be inspected") from exc
 
 
-def _validate_args_schema_inner(tool: Tool) -> None:
+def _validate_args_schema_inner(tool: Tool) -> dict[str, Any]:
     schema = tool.args_schema
     if not isinstance(schema, Mapping):
         raise ValueError(f"Tool {tool.name} schema must be a mapping")
@@ -110,6 +111,7 @@ def _validate_args_schema_inner(tool: Tool) -> None:
         raise ValueError(f"Tool {tool.name} schema type must be object")
     _validate_schema_size(tool.name, schema)
     _validate_schema_node(tool.name, schema, "schema", set(), 0)
+    return deepcopy(dict(schema))
 
 
 def _validate_schema_size(tool_name: str, schema: Mapping) -> None:
