@@ -32,6 +32,23 @@ def test_session_store_appends_and_loads_transcript_turns(tmp_path) -> None:
     assert [row["role"] for row in rows] == ["user", "assistant"]
 
 
+def test_session_store_bounds_large_transcript_content_on_append(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+    large_content = "x" * 20_000
+
+    store.append_transcript("default", "assistant", large_content)
+
+    session = store.load("default")
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    stored_content = session.transcript[0].content
+    assert len(stored_content) < 5_000
+    assert stored_content.startswith("xxxxxxxxxxxxxxxx")
+    assert "[truncated" in stored_content
+    assert large_content not in transcript_path.read_text(encoding="utf-8")
+
+
 def test_session_store_serializes_non_json_metadata_values(tmp_path: Path) -> None:
     store = SessionStore(tmp_path)
     marker = object()

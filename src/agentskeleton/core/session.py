@@ -9,6 +9,7 @@ from agentskeleton.core.state import ConversationMessage
 
 _MAX_SESSION_DIR_NAME_LENGTH = 120
 _MAX_SESSION_FILE_BYTES = 2_097_152
+_MAX_TRANSCRIPT_CONTENT_CHARS = 4_096
 _WINDOWS_RESERVED_SESSION_BASENAMES = {
     "CON",
     "PRN",
@@ -117,7 +118,7 @@ class SessionStore:
         self._ensure_session_dir(name)
         row = {
             "role": role,
-            "content": content,
+            "content": _bounded_transcript_content(content),
             "metadata": _json_safe(metadata or {}),
         }
         transcript_path = self._transcript_path_for(name)
@@ -320,6 +321,16 @@ def _summarize_transcript(
             content = f"{content[: max_turn_chars - 1]}..."
         lines.append(f"- {turn.role}: {content}")
     return "\n".join(lines)
+
+
+def _bounded_transcript_content(content: str) -> str:
+    if len(content) <= _MAX_TRANSCRIPT_CONTENT_CHARS:
+        return content
+    omitted = len(content) - _MAX_TRANSCRIPT_CONTENT_CHARS
+    return (
+        f"{content[:_MAX_TRANSCRIPT_CONTENT_CHARS]}"
+        f"\n[truncated {omitted} characters]"
+    )
 
 
 def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
