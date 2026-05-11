@@ -143,6 +143,7 @@ class AgentLoop:
                 return state
 
         state.final_status = "max_steps"
+        state.final_reason = f"Reached max_steps limit: {self.config.max_steps}"
         self._log_run_finished(state)
         return state
 

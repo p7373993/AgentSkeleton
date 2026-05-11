@@ -1,0 +1,30 @@
+name: max-steps
+domain: reliability
+goal: Stop with a clear reason when the loop reaches the step limit.
+config:
+  max_steps: 1
+files:
+  data/input.txt: loop data
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-before-limit
+    arguments:
+      path: data/input.txt
+  - type: final
+    text: unreachable
+expect:
+  status: max_steps
+  reason: "Reached max_steps limit: 1"
+  observations: 1
+  observations_detail:
+    - tool: read_file
+      success: true
+      payload:
+        path: data/input.txt
+        content: loop data
+  events:
+    - type: run_finished
+      payload:
+        status: max_steps
+        reason: "Reached max_steps limit: 1"

@@ -171,6 +171,7 @@ def test_loop_executes_all_tool_calls_in_batch(tmp_path: Path) -> None:
 
 
 def test_loop_stops_at_max_steps(tmp_path: Path) -> None:
+    logger = MemoryLogger()
     loop = AgentLoop(
         config=RunConfig(workspace=tmp_path, max_steps=1),
         llm=ScriptedLLM(
@@ -184,14 +185,24 @@ def test_loop_stops_at_max_steps(tmp_path: Path) -> None:
             ]
         ),
         registry=ToolRegistry([RecordTool()]),
-        logger=MemoryLogger(),
+        logger=logger,
     )
 
     state = loop.run("record")
 
     assert state.final_status == "max_steps"
     assert state.final_answer is None
+    assert state.final_reason == "Reached max_steps limit: 1"
     assert state.step_count == 1
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "max_steps",
+            "answer": None,
+            "reason": "Reached max_steps limit: 1",
+        },
+    )
 
 
 def test_loop_stops_when_policy_blocks_tool(tmp_path: Path) -> None:

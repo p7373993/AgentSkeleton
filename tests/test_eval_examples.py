@@ -34,7 +34,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "writing",
     ]
     assert result.passed is True
-    assert result.total == 16
+    assert result.total == 17
     assert result.failed_count == 0
     assert result.domains == {
         "artifacts": {"passed": 1, "failed": 0, "total": 1},
@@ -42,7 +42,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "data": {"passed": 1, "failed": 0, "total": 1},
         "filesystem": {"passed": 2, "failed": 0, "total": 2},
         "interactive": {"passed": 1, "failed": 0, "total": 1},
-        "reliability": {"passed": 8, "failed": 0, "total": 8},
+        "reliability": {"passed": 9, "failed": 0, "total": 9},
         "tool_packs": {"passed": 1, "failed": 0, "total": 1},
         "writing": {"passed": 1, "failed": 0, "total": 1},
     }
