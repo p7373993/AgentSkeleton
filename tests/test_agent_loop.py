@@ -1387,6 +1387,32 @@ def test_loop_resets_repeat_counter_when_arguments_change(tmp_path: Path) -> Non
     ]
 
 
+def test_loop_uses_bounded_repeated_action_fingerprints(tmp_path: Path) -> None:
+    large_value = "x" * 5_000
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                tool_name="record",
+                arguments={"value": large_value},
+                call_id="call-1",
+            ),
+            ToolCallAction(
+                tool_name="record",
+                arguments={"value": large_value},
+                call_id="call-2",
+            ),
+            FinalAction(text="done"),
+        ],
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.repeated_action_count == 2
+    assert state.last_action_fingerprint is not None
+    assert len(state.last_action_fingerprint) <= 96
+    assert large_value not in state.last_action_fingerprint
+
+
 def test_loop_passes_user_input_callback_to_tools(tmp_path: Path) -> None:
     state = AgentLoop(
         config=RunConfig(workspace=tmp_path),

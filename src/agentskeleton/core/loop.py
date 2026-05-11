@@ -1,3 +1,4 @@
+import hashlib
 import json
 from collections.abc import Callable, Mapping
 from typing import Protocol
@@ -579,10 +580,10 @@ def _action_fingerprint(action: ToolCallAction) -> str:
             sort_keys=True,
             separators=(",", ":"),
             default=str,
-        )
+        ).encode("utf-8")
     except (TypeError, ValueError):
-        arguments = repr(action.arguments)
-    return f"{action.tool_name}:{arguments}"
+        arguments = repr(action.arguments).encode("utf-8", errors="replace")
+    return f"{action.tool_name}:{hashlib.sha256(arguments).hexdigest()}"
 
 
 def _logged_arguments(arguments: object) -> object:
