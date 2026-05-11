@@ -55,6 +55,7 @@ PYTHON_NETWORK_IMPORT_RE = re.compile(
     r"|\bimport\s+[^;\n\r]*\b"
     r"(requests|urllib(?:\.[a-z0-9_]+)*|http\.client|socket)\b"
 )
+PYTHON_DYNAMIC_EXEC_RE = re.compile(r"\b(exec|eval)\s*\(")
 
 
 @dataclass(frozen=True)
@@ -256,6 +257,8 @@ def _looks_like_remote_execution(command: str) -> bool:
         "node",
     )
     segments = _split_shell_segments(command)
+    if _looks_like_python_download_then_execute(command):
+        return True
     if any(_same_segment_executes_fetched_content(segment) for segment in segments):
         return True
     for index, segment in enumerate(segments[:-1]):
@@ -270,6 +273,13 @@ def _looks_like_remote_execution(command: str) -> bool:
             ):
                 return True
     return False
+
+
+def _looks_like_python_download_then_execute(command: str) -> bool:
+    return (
+        _contains_python_network_import(command)
+        and PYTHON_DYNAMIC_EXEC_RE.search(command) is not None
+    )
 
 
 def _same_segment_executes_fetched_content(segment: str) -> bool:
