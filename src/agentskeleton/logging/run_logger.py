@@ -10,18 +10,29 @@ SECRET_PATTERNS = [
     re.compile(r"(OPENAI_API_KEY\s*=\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"(Authorization:\s*Bearer\s+)[^\s]+", re.IGNORECASE),
     re.compile(
+        r"(\b[A-Z0-9_.-]*(?:TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE[_-]?KEY|"
+        r"CREDENTIAL|ACCESS[_-]?KEY)[A-Z0-9_.-]*\s*[:=]\s*)[^\s]+",
+        re.IGNORECASE,
+    ),
+    re.compile(
         r"((?:x-)?api[-_]?key\s*[:=]\s*)[^\s]+",
         re.IGNORECASE,
     ),
     re.compile(r"(password\s*[:=]\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"\bsk-[A-Za-z0-9_-]+"),
 ]
-SECRET_KEYS = {
+SECRET_KEY_TERMS = {
+    "access_key",
     "api_key",
     "apikey",
-    "x-api-key",
-    "password",
     "authorization",
+    "credential",
+    "password",
+    "passwd",
+    "private_key",
+    "secret",
+    "token",
+    "x_api_key",
 }
 
 
@@ -63,7 +74,7 @@ def redact(value: Any, seen: set[int] | None = None) -> Any:
 
 def _is_secret_key(key: object) -> bool:
     normalized = str(key).strip().lower().replace("-", "_")
-    return normalized in {secret.replace("-", "_") for secret in SECRET_KEYS}
+    return any(term in normalized for term in SECRET_KEY_TERMS)
 
 
 class RunLogger:

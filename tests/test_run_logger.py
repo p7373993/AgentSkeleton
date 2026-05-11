@@ -82,6 +82,35 @@ def test_run_logger_redacts_secret_mapping_values(tmp_path: Path) -> None:
     assert raw.count("[REDACTED]") == 3
 
 
+def test_run_logger_redacts_common_token_and_secret_names(tmp_path: Path) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={
+            "access_token": "access-token-value",
+            "nested": {
+                "refresh-token": "refresh-token-value",
+                "client_secret": "oauth-client-value",
+            },
+            "stdout": (
+                "GITHUB_TOKEN=ghp-token-value\n"
+                "AWS_SECRET_ACCESS_KEY=aws-secret-value"
+            ),
+            "normal": "visible-value",
+        },
+    )
+
+    raw = logger.path.read_text(encoding="utf-8")
+    assert "access-token-value" not in raw
+    assert "refresh-token-value" not in raw
+    assert "oauth-client-value" not in raw
+    assert "ghp-token-value" not in raw
+    assert "aws-secret-value" not in raw
+    assert "visible-value" in raw
+
+
 def test_run_logger_serializes_non_json_payload_values(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
     marker = object()
