@@ -621,6 +621,18 @@ def test_load_tools_from_module_tools_list(tmp_path, monkeypatch) -> None:
     assert [tool.name for tool in tools] == ["custom_echo"]
 
 
+def test_load_tools_from_module_rejects_too_many_tools(tmp_path, monkeypatch) -> None:
+    module_path = tmp_path / "too_many_tools.py"
+    _write_many_tool_module(module_path, 129)
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot load more than 128 tools from modules",
+    ):
+        load_tools_from_modules(["too_many_tools"])
+
+
 def test_load_tools_from_module_reimports_current_module_path(
     tmp_path,
     monkeypatch,
@@ -834,6 +846,27 @@ def _write_tool_module(path, tool_name: str) -> None:
                 "        return ToolResult(success=True, summary='ok')",
                 "",
                 "TOOLS = [CustomTool()]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_many_tool_module(path, count: int) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "from agentskeleton.tools.base import Tool, ToolResult",
+                "",
+                "class CustomTool(Tool):",
+                "    name = 'bulk_tool'",
+                "    description = 'Custom tool.'",
+                "    risk = 'read'",
+                "    args_schema = {'type': 'object', 'properties': {}}",
+                "    def execute(self, args, context):",
+                "        return ToolResult(success=True, summary='ok')",
+                "",
+                f"TOOLS = [CustomTool() for _ in range({count})]",
             ]
         ),
         encoding="utf-8",

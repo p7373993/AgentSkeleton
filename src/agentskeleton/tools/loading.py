@@ -7,6 +7,7 @@ from agentskeleton.tools.registry import ToolRegistry
 _PROTECTED_PARENT_MODULES = ("agentskeleton",)
 MAX_TOOL_MODULES = 128
 MAX_TOOL_MODULE_NAME_BYTES = 512
+MAX_LOADED_TOOLS = 128
 
 
 def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
@@ -47,7 +48,7 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
             )
 
         if module_tools is not None:
-            tools.extend(_coerce_tool_list(module_name, module_tools))
+            _append_loaded_tools(tools, _coerce_tool_list(module_name, module_tools))
 
         if register_tools is not None:
             if not callable(register_tools):
@@ -64,7 +65,7 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
                     f"Tool module {module_name} register_tools failed: "
                     f"{type(exc).__name__}: {exc}"
                 ) from exc
-            tools.extend(registry.all())
+            _append_loaded_tools(tools, registry.all())
 
     return tools
 
@@ -111,6 +112,12 @@ def _is_protected_parent_module(module_name: str) -> bool:
         module_name == protected or module_name.startswith(f"{protected}.")
         for protected in _PROTECTED_PARENT_MODULES
     )
+
+
+def _append_loaded_tools(tools: list[Tool], new_tools: list[Tool]) -> None:
+    if len(tools) + len(new_tools) > MAX_LOADED_TOOLS:
+        raise ValueError(f"Cannot load more than {MAX_LOADED_TOOLS} tools from modules")
+    tools.extend(new_tools)
 
 
 def _coerce_tool_list(module_name: str, module_tools: object) -> list[Tool]:
