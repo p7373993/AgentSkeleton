@@ -103,6 +103,22 @@ def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
         raise typer.Exit(1) from exc
 
 
+def _summarize_run_log_or_exit(
+    log_path: Path,
+    run_id: str | None = None,
+    include_events: bool = False,
+) -> dict[str, object]:
+    try:
+        return _summarize_run_log(
+            log_path,
+            run_id=run_id,
+            include_events=include_events,
+        )
+    except ValueError as exc:
+        console.print(f"Run log error: {exc}", soft_wrap=True)
+        raise typer.Exit(1) from exc
+
+
 def _registry_from_config(config) -> ToolRegistry:
     return build_default_registry(config.enabled_tools, config.tool_modules)
 
@@ -579,7 +595,7 @@ def show_run(
         console.print(f"Run log not found: {run_id}")
         raise typer.Exit(1)
 
-    summary = _summarize_run_log(
+    summary = _summarize_run_log_or_exit(
         log_path,
         run_id=run_id,
         include_events=include_events,
@@ -626,7 +642,7 @@ def list_runs(
 ) -> None:
     loaded = _load_config_or_exit(config)
     summaries = [
-        _summarize_run_log(log_path)
+        _summarize_run_log_or_exit(log_path)
         for log_path in _run_log_paths(loaded.logs_dir)[:limit]
     ]
 
@@ -672,7 +688,7 @@ def restore_run(
         console.print(f"Run log not found: {run_id}")
         raise typer.Exit(1)
 
-    summary = _summarize_run_log(log_path, run_id=run_id)
+    summary = _summarize_run_log_or_exit(log_path, run_id=run_id)
     goal = summary["goal"]
     if not isinstance(goal, str) or not goal:
         console.print(f"Run log has no restorable goal: {run_id}")
@@ -732,7 +748,10 @@ def _find_run_log(logs_dir: Path, run_id: str) -> Path | None:
 
 
 def _run_log_paths(logs_dir: Path) -> list[Path]:
-    return sorted(logs_dir.glob("*/*.jsonl"), reverse=True)
+    return sorted(
+        (path for path in logs_dir.glob("*/*.jsonl") if path.is_file()),
+        reverse=True,
+    )
 
 
 def _summarize_run_log(
@@ -823,8 +842,15 @@ def _summary_transcript_content(summary: dict[str, object]) -> str | None:
 
 
 def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
+    if not log_path.is_file():
+        raise ValueError(f"Run log path is not a file: {log_path}")
+
     events: list[dict[str, Any]] = []
-    for raw_line in log_path.read_bytes().splitlines():
+    try:
+        raw_lines = log_path.read_bytes().splitlines()
+    except OSError as exc:
+        raise ValueError(f"Run log could not be read: {log_path}") from exc
+    for raw_line in raw_lines:
         try:
             line = raw_line.decode("utf-8")
         except UnicodeDecodeError:

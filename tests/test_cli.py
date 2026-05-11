@@ -1957,6 +1957,33 @@ def test_show_run_treats_run_id_as_literal_not_glob(monkeypatch, tmp_path) -> No
     assert "Run log not found: *" in result.stdout
 
 
+def test_show_run_reports_non_file_log_path(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    (log_dir / "run-1.jsonl").mkdir()
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 1
+    assert "Run log error: Run log path is not a file:" in result.stdout
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
+def test_list_runs_ignores_non_file_log_paths(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    (log_dir / "run-1.jsonl").mkdir()
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs"])
+
+    assert result.exit_code == 0
+    assert "No run logs found." in result.stdout
+
+
 def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
