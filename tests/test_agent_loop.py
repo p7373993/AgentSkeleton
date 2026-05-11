@@ -195,6 +195,7 @@ def test_loop_stops_at_max_steps(tmp_path: Path) -> None:
 
 
 def test_loop_stops_when_policy_blocks_tool(tmp_path: Path) -> None:
+    logger = MemoryLogger()
     state = AgentLoop(
         config=RunConfig(workspace=tmp_path),
         llm=ScriptedLLM(
@@ -207,15 +208,26 @@ def test_loop_stops_when_policy_blocks_tool(tmp_path: Path) -> None:
             ]
         ),
         registry=ToolRegistry([WriteRecordTool()]),
-        logger=MemoryLogger(),
+        logger=logger,
         confirmer=lambda decision, action: False,
     ).run("record")
 
     assert state.final_status == "denied"
+    assert state.final_reason == "Tool writes files in the workspace"
     assert state.observations[0].policy_decision == "confirm"
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "denied",
+            "answer": None,
+            "reason": "Tool writes files in the workspace",
+        },
+    )
 
 
 def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
+    logger = MemoryLogger()
     state = AgentLoop(
         config=RunConfig(workspace=tmp_path, permission_profile="read_only"),
         llm=ScriptedLLM(
@@ -228,13 +240,23 @@ def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
             ]
         ),
         registry=ToolRegistry([WriteRecordTool()]),
-        logger=MemoryLogger(),
+        logger=logger,
         confirmer=lambda decision, action: True,
     ).run("record")
 
     assert state.final_status == "blocked"
+    assert state.final_reason == "Tool is blocked by read-only profile"
     assert state.observations[0].policy_decision == "block"
     assert state.observations[0].result.error == "Permission blocked"
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "blocked",
+            "answer": None,
+            "reason": "Tool is blocked by read-only profile",
+        },
+    )
 
 
 def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:

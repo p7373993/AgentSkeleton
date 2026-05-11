@@ -254,6 +254,7 @@ class AgentLoop:
                 ToolObservation(action.call_id, tool.name, decision.outcome, result)
             )
             state.final_status = "blocked"
+            state.final_reason = result.summary
             return
 
         if decision.outcome == "confirm" and not self.confirmer(decision, action):
@@ -266,6 +267,7 @@ class AgentLoop:
                 ToolObservation(action.call_id, tool.name, decision.outcome, result)
             )
             state.final_status = "denied"
+            state.final_reason = result.summary
             return
 
         self.logger.log("tool_started", state.step_count, {"tool_name": tool.name})

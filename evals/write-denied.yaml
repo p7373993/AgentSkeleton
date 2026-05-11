@@ -10,8 +10,19 @@ actions:
       content: blocked
 expect:
   status: denied
+  reason: Tool writes files in the workspace
   observations: 1
   observations_detail:
     - tool: write_file
       success: false
       error: Permission denied
+  events:
+    - type: policy_decision
+      payload:
+        tool_name: write_file
+        outcome: confirm
+        reason: Tool writes files in the workspace
+    - type: run_finished
+      payload:
+        status: denied
+        reason: Tool writes files in the workspace

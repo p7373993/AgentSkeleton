@@ -1,0 +1,31 @@
+name: write-blocked-read-only
+domain: reliability
+goal: Block a workspace write under the read-only permission profile.
+config:
+  permission_profile: read_only
+actions:
+  - type: tool
+    tool: write_file
+    call_id: write-blocked
+    arguments:
+      path: generated.txt
+      content: blocked
+expect:
+  status: blocked
+  reason: Tool is blocked by read-only profile
+  observations: 1
+  observations_detail:
+    - tool: write_file
+      success: false
+      summary: Tool is blocked by read-only profile
+      error: Permission blocked
+  events:
+    - type: policy_decision
+      payload:
+        tool_name: write_file
+        outcome: block
+        reason: Tool is blocked by read-only profile
+    - type: run_finished
+      payload:
+        status: blocked
+        reason: Tool is blocked by read-only profile
