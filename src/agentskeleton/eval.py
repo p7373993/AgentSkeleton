@@ -9,7 +9,12 @@ from uuid import uuid4
 import yaml
 
 from agentskeleton.config import RunConfig
-from agentskeleton.core.actions import AgentAction, FinalAction, ToolCallAction
+from agentskeleton.core.actions import (
+    AgentAction,
+    FinalAction,
+    ToolCallAction,
+    ToolCallBatchAction,
+)
 from agentskeleton.core.loop import AgentLoop
 from agentskeleton.core.state import RunState
 from agentskeleton.core.trace import NullTraceSink
@@ -356,20 +361,55 @@ def _parse_action(raw: object, index: int) -> AgentAction:
         return FinalAction(text=str(text), status=str(status))
 
     if action_type == "tool":
-        tool_name = raw.get("tool") or raw.get("tool_name")
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError(f"Scenario action {index + 1} must define tool")
-        arguments = raw.get("arguments", {})
-        if not isinstance(arguments, dict):
-            raise ValueError(f"Scenario action {index + 1} arguments must be a mapping")
-        call_id = raw.get("call_id") or f"scenario-call-{index + 1}"
-        return ToolCallAction(
-            tool_name=tool_name,
-            arguments=dict(arguments),
-            call_id=str(call_id),
+        return _parse_tool_call(raw, f"Scenario action {index + 1}", index + 1)
+
+    if action_type == "batch":
+        raw_calls = raw.get("calls") or raw.get("tool_calls")
+        if not isinstance(raw_calls, list) or not raw_calls:
+            raise ValueError(
+                f"Scenario action {index + 1} batch must define calls",
+            )
+        return ToolCallBatchAction(
+            tool_calls=[
+                _parse_tool_call(
+                    call,
+                    f"Scenario action {index + 1} batch call {call_index + 1}",
+                    index + 1,
+                    call_index + 1,
+                )
+                for call_index, call in enumerate(raw_calls)
+            ],
         )
 
     raise ValueError(f"Unknown scenario action type: {action_type}")
+
+
+def _parse_tool_call(
+    raw: object,
+    context: str,
+    action_number: int,
+    call_number: int | None = None,
+) -> ToolCallAction:
+    if not isinstance(raw, dict):
+        raise ValueError(f"{context} must be a mapping")
+    tool_name = raw.get("tool") or raw.get("tool_name")
+    if not isinstance(tool_name, str) or not tool_name.strip():
+        raise ValueError(f"{context} must define tool")
+    arguments = raw.get("arguments", {})
+    if not isinstance(arguments, dict):
+        raise ValueError(f"{context} arguments must be a mapping")
+    call_id = raw.get("call_id") or _default_call_id(action_number, call_number)
+    return ToolCallAction(
+        tool_name=tool_name,
+        arguments=dict(arguments),
+        call_id=str(call_id),
+    )
+
+
+def _default_call_id(action_number: int, call_number: int | None) -> str:
+    if call_number is None:
+        return f"scenario-call-{action_number}"
+    return f"scenario-call-{action_number}-{call_number}"
 
 
 def _compare_expectations(

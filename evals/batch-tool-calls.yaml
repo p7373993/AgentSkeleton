@@ -1,0 +1,34 @@
+name: batch-tool-calls
+domain: reliability
+goal: Read two independent inputs in one model step.
+files:
+  data/one.txt: one
+  data/two.txt: two
+actions:
+  - type: batch
+    calls:
+      - tool: read_file
+        call_id: read-one
+        arguments:
+          path: data/one.txt
+      - tool: read_file
+        call_id: read-two
+        arguments:
+          path: data/two.txt
+  - type: final
+    text: batch read ok
+expect:
+  status: completed
+  answer: batch read ok
+  observations: 2
+  observations_detail:
+    - tool: read_file
+      success: true
+      payload:
+        path: data/one.txt
+        content: one
+    - tool: read_file
+      success: true
+      payload:
+        path: data/two.txt
+        content: two

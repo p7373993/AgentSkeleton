@@ -232,6 +232,59 @@ def test_run_scenario_checks_expected_file_outputs(tmp_path: Path) -> None:
     assert result.failures == []
 
 
+def test_run_scenario_executes_batch_tool_actions(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "batch-read.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: batch-read",
+                "goal: read two fixture files",
+                "files:",
+                "  data/one.txt: one",
+                "  data/two.txt: two",
+                "actions:",
+                "  - type: batch",
+                "    calls:",
+                "      - tool: read_file",
+                "        call_id: read-one",
+                "        arguments:",
+                "          path: data/one.txt",
+                "      - tool: read_file",
+                "        call_id: read-two",
+                "        arguments:",
+                "          path: data/two.txt",
+                "  - type: final",
+                "    text: batch read ok",
+                "expect:",
+                "  status: completed",
+                "  answer: batch read ok",
+                "  observations: 2",
+                "  observations_detail:",
+                "    - tool: read_file",
+                "      success: true",
+                "      payload:",
+                "        path: data/one.txt",
+                "        content: one",
+                "    - tool: read_file",
+                "      success: true",
+                "      payload:",
+                "        path: data/two.txt",
+                "        content: two",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert [failure for failure in result.failures] == []
+
+
 def test_run_scenario_applies_config_overrides(tmp_path: Path) -> None:
     scenario_path = tmp_path / "trusted-write.yaml"
     scenario_path.write_text(
