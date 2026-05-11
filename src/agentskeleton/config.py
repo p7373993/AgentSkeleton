@@ -6,6 +6,29 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+def _ensure_existing_parent_directory(value: Path, field_name: str) -> Path:
+    expanded = value.expanduser()
+    for candidate in (expanded, *expanded.parents):
+        try:
+            exists = candidate.exists()
+        except OSError as exc:
+            raise ValueError(
+                f"{field_name} path could not be checked: {value}"
+            ) from exc
+        if not exists:
+            continue
+        try:
+            is_directory = candidate.is_dir()
+        except OSError as exc:
+            raise ValueError(
+                f"{field_name} path could not be checked: {value}"
+            ) from exc
+        if not is_directory:
+            raise ValueError(f"{field_name} must be a directory path: {value}")
+        break
+    return expanded
+
+
 class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_default=True)
 
@@ -28,14 +51,11 @@ class RunConfig(BaseModel):
     @field_validator("workspace")
     @classmethod
     def resolve_workspace(cls, value: Path) -> Path:
-        expanded = value.expanduser()
-        for candidate in (expanded, *expanded.parents):
-            if not candidate.exists():
-                continue
-            if not candidate.is_dir():
-                raise ValueError(f"workspace must be a directory path: {value}")
-            break
-        return expanded.resolve()
+        expanded = _ensure_existing_parent_directory(value, "workspace")
+        try:
+            return expanded.resolve()
+        except OSError as exc:
+            raise ValueError(f"workspace path could not be resolved: {value}") from exc
 
     @field_validator("model", "reasoning_effort", "text_verbosity")
     @classmethod
@@ -47,13 +67,7 @@ class RunConfig(BaseModel):
     @field_validator("logs_dir")
     @classmethod
     def reject_file_logs_dir(cls, value: Path) -> Path:
-        expanded = value.expanduser()
-        for candidate in (expanded, *expanded.parents):
-            if not candidate.exists():
-                continue
-            if not candidate.is_dir():
-                raise ValueError(f"logs_dir must be a directory path: {value}")
-            break
+        _ensure_existing_parent_directory(value, "logs_dir")
         return value
 
     @field_validator("enabled_tools")

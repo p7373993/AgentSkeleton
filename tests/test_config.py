@@ -193,6 +193,21 @@ def test_config_rejects_workspace_with_file_parent(tmp_path: Path) -> None:
         RunConfig(workspace=parent_file / "child")
 
 
+def test_config_reports_workspace_stat_failures(monkeypatch, tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    original_exists = Path.exists
+
+    def fail_workspace_stat(path: Path) -> bool:
+        if path == workspace:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_workspace_stat)
+
+    with pytest.raises(ValueError, match="workspace path could not be checked"):
+        RunConfig(workspace=workspace)
+
+
 def test_config_rejects_logs_dir_file(tmp_path: Path) -> None:
     logs_file = tmp_path / "runs"
     logs_file.write_text("not a directory", encoding="utf-8")
@@ -207,3 +222,18 @@ def test_config_rejects_logs_dir_with_file_parent(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="logs_dir must be a directory path"):
         RunConfig(workspace=tmp_path, logs_dir=parent_file / "nested")
+
+
+def test_config_reports_logs_dir_stat_failures(monkeypatch, tmp_path: Path) -> None:
+    logs_dir = tmp_path / "runs"
+    original_exists = Path.exists
+
+    def fail_logs_dir_stat(path: Path) -> bool:
+        if path == logs_dir:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_logs_dir_stat)
+
+    with pytest.raises(ValueError, match="logs_dir path could not be checked"):
+        RunConfig(workspace=tmp_path, logs_dir=logs_dir)
