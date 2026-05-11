@@ -205,6 +205,39 @@ def test_llm_client_accepts_single_output_item_mapping(tmp_path) -> None:
     ]
 
 
+def test_llm_client_serializes_mapping_function_call_arguments_for_context(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output={
+            "type": "function_call",
+            "name": "read_file",
+            "arguments": {"path": "README.md"},
+            "call_id": "call-1",
+        },
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, ToolCallAction)
+    assert action.arguments == {"path": "README.md"}
+    assert state.response_context_items == [
+        {"role": "user", "content": "read"},
+        {
+            "type": "function_call",
+            "name": "read_file",
+            "arguments": '{"path": "README.md"}',
+            "call_id": "call-1",
+        },
+    ]
+
+
 def test_llm_client_rejects_invalid_output_shape(tmp_path) -> None:
     response = SimpleNamespace(id="resp-1", output_text="", output="not a list")
     state = RunState(run_id="run-1", workspace=tmp_path, goal="read")

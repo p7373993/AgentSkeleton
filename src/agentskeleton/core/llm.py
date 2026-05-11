@@ -220,13 +220,11 @@ class LLMClient:
 
     def _serialize_output_item(self, item: Any) -> dict[str, Any] | None:
         if isinstance(item, dict):
-            serialized = dict(item)
-            return serialized if _is_context_item(serialized) else None
+            return _normalize_context_item(dict(item))
 
         model_dump = getattr(item, "model_dump", None)
         if model_dump is not None:
-            serialized = model_dump(exclude_none=True)
-            return serialized if _is_context_item(serialized) else None
+            return _normalize_context_item(model_dump(exclude_none=True))
 
         item_type = _read_attr(item, "type")
         if not isinstance(item_type, str) or not item_type.strip():
@@ -298,3 +296,11 @@ def _is_context_item(item: object) -> bool:
         or isinstance(role, str)
         and bool(role.strip())
     )
+
+
+def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    if not _is_context_item(item):
+        return None
+    if item.get("type") == "function_call" and isinstance(item.get("arguments"), dict):
+        item["arguments"] = json.dumps(item["arguments"], default=str)
+    return item
