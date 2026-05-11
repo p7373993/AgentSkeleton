@@ -2376,6 +2376,30 @@ def test_show_run_reports_non_file_log_path(monkeypatch, tmp_path) -> None:
     assert result.exception is None or not isinstance(result.exception, OSError)
 
 
+def test_show_run_rejects_log_that_grows_after_stat(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    log_path.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(cli_module, "MAX_RUN_LOG_BYTES", 10)
+    original_read_bytes = Path.read_bytes
+    expected_path = log_path.resolve()
+
+    def grow_read_bytes(path: Path) -> bytes:
+        if path.resolve() == expected_path:
+            return b"x" * 11
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", grow_read_bytes)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 1
+    assert "Run log error: Run log exceeds 10 bytes:" in result.stdout
+
+
 def test_show_run_reports_log_discovery_failures(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     original_glob = Path.glob

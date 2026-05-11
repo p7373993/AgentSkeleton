@@ -918,11 +918,14 @@ def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
     try:
         if log_path.stat().st_size > MAX_RUN_LOG_BYTES:
             raise ValueError(f"Run log exceeds {MAX_RUN_LOG_BYTES} bytes: {log_path}")
-        raw_lines = log_path.read_bytes().splitlines()
+        raw_log = log_path.read_bytes()
     except ValueError:
         raise
     except OSError as exc:
         raise ValueError(f"Run log could not be read: {log_path}") from exc
+    if len(raw_log) > MAX_RUN_LOG_BYTES:
+        raise ValueError(f"Run log exceeds {MAX_RUN_LOG_BYTES} bytes: {log_path}")
+    raw_lines = raw_log.splitlines()
     for raw_line in raw_lines:
         try:
             line = raw_line.decode("utf-8")
