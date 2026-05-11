@@ -86,16 +86,40 @@ def _build_registry_or_exit(
 def tools(
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config, {"enabled_tools": tool})
     registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
+    if as_json:
+        console.print(
+            json.dumps(
+                {
+                    "tools": [
+                        {
+                            "name": registered_tool.name,
+                            "description": registered_tool.description,
+                            "risk": registered_tool.risk,
+                        }
+                        for registered_tool in registry.all()
+                    ]
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return
+
     table = Table(title="Registered Tools")
     table.add_column("Name")
     table.add_column("Description")
     table.add_column("Risk")
 
-    for tool in registry.all():
-        table.add_row(tool.name, tool.description, tool.risk)
+    for registered_tool in registry.all():
+        table.add_row(
+            registered_tool.name,
+            registered_tool.description,
+            registered_tool.risk,
+        )
 
     console.print(table)
 

@@ -74,6 +74,34 @@ def test_tools_command_tool_option_overrides_config(monkeypatch, tmp_path) -> No
     assert "shell" not in result.stdout
 
 
+def test_tools_command_can_output_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "enabled_tools:",
+                "  - read_file",
+                "  - ask_user",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["tools", "--config", str(config_path), "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert [
+        {"name": tool["name"], "risk": tool["risk"]} for tool in payload["tools"]
+    ] == [
+        {"name": "read_file", "risk": "read"},
+        {"name": "ask_user", "risk": "interactive"},
+    ]
+    assert all(tool["description"] for tool in payload["tools"])
+
+
 @pytest.mark.parametrize(
     ("command", "user_input"),
     [
