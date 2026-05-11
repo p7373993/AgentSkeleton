@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_CONFIG_FILE_BYTES = 2_097_152
 MAX_CONFIG_TOOL_LIST_ITEMS = 128
+MAX_CONFIG_TOOL_NAME_BYTES = 512
 
 
 def _ensure_existing_parent_directory(value: Path, field_name: str) -> Path:
@@ -62,6 +63,11 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
             f"{MAX_CONFIG_TOOL_LIST_ITEMS} entries"
         )
     for name in value:
+        if len(name.encode("utf-8")) > MAX_CONFIG_TOOL_NAME_BYTES:
+            raise ValueError(
+                f"{field_name} entries cannot exceed "
+                f"{MAX_CONFIG_TOOL_NAME_BYTES} bytes"
+            )
         if not name.strip():
             raise ValueError(f"{field_name} cannot contain empty names")
         if any(character.isspace() for character in name):

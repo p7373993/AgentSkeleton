@@ -386,6 +386,22 @@ def test_config_rejects_too_many_tool_modules(tmp_path: Path) -> None:
         )
 
 
+def test_config_rejects_oversized_enabled_tool_names(tmp_path: Path) -> None:
+    with pytest.raises(
+        ValueError,
+        match="enabled_tools entries cannot exceed 512 bytes",
+    ):
+        RunConfig(workspace=tmp_path, enabled_tools=["a" * 513])
+
+
+def test_config_rejects_oversized_tool_module_names(tmp_path: Path) -> None:
+    with pytest.raises(
+        ValueError,
+        match="tool_modules entries cannot exceed 512 bytes",
+    ):
+        RunConfig(workspace=tmp_path, tool_modules=["a" * 513])
+
+
 @pytest.mark.parametrize(
     "module_name",
     [
