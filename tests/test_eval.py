@@ -163,6 +163,92 @@ def test_run_scenario_reports_declared_file_parent_conflict(
         raise AssertionError("Expected conflicting scenario files to fail")
 
 
+def test_run_scenario_reports_declared_file_parent_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "fixture-parent-stat.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-parent-stat",
+                "goal: prepare fixture file",
+                "files:",
+                "  data/input.txt: fixture content",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    original_exists = Path.exists
+
+    def fail_parent_exists(path: Path) -> bool:
+        if path.name == "data" and path.parent.parent.name == "workspaces":
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_parent_exists)
+
+    try:
+        run_scenario(
+            load_scenario(scenario_path),
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == (
+            "Scenario file parent could not be checked: data/input.txt"
+        )
+    else:
+        raise AssertionError("Expected scenario parent stat failure to fail")
+
+
+def test_run_scenario_reports_declared_file_path_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "fixture-path-stat.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-path-stat",
+                "goal: prepare fixture file",
+                "files:",
+                "  data/input.txt: fixture content",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    original_exists = Path.exists
+
+    def fail_target_exists(path: Path) -> bool:
+        if path.name == "input.txt" and path.parent.name == "data":
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_target_exists)
+
+    try:
+        run_scenario(
+            load_scenario(scenario_path),
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario file path could not be checked: data/input.txt"
+    else:
+        raise AssertionError("Expected scenario file stat failure to fail")
+
+
 def test_run_scenario_preserves_lf_newlines_in_declared_files(
     tmp_path: Path,
 ) -> None:
@@ -930,6 +1016,94 @@ def test_run_scenario_reports_expected_file_read_failure(
 
     assert result.passed is False
     assert result.failures == ["file reports/summary.txt could not be read"]
+
+
+def test_run_scenario_reports_expected_file_exists_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report_path = tmp_path / "reports" / "summary.txt"
+    report_path.parent.mkdir()
+    report_path.write_text("summary", encoding="utf-8")
+    scenario_path = tmp_path / "report-stat.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: report-stat",
+                "goal: inspect report",
+                "actions:",
+                "  - type: final",
+                "    text: checked",
+                "expect:",
+                "  status: completed",
+                "  files:",
+                "    reports/summary.txt: summary",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scenario = load_scenario(scenario_path)
+    original_exists = Path.exists
+
+    def fail_report_exists(path: Path) -> bool:
+        if path == report_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_report_exists)
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == ["file reports/summary.txt could not be checked"]
+
+
+def test_run_scenario_reports_expected_file_type_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report_path = tmp_path / "reports" / "summary.txt"
+    report_path.parent.mkdir()
+    report_path.write_text("summary", encoding="utf-8")
+    scenario_path = tmp_path / "report-type-stat.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: report-type-stat",
+                "goal: inspect report",
+                "actions:",
+                "  - type: final",
+                "    text: checked",
+                "expect:",
+                "  status: completed",
+                "  files:",
+                "    reports/summary.txt: summary",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scenario = load_scenario(scenario_path)
+    original_is_file = Path.is_file
+
+    def fail_report_is_file(path: Path) -> bool:
+        if path == report_path:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_report_is_file)
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == ["file reports/summary.txt could not be checked"]
 
 
 def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:

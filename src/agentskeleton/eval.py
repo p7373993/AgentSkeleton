@@ -464,18 +464,44 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
             target = resolve_workspace_path(workspace, requested_path)
         except PathSecurityError as exc:
             raise ValueError(str(exc)) from exc
-        if target.parent.exists() and not target.parent.is_dir():
+        try:
+            parent_exists = target.parent.exists()
+        except OSError as exc:
             raise ValueError(
-                f"Scenario file parent is not a directory: {requested_path}"
-            )
+                f"Scenario file parent could not be checked: {requested_path}"
+            ) from exc
+        if parent_exists:
+            try:
+                parent_is_directory = target.parent.is_dir()
+            except OSError as exc:
+                raise ValueError(
+                    f"Scenario file parent could not be checked: {requested_path}"
+                ) from exc
+            if not parent_is_directory:
+                raise ValueError(
+                    f"Scenario file parent is not a directory: {requested_path}"
+                )
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             raise ValueError(
                 f"Scenario file parent could not be created: {requested_path}"
             ) from exc
-        if target.exists() and not target.is_file():
-            raise ValueError(f"Scenario file path is not a file: {requested_path}")
+        try:
+            target_exists = target.exists()
+        except OSError as exc:
+            raise ValueError(
+                f"Scenario file path could not be checked: {requested_path}"
+            ) from exc
+        if target_exists:
+            try:
+                target_is_file = target.is_file()
+            except OSError as exc:
+                raise ValueError(
+                    f"Scenario file path could not be checked: {requested_path}"
+                ) from exc
+            if not target_is_file:
+                raise ValueError(f"Scenario file path is not a file: {requested_path}")
         try:
             target.write_bytes(content.encode("utf-8"))
         except OSError as exc:
@@ -636,10 +662,20 @@ def _expect_files(
         except PathSecurityError as exc:
             failures.append(str(exc))
             continue
-        if not target.exists():
+        try:
+            target_exists = target.exists()
+        except OSError:
+            failures.append(f"file {path_text} could not be checked")
+            continue
+        if not target_exists:
             failures.append(f"file {path_text} expected but was missing")
             continue
-        if not target.is_file():
+        try:
+            target_is_file = target.is_file()
+        except OSError:
+            failures.append(f"file {path_text} could not be checked")
+            continue
+        if not target_is_file:
             failures.append(f"file {path_text} expected but was not a file")
             continue
         try:
