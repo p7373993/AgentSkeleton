@@ -239,14 +239,14 @@ class LLMClient:
             status = _read_attr(item, "status")
             if status is not None:
                 serialized["status"] = status
-            return serialized
+            return _normalize_context_item(serialized)
 
         serialized = {"type": item_type}
         for field in ("id", "role", "content", "status"):
             value = _read_attr(item, field)
             if value is not None:
                 serialized[field] = value
-        return serialized
+        return _normalize_context_item(serialized)
 
     def _parse_function_call(self, item: Any) -> ToolCallAction:
         name = _read_attr(item, "name")
