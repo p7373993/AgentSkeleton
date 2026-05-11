@@ -92,7 +92,8 @@ class ConsoleTraceSink:
         if name == "tool_finished":
             return (
                 f"[tool <-] {payload.get('tool_name')} "
-                f"success={payload.get('success')} summary={payload.get('summary')!r}"
+                f"success={payload.get('success')} "
+                f"summary={preview(payload.get('summary'))!r}"
             )
         if name == "run_finished":
             return f"[done] status={payload.get('status')}"

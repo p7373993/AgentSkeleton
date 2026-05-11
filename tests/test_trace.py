@@ -189,3 +189,24 @@ def test_console_trace_sink_redacts_secret_payloads() -> None:
     output = console.export_text()
     assert "sk-secret123" not in output
     assert "[REDACTED]" in output
+
+
+def test_console_trace_sink_bounds_large_tool_summary() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    large_summary = "s" * 20_000
+
+    trace.emit(
+        "tool_finished",
+        {
+            "tool_name": "trace_tool",
+            "success": True,
+            "summary": large_summary,
+        },
+    )
+
+    output = console.export_text()
+    assert len(output) < 5_000
+    assert "ssssssssssssssss" in output
+    assert "..." in output
+    assert large_summary not in output
