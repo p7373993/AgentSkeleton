@@ -32,6 +32,8 @@ class ToolRegistry:
             raise ValueError(f"Tool {name} risk must be a string")
         if not tool.risk.strip():
             raise ValueError(f"Tool {name} risk cannot be empty")
+        if tool.risk.strip() != tool.risk:
+            raise ValueError(f"Tool {name} risk cannot contain whitespace")
         _validate_args_schema(tool)
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")
