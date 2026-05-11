@@ -55,6 +55,12 @@ PYTHON_NETWORK_IMPORT_RE = re.compile(
     r"|\bimport\s+[^;\n\r]*\b"
     r"(requests|urllib(?:\.[a-z0-9_]+)*|http\.client|socket)\b"
 )
+PYTHON_DYNAMIC_NETWORK_IMPORT_RE = re.compile(
+    r"\b__import__\s*\(\s*['\"]"
+    r"(requests|urllib(?:\.[a-z0-9_]+)*|http\.client|socket)['\"]"
+    r"|\bimportlib\.import_module\s*\(\s*['\"]"
+    r"(requests|urllib(?:\.[a-z0-9_]+)*|http\.client|socket)['\"]"
+)
 PYTHON_DYNAMIC_EXEC_RE = re.compile(r"\b(exec|eval)\s*\(")
 
 
@@ -316,8 +322,21 @@ def _contains_gh_network_command(command: str) -> bool:
 
 
 def _contains_python_network_import(command: str) -> bool:
-    return any(
+    return _python_command_contains_dynamic_network_import(command) or any(
         _segment_has_python_network_import(segment)
+        for segment in _split_shell_segments(command)
+    )
+
+
+def _python_command_contains_dynamic_network_import(command: str) -> bool:
+    if not _contains_python_command(command):
+        return False
+    return PYTHON_DYNAMIC_NETWORK_IMPORT_RE.search(command) is not None
+
+
+def _contains_python_command(command: str) -> bool:
+    return any(
+        _first_executable_token(segment.split()) in {"python", "python3"}
         for segment in _split_shell_segments(command)
     )
 
