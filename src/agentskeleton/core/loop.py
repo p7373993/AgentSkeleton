@@ -351,6 +351,25 @@ class AgentLoop:
             state.final_reason = result.summary
             return
 
+        if not isinstance(result, ToolResult):
+            result = ToolResult(
+                success=False,
+                payload={
+                    "tool_name": tool.name,
+                    "arguments": action.arguments,
+                    "result_type": type(result).__name__,
+                },
+                summary=f"Tool returned invalid result: {type(result).__name__}",
+                error="Invalid tool result",
+            )
+            state.observations.append(
+                ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            )
+            self._log_tool_finished(state, tool.name, result)
+            state.final_status = "tool_error"
+            state.final_reason = result.summary
+            return
+
         state.observations.append(
             ToolObservation(action.call_id, tool.name, decision.outcome, result)
         )

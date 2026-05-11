@@ -145,6 +145,13 @@ class ExplodingTool(RecordTool):
         raise RuntimeError("boom")
 
 
+class InvalidResultTool(RecordTool):
+    name = "invalid_result"
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return {"success": True, "summary": "not a model"}  # type: ignore[return-value]
+
+
 def make_loop(tmp_path: Path, actions, logger: MemoryLogger | None = None) -> AgentLoop:
     return AgentLoop(
         config=RunConfig(workspace=tmp_path),
@@ -844,6 +851,50 @@ def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:
             "success": False,
             "summary": "Tool raised an exception: RuntimeError",
             "error": "boom",
+        },
+    ) in logger.events
+
+
+def test_loop_converts_invalid_tool_result_to_observation(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    try:
+        state = AgentLoop(
+            config=RunConfig(workspace=tmp_path),
+            llm=ScriptedLLM(
+                [
+                    ToolCallAction(
+                        tool_name="invalid_result",
+                        arguments={"value": "x"},
+                        call_id="call-1",
+                    )
+                ]
+            ),
+            registry=ToolRegistry([InvalidResultTool()]),
+            logger=logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording a tool error: {exc!r}")
+
+    assert state.final_status == "tool_error"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "allow"
+    assert observation.result.success is False
+    assert observation.result.summary == "Tool returned invalid result: dict"
+    assert observation.result.error == "Invalid tool result"
+    assert observation.result.payload == {
+        "tool_name": "invalid_result",
+        "arguments": {"value": "x"},
+        "result_type": "dict",
+    }
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "invalid_result",
+            "success": False,
+            "summary": "Tool returned invalid result: dict",
+            "error": "Invalid tool result",
         },
     ) in logger.events
 
