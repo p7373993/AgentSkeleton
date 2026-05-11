@@ -70,6 +70,18 @@ def _validate_args_schema(tool: Tool) -> None:
 
 
 def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
+    schema_type = schema.get("type")
+    if schema_type is not None:
+        if isinstance(schema_type, list):
+            if not all(isinstance(item, str) for item in schema_type):
+                raise ValueError(
+                    f"Tool {tool_name} {label} type entries must be strings"
+                )
+        elif not isinstance(schema_type, str):
+            raise ValueError(
+                f"Tool {tool_name} {label} type must be a string or list of strings"
+            )
+
     properties = schema.get("properties")
     if properties is not None and not isinstance(properties, Mapping):
         raise ValueError(f"Tool {tool_name} {label} properties must be a mapping")
