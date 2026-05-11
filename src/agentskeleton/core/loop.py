@@ -83,7 +83,7 @@ class AgentLoop:
             0,
             start_payload,
         )
-        self.trace.emit(
+        self._emit_trace(
             "run_started",
             {
                 "model": self.config.model,
@@ -93,7 +93,7 @@ class AgentLoop:
 
         while state.step_count < self.config.max_steps:
             state.step_count += 1
-            self.trace.emit("step_started", {"step": state.step_count})
+            self._emit_trace("step_started", {"step": state.step_count})
             self._log_event("model_requested", state.step_count, {"goal": goal})
             try:
                 action = self.llm.next_action(state, self.registry)
@@ -109,7 +109,7 @@ class AgentLoop:
                         "error": str(exc),
                     },
                 )
-                self.trace.emit(
+                self._emit_trace(
                     "run_error",
                     {
                         "status": state.final_status,
@@ -123,7 +123,7 @@ class AgentLoop:
             if isinstance(action, FinalAction):
                 state.final_status = action.status
                 state.final_answer = action.text
-                self.trace.emit(
+                self._emit_trace(
                     "run_finished",
                     {"status": state.final_status, "answer": action.text},
                 )
@@ -195,7 +195,7 @@ class AgentLoop:
                 "call_id": action.call_id,
             },
         )
-        self.trace.emit(
+        self._emit_trace(
             "model_action",
             {
                 "tool_name": action.tool_name,
@@ -255,7 +255,7 @@ class AgentLoop:
                 "reason": decision.reason,
             },
         )
-        self.trace.emit(
+        self._emit_trace(
             "policy_decision",
             {
                 "tool_name": tool.name,
@@ -293,7 +293,7 @@ class AgentLoop:
             return
 
         self._log_event("tool_started", state.step_count, {"tool_name": tool.name})
-        self.trace.emit(
+        self._emit_trace(
             "tool_started",
             {"tool_name": tool.name, "arguments": action.arguments},
         )
@@ -382,7 +382,7 @@ class AgentLoop:
                 "error": result.error,
             },
         )
-        self.trace.emit(
+        self._emit_trace(
             "tool_finished",
             {
                 "tool_name": tool_name,
@@ -409,14 +409,20 @@ class AgentLoop:
             "error": reason,
         }
         self._log_event("run_error", state.step_count, payload)
-        self.trace.emit("run_error", payload)
+        self._emit_trace("run_error", payload)
 
     def _log_run_finished(self, state: RunState) -> None:
         payload = {"status": state.final_status, "answer": state.final_answer}
         if state.final_reason:
             payload["reason"] = state.final_reason
-        self.trace.emit("run_finished", payload)
+        self._emit_trace("run_finished", payload)
         self._log_event("run_finished", state.step_count, payload)
+
+    def _emit_trace(self, name: str, payload: dict[str, object]) -> None:
+        try:
+            self.trace.emit(name, payload)
+        except Exception:
+            return
 
     def _log_event(
         self,

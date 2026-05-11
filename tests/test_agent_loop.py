@@ -26,6 +26,11 @@ class FailingLogger:
         raise OSError("log sink unavailable")
 
 
+class FailingTrace:
+    def emit(self, name: str, payload: dict[str, object]) -> None:
+        raise OSError("trace sink unavailable")
+
+
 class ScriptedLLM:
     def __init__(self, actions) -> None:
         self.actions = list(actions)
@@ -189,6 +194,20 @@ def test_loop_continues_when_logger_fails(tmp_path: Path) -> None:
         llm=ScriptedLLM([FinalAction(text="done")]),
         registry=ToolRegistry([RecordTool()]),
         logger=FailingLogger(),
+    ).run("finish")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert state.step_count == 1
+
+
+def test_loop_continues_when_trace_sink_fails(tmp_path: Path) -> None:
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+        trace=FailingTrace(),
     ).run("finish")
 
     assert state.final_status == "completed"
