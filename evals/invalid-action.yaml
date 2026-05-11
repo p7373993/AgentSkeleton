@@ -1,0 +1,19 @@
+name: invalid-action
+domain: reliability
+goal: Stop cleanly when the model returns an unsupported action object.
+actions:
+  - type: invalid
+expect:
+  status: invalid_action
+  reason: "Model returned unsupported action: dict"
+  observations: 0
+  events:
+    - type: run_error
+      payload:
+        status: invalid_action
+        error_type: dict
+        error: "Model returned unsupported action: dict"
+    - type: run_finished
+      payload:
+        status: invalid_action
+        reason: "Model returned unsupported action: dict"

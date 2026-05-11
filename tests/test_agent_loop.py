@@ -32,6 +32,11 @@ class FailingLLM:
         raise RuntimeError("model unavailable")
 
 
+class InvalidActionLLM:
+    def next_action(self, state, registry):
+        return {"type": "unexpected"}
+
+
 class RecordTool(Tool):
     name = "record"
     description = "Record a value."
@@ -108,6 +113,38 @@ def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:
             "status": "model_error",
             "answer": None,
             "reason": "Model call failed: RuntimeError",
+        },
+    )
+
+
+def test_loop_handles_unsupported_model_action_as_state(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InvalidActionLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("finish")
+
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == "Model returned unsupported action: dict"
+    assert state.final_answer is None
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "dict",
+            "error": "Model returned unsupported action: dict",
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": "Model returned unsupported action: dict",
         },
     )
 

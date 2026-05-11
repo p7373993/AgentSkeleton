@@ -37,7 +37,12 @@ class ScriptedModelError:
     message: str
 
 
-ScenarioAction = AgentAction | ScriptedModelError
+@dataclass(frozen=True)
+class ScriptedInvalidAction:
+    type_name: str = "unexpected"
+
+
+ScenarioAction = AgentAction | ScriptedModelError | ScriptedInvalidAction
 
 
 @dataclass(frozen=True)
@@ -151,6 +156,8 @@ class ScriptedScenarioLLM:
         action = self._actions.pop(0)
         if isinstance(action, ScriptedModelError):
             raise RuntimeError(action.message)
+        if isinstance(action, ScriptedInvalidAction):
+            return {"type": action.type_name}  # type: ignore[return-value]
         return action
 
 
@@ -427,6 +434,9 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
 
     if action_type == "error":
         return ScriptedModelError(message=str(raw.get("message", "")))
+
+    if action_type == "invalid":
+        return ScriptedInvalidAction(type_name=str(raw.get("type_name", "unexpected")))
 
     raise ValueError(f"Unknown scenario action type: {action_type}")
 
