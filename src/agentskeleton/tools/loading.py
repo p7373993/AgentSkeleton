@@ -4,14 +4,15 @@ import sys
 from agentskeleton.tools.base import Tool
 from agentskeleton.tools.registry import ToolRegistry
 
+_PROTECTED_PARENT_MODULES = ("agentskeleton",)
+
 
 def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     tools: list[Tool] = []
     for module_name in module_names or []:
         _validate_module_name(module_name)
         try:
-            importlib.invalidate_caches()
-            sys.modules.pop(module_name, None)
+            _evict_tool_module_cache(module_name)
             module = importlib.import_module(module_name)
         except ModuleNotFoundError as exc:
             missing_name = exc.name or module_name
@@ -72,6 +73,35 @@ def _validate_module_name(module_name: object) -> None:
         raise ValueError("Tool module name cannot contain control characters")
     if any(character.isspace() for character in module_name):
         raise ValueError("Tool module name cannot contain whitespace")
+
+
+def _evict_tool_module_cache(module_name: str) -> None:
+    importlib.invalidate_caches()
+    prefixes = _module_cache_prefixes(module_name)
+    for loaded_name in list(sys.modules):
+        if any(
+            loaded_name == prefix or loaded_name.startswith(f"{prefix}.")
+            for prefix in prefixes
+        ):
+            sys.modules.pop(loaded_name, None)
+
+
+def _module_cache_prefixes(module_name: str) -> tuple[str, ...]:
+    parts = module_name.split(".")
+    prefixes = [module_name]
+    for index in range(len(parts) - 1, 0, -1):
+        parent_name = ".".join(parts[:index])
+        if _is_protected_parent_module(parent_name):
+            continue
+        prefixes.append(parent_name)
+    return tuple(prefixes)
+
+
+def _is_protected_parent_module(module_name: str) -> bool:
+    return any(
+        module_name == protected or module_name.startswith(f"{protected}.")
+        for protected in _PROTECTED_PARENT_MODULES
+    )
 
 
 def _coerce_tool_list(module_name: str, module_tools: object) -> list[Tool]:

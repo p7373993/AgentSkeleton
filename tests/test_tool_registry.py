@@ -596,6 +596,32 @@ def test_load_tools_from_module_reimports_current_module_path(
     ]
 
 
+def test_load_tools_from_package_reimports_current_package_path(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    first_pkg = first_dir / "custom_pack"
+    second_pkg = second_dir / "custom_pack"
+    first_pkg.mkdir(parents=True)
+    second_pkg.mkdir(parents=True)
+    (first_pkg / "__init__.py").write_text("", encoding="utf-8")
+    (second_pkg / "__init__.py").write_text("", encoding="utf-8")
+    _write_tool_module(first_pkg / "tools.py", "first_package_tool")
+    _write_tool_module(second_pkg / "tools.py", "second_package_tool")
+
+    monkeypatch.syspath_prepend(str(first_dir))
+    assert [tool.name for tool in load_tools_from_modules(["custom_pack.tools"])] == [
+        "first_package_tool"
+    ]
+
+    monkeypatch.syspath_prepend(str(second_dir))
+    assert [tool.name for tool in load_tools_from_modules(["custom_pack.tools"])] == [
+        "second_package_tool"
+    ]
+
+
 def test_load_tools_from_module_register_function(tmp_path, monkeypatch) -> None:
     module_path = tmp_path / "custom_register_tools.py"
     module_path.write_text(
