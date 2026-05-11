@@ -101,6 +101,10 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
                 f"{', '.join(SUPPORTED_JSON_SCHEMA_TYPES)}"
             )
 
+    enum = schema.get("enum")
+    if enum is not None and not isinstance(enum, list):
+        raise ValueError(f"Tool {tool_name} {label} enum must be a list")
+
     properties = schema.get("properties")
     if properties is not None and not isinstance(properties, Mapping):
         raise ValueError(f"Tool {tool_name} {label} properties must be a mapping")

@@ -246,6 +246,18 @@ def test_registry_rejects_invalid_args_schema_members(
             {
                 "type": "object",
                 "properties": {
+                    "mode": {
+                        "type": "string",
+                        "enum": "fast",
+                    }
+                },
+            },
+            "schema property mode enum must be a list",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
                     "settings": {
                         "type": "object",
                         "properties": [],
