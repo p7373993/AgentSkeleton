@@ -174,7 +174,10 @@ class LLMClient:
                     {
                         "type": "function_call_output",
                         "call_id": observation.call_id,
-                        "output": json.dumps(observation.result.model_dump()),
+                        "output": json.dumps(
+                            observation.result.model_dump(),
+                            default=str,
+                        ),
                     }
                     for observation in unsent
                 )

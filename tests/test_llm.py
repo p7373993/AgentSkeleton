@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -325,6 +326,40 @@ def test_llm_client_sends_tool_observations_as_stateless_input(tmp_path) -> None
             ),
         }
     ]
+
+
+def test_llm_client_serializes_non_json_tool_observation_payloads(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    marker = object()
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult(
+                    success=True,
+                    payload={"workspace": tmp_path, "raw": marker},
+                    summary="ok",
+                ),
+            )
+        ],
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    call = fake_client.responses.calls[0]
+    observation_output = json.loads(call["input"][1]["output"])
+    assert isinstance(action, FinalAction)
+    assert observation_output["payload"]["workspace"] == str(tmp_path)
+    assert observation_output["payload"]["raw"] == str(marker)
 
 
 def test_llm_client_sends_transcript_context(
