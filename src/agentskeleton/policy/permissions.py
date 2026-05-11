@@ -152,6 +152,7 @@ class PermissionPolicy:
             "requests.",
             "urllib.",
             "http.client",
+            "socket.",
         ]
         has_network_access = (
             _contains_fetch_command(normalized)
