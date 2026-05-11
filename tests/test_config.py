@@ -327,6 +327,11 @@ def test_config_rejects_non_positive_limits(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, session_summary_turns=0)
 
 
+def test_config_rejects_excessive_max_steps(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        RunConfig(workspace=tmp_path, max_steps=201)
+
+
 def test_config_rejects_oversized_shell_output_limit(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         RunConfig(workspace=tmp_path, shell_max_output_bytes=1_048_577)
