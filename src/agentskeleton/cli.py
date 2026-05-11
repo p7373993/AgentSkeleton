@@ -40,7 +40,7 @@ def configure_streams_for_unicode(*streams) -> None:
 configure_streams_for_unicode(sys.stdout, sys.stderr)
 
 app = typer.Typer(help="Run a minimal local CLI agent.")
-console = Console()
+console = Console(markup=False)
 MAX_RUN_LOG_BYTES = 2_097_152
 
 

@@ -1492,6 +1492,40 @@ def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:
     assert f"Log: {log_path}" in result.stdout
 
 
+def test_show_run_text_preserves_rich_markup_literals(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "[bold]literal goal[/bold]"},
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert "Goal: [bold]literal goal[/bold]" in result.stdout
+
+
 def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
