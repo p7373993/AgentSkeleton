@@ -475,6 +475,36 @@ def resume(
 
 
 @app.command()
+def sessions(
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    loaded = _load_config_or_exit(config)
+    summaries = SessionStore(loaded.logs_dir).list_sessions()
+    payload = {"sessions": [summary.to_dict() for summary in summaries]}
+
+    if as_json:
+        console.print(json.dumps(payload, ensure_ascii=False, indent=2), soft_wrap=True)
+        return
+
+    if not summaries:
+        console.print("No sessions found.")
+        return
+
+    table = Table(title="Sessions")
+    table.add_column("Name")
+    table.add_column("Turns")
+    table.add_column("Summary")
+    for summary in summaries:
+        table.add_row(
+            summary.name,
+            str(summary.transcript_turns),
+            summary.summary or "",
+        )
+    console.print(table)
+
+
+@app.command()
 def show_run(
     run_id: str,
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,

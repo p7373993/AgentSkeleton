@@ -29,6 +29,25 @@ class SessionState:
         ]
 
 
+@dataclass(frozen=True)
+class SessionSummary:
+    name: str
+    transcript_turns: int
+    summary: str | None = None
+
+    @property
+    def has_summary(self) -> bool:
+        return self.summary is not None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "transcript_turns": self.transcript_turns,
+            "has_summary": self.has_summary,
+            "summary": self.summary,
+        }
+
+
 class SessionStore:
     def __init__(self, logs_dir: Path) -> None:
         self.sessions_dir = logs_dir / "sessions"
@@ -39,6 +58,28 @@ class SessionStore:
             transcript=self._load_transcript(name),
             summary=self._load_summary(name),
         )
+
+    def list_sessions(self) -> list[SessionSummary]:
+        if not self.sessions_dir.exists():
+            return []
+        summaries = []
+        for session_dir in sorted(
+            (item for item in self.sessions_dir.iterdir() if item.is_dir()),
+            key=lambda item: item.name.lower(),
+        ):
+            name = session_dir.name
+            transcript = self._load_transcript(name)
+            summary = self._load_summary(name)
+            if not transcript and summary is None:
+                continue
+            summaries.append(
+                SessionSummary(
+                    name=name,
+                    transcript_turns=len(transcript),
+                    summary=summary,
+                )
+            )
+        return summaries
 
     def append_transcript(
         self,

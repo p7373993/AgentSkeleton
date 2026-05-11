@@ -78,6 +78,33 @@ def test_session_store_limits_summary_to_recent_older_turns(tmp_path) -> None:
     assert store.load("default").summary == "- user: old user\n- assistant: old answer"
 
 
+def test_session_store_lists_saved_sessions(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    store.append_transcript("default", "user", "hello")
+    store.append_transcript("default", "assistant", "hi")
+    store.append_transcript("work", "user", "old user")
+    store.append_transcript("work", "assistant", "old answer")
+    store.append_transcript("work", "user", "recent")
+    store.refresh_summary("work", keep_turns=1)
+
+    summaries = store.list_sessions()
+
+    assert [summary.to_dict() for summary in summaries] == [
+        {
+            "name": "default",
+            "transcript_turns": 2,
+            "has_summary": False,
+            "summary": None,
+        },
+        {
+            "name": "work",
+            "transcript_turns": 3,
+            "has_summary": True,
+            "summary": "- user: old user\n- assistant: old answer",
+        },
+    ]
+
+
 def test_session_store_sanitizes_session_names(tmp_path) -> None:
     store = SessionStore(tmp_path)
 

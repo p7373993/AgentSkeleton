@@ -940,6 +940,51 @@ def test_resume_reuses_named_session_transcript(monkeypatch, tmp_path) -> None:
     assert "assistant> answer: next" in result.stdout
 
 
+def test_sessions_command_lists_sessions_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    store = SessionStore(tmp_path / "runs")
+    store.append_transcript("default", "user", "hello")
+    store.append_transcript("default", "assistant", "hi")
+    store.append_transcript("work", "user", "old user")
+    store.append_transcript("work", "assistant", "old answer")
+    store.append_transcript("work", "user", "recent")
+    store.refresh_summary("work", keep_turns=1)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["sessions", "--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {
+        "sessions": [
+            {
+                "name": "default",
+                "transcript_turns": 2,
+                "has_summary": False,
+                "summary": None,
+            },
+            {
+                "name": "work",
+                "transcript_turns": 3,
+                "has_summary": True,
+                "summary": "- user: old user\n- assistant: old answer",
+            },
+        ]
+    }
+
+
+def test_sessions_command_prints_sessions(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    store = SessionStore(tmp_path / "runs")
+    store.append_transcript("work", "user", "hello")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["sessions"])
+
+    assert result.exit_code == 0
+    assert "work" in result.stdout
+    assert "1" in result.stdout
+
+
 def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
