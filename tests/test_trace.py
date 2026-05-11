@@ -162,6 +162,23 @@ def test_console_trace_sink_prints_repeated_instructions_once() -> None:
     assert output.count("[llm ->]") == 2
 
 
+def test_console_trace_sink_prints_repeated_large_instructions_once() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    payload = {
+        "instructions_preview": "i" * 20_000,
+        "input_preview": "hello",
+        "tool_names": ["read_file"],
+    }
+
+    trace.emit("llm_request", payload)
+    trace.emit("llm_request", payload)
+
+    output = console.export_text()
+    assert output.count("[llm sys]") == 1
+    assert output.count("[llm ->]") == 2
+
+
 def test_console_trace_sink_bounds_large_llm_tool_list() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)
@@ -196,6 +213,81 @@ def test_console_trace_sink_bounds_large_llm_tool_call_list() -> None:
     assert len(output) < 5_000
     assert "tool_0_" in output
     assert "..." in output
+
+
+def test_console_trace_sink_bounds_large_direct_llm_text_fields() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    large_text = "x" * 20_000
+
+    trace.emit(
+        "llm_request",
+        {
+            "instructions_preview": large_text,
+            "input_preview": large_text,
+            "tool_names": [],
+        },
+    )
+    trace.emit(
+        "llm_response",
+        {
+            "function_calls": [],
+            "final_preview": large_text,
+        },
+    )
+
+    output = console.export_text()
+    assert len(output) < 5_000
+    assert "xxxxxxxxxxxxxxxx" in output
+    assert "..." in output
+    assert large_text not in output
+
+
+def test_console_trace_sink_bounds_large_policy_reason() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    reason = "r" * 20_000
+
+    trace.emit(
+        "policy_decision",
+        {
+            "tool_name": "trace_tool",
+            "outcome": "confirm",
+            "reason": reason,
+        },
+    )
+
+    output = console.export_text()
+    assert len(output) < 5_000
+    assert "rrrrrrrrrrrrrrrr" in output
+    assert "..." in output
+    assert reason not in output
+
+
+def test_console_trace_sink_redacts_secret_text_payloads() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "tool_finished",
+        {
+            "tool_name": "trace_tool",
+            "success": True,
+            "summary": "OPENAI_API_KEY=sk-secret123",
+        },
+    )
+    trace.emit(
+        "llm_response",
+        {
+            "function_calls": [],
+            "final_preview": "Authorization: Bearer token123",
+        },
+    )
+
+    output = console.export_text()
+    assert "sk-secret123" not in output
+    assert "token123" not in output
+    assert "[REDACTED]" in output
 
 
 def test_console_trace_sink_serializes_recursive_payloads() -> None:

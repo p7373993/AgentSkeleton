@@ -47,24 +47,28 @@ class ConsoleTraceSink:
 
     def _format(self, name: str, payload: dict[str, Any]) -> str:
         if name == "run_started":
+            model = preview(payload.get("model"), max_chars=120)
             session = payload.get("session")
-            session_part = f" session={session}" if session else ""
-            resumed = " resumed" if payload.get("resumed") else ""
-            return (
-                f"[run] model={payload.get('model')}"
-                f"{session_part}{resumed}"
+            session_part = (
+                f" session={preview(session, max_chars=120)}"
+                if session
+                else ""
             )
+            resumed = " resumed" if payload.get("resumed") else ""
+            return f"[run] model={model}{session_part}{resumed}"
         if name == "step_started":
-            return f"[step] {payload.get('step')}"
+            return f"[step] {preview(payload.get('step'), max_chars=80)}"
         if name == "llm_request":
             instructions = payload.get("instructions_preview")
             lines = []
-            if instructions and instructions != self._last_instructions:
-                self._last_instructions = str(instructions)
-                lines.append(f"[llm sys] {instructions}")
+            if instructions:
+                instructions_text = preview(instructions)
+                if instructions_text != self._last_instructions:
+                    self._last_instructions = instructions_text
+                    lines.append(f"[llm sys] {instructions_text}")
             lines.append(
                 "[llm ->] "
-                f"input={payload.get('input_preview')!r} "
+                f"input={preview(payload.get('input_preview'))!r} "
                 f"tools={_compact_json(payload.get('tool_names', []))}"
             )
             return "\n".join(lines)
@@ -74,37 +78,39 @@ class ConsoleTraceSink:
                 return f"[llm <-] tool_calls={_compact_json(calls)}"
             return (
                 "[llm <-] "
-                f"final={payload.get('final_preview')!r}"
+                f"final={preview(payload.get('final_preview'))!r}"
             )
         if name == "model_action":
             return (
-                f"[action] {payload.get('tool_name')} "
+                f"[action] {preview(payload.get('tool_name'), max_chars=120)} "
                 f"{_compact_json(payload.get('arguments', {}))}"
             )
         if name == "policy_decision":
             return (
-                f"[policy] {payload.get('tool_name')} "
-                f"{payload.get('outcome')} - {payload.get('reason')}"
+                f"[policy] {preview(payload.get('tool_name'), max_chars=120)} "
+                f"{preview(payload.get('outcome'), max_chars=80)} - "
+                f"{preview(payload.get('reason'))}"
             )
         if name == "tool_started":
             return (
-                f"[tool ->] {payload.get('tool_name')} "
+                f"[tool ->] {preview(payload.get('tool_name'), max_chars=120)} "
                 f"{_compact_json(payload.get('arguments', {}))}"
             )
         if name == "tool_finished":
             return (
-                f"[tool <-] {payload.get('tool_name')} "
+                f"[tool <-] {preview(payload.get('tool_name'), max_chars=120)} "
                 f"success={payload.get('success')} "
                 f"summary={preview(payload.get('summary'))!r}"
             )
         if name == "run_finished":
-            return f"[done] status={payload.get('status')}"
+            return f"[done] status={preview(payload.get('status'), max_chars=80)}"
         return f"[trace] {name} {_compact_json(payload)}"
 
 
 def preview(value: Any, max_chars: int = 500) -> str:
     if isinstance(value, str):
-        text = value
+        redacted = redact(value)
+        text = redacted if isinstance(redacted, str) else str(redacted)
     else:
         text = _compact_json(value)
     if len(text) <= max_chars:
