@@ -36,6 +36,11 @@ SECRET_KEY_TERMS = {
 }
 
 
+def _safe_log_stem(value: str) -> str:
+    safe_value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
+    return safe_value or "run"
+
+
 def redact(value: Any, seen: set[int] | None = None) -> Any:
     seen = seen or set()
     if isinstance(value, dict):
@@ -81,7 +86,7 @@ class RunLogger:
     def __init__(self, logs_dir: Path, run_id: str) -> None:
         self.run_id = run_id
         today = datetime.now(tz=UTC).strftime("%Y%m%d")
-        self.path = logs_dir / today / f"{run_id}.jsonl"
+        self.path = logs_dir / today / f"{_safe_log_stem(run_id)}.jsonl"
         self._ensure_log_directory()
 
     def log(self, event_type: str, step: int, payload: dict[str, Any]) -> None:

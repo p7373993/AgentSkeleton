@@ -21,6 +21,19 @@ def test_run_logger_writes_jsonl_event(tmp_path: Path) -> None:
     assert logger.path.parent.parent == tmp_path
 
 
+def test_run_logger_sanitizes_run_id_path_segments(tmp_path: Path) -> None:
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    logger = RunLogger(logs_dir=tmp_path, run_id="../bad id")
+
+    logger.log("run_started", step=0, payload={"goal": "test"})
+
+    expected_path = tmp_path / today / "bad_id.jsonl"
+    event = json.loads(expected_path.read_text(encoding="utf-8").splitlines()[0])
+    assert logger.path == expected_path
+    assert event["run_id"] == "../bad id"
+    assert not (tmp_path / "bad id.jsonl").exists()
+
+
 def test_run_logger_redacts_obvious_secrets(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
 
