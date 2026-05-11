@@ -6,6 +6,7 @@ from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
 MAX_READ_FILE_BYTES = 1_048_576
 MAX_WRITE_FILE_BYTES = 1_048_576
+MAX_LIST_DIR_ENTRIES = 200
 
 
 def _error(summary: str, error: str) -> ToolResult:
@@ -118,23 +119,37 @@ class ListDirTool(Tool):
                 f"Directory listing failed: {requested}",
                 "Directory listing failed",
             )
+        visible_children = children[:MAX_LIST_DIR_ENTRIES]
+        total_entries = len(children)
         try:
             entries = [
                 {
                     "name": child.name,
                     "type": "directory" if child.is_dir() else "file",
                 }
-                for child in children
+                for child in visible_children
             ]
         except OSError:
             return _error(
                 f"Directory listing failed: {requested}",
                 "Directory listing failed",
             )
+        listed_entries = len(entries)
+        truncated = total_entries > listed_entries
+        summary = (
+            f"Listed {listed_entries} of {total_entries} entries in {requested}"
+            if truncated
+            else f"Listed {listed_entries} entries in {requested}"
+        )
         return ToolResult(
             success=True,
-            payload={"path": requested, "entries": entries},
-            summary=f"Listed {len(entries)} entries in {requested}",
+            payload={
+                "path": requested,
+                "entries": entries,
+                "total_entries": total_entries,
+                "truncated": truncated,
+            },
+            summary=summary,
         )
 
 

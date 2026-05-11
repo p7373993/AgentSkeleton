@@ -47,6 +47,19 @@ def test_list_dir_lists_direct_children(tmp_path: Path) -> None:
     ]
 
 
+def test_list_dir_limits_large_directory_payload(tmp_path: Path) -> None:
+    for index in range(205):
+        (tmp_path / f"{index:03}.txt").write_text("a", encoding="utf-8")
+
+    result = ListDirTool().execute({"path": "."}, ToolContext(workspace=tmp_path))
+
+    assert result.success is True
+    assert len(result.payload["entries"]) == 200
+    assert result.payload["total_entries"] == 205
+    assert result.payload["truncated"] is True
+    assert result.summary == "Listed 200 of 205 entries in ."
+
+
 @pytest.mark.parametrize(
     ("args", "summary"),
     [
