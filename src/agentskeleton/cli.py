@@ -691,7 +691,11 @@ def main() -> None:
 
 
 def _find_run_log(logs_dir: Path, run_id: str) -> Path | None:
-    matches = sorted(logs_dir.glob(f"*/{run_id}.jsonl"), reverse=True)
+    filename = f"{run_id}.jsonl"
+    matches = sorted(
+        (path for path in logs_dir.glob("*/*.jsonl") if path.name == filename),
+        reverse=True,
+    )
     return matches[0].resolve() if matches else None
 
 

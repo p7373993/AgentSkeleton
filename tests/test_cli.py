@@ -1680,6 +1680,41 @@ def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:
     assert "Run log not found: missing" in result.stdout
 
 
+def test_show_run_treats_run_id_as_literal_not_glob(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    (log_dir / "run-1.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-1",
+                        "step": 0,
+                        "payload": {"goal": "summarize"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {"status": "completed", "answer": "done"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "*"])
+
+    assert result.exit_code == 1
+    assert "Run log not found: *" in result.stdout
+
+
 def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
