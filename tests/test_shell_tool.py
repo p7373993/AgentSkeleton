@@ -49,6 +49,31 @@ def test_shell_tool_times_out(tmp_path: Path) -> None:
     assert result.error == "Command timed out"
 
 
+def test_shell_tool_decodes_timeout_bytes_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(
+            cmd="echo test",
+            timeout=1,
+            output=b"partial stdout",
+            stderr=b"partial stderr",
+        )
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": "echo test"},
+        ToolContext(workspace=tmp_path, shell_timeout_seconds=1),
+    )
+
+    assert result.success is False
+    assert result.payload["timed_out"] is True
+    assert result.payload["stdout"] == "partial stdout"
+    assert result.payload["stderr"] == "partial stderr"
+
+
 def test_shell_tool_truncates_output(tmp_path: Path) -> None:
     result = ShellTool().execute(
         {"command": command_for("print('abcdef')")},

@@ -5,9 +5,11 @@ from typing import Any, ClassVar
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
 
-def _truncate(text: str | None, max_bytes: int) -> tuple[str, bool]:
+def _truncate(text: str | bytes | None, max_bytes: int) -> tuple[str, bool]:
     if text is None:
         text = ""
+    if isinstance(text, bytes):
+        text = text.decode("utf-8", errors="replace")
     encoded = text.encode("utf-8")
     if len(encoded) <= max_bytes:
         return text, False
