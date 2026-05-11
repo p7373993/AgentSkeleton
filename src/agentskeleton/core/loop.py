@@ -40,6 +40,7 @@ MAX_LOGGED_TEXT_PREVIEW_CHARS = 200
 MAX_LOGGED_VALUE_DEPTH = 64
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 MAX_TOOL_ACTION_METADATA_BYTES = 512
+MAX_FINAL_ACTION_STATUS_BYTES = 512
 
 
 class AgentLoop:
@@ -769,6 +770,8 @@ def _validate_final_action_metadata(action: FinalAction) -> str | None:
         return "text must be a string"
     if not isinstance(action.status, str) or not action.status.strip():
         return "status must be a non-empty string"
+    if len(action.status.encode("utf-8")) > MAX_FINAL_ACTION_STATUS_BYTES:
+        return f"status exceeds {MAX_FINAL_ACTION_STATUS_BYTES} bytes"
     return None
 
 

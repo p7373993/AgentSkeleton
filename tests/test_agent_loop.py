@@ -611,6 +611,34 @@ def test_loop_rejects_malformed_final_action_metadata(
     )
 
 
+def test_loop_rejects_oversized_final_status_before_logging(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    oversized_status = "a" * 513
+
+    state = make_loop(
+        tmp_path,
+        [FinalAction(text="done", status=oversized_status)],
+        logger,
+    ).run("finish")
+
+    reason = "Model returned invalid final action: status exceeds 512 bytes"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert oversized_status not in str(logger.events)
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_final_action",
+            "error": reason,
+        },
+    ) in logger.events
+
+
 @pytest.mark.parametrize(
     ("action", "reason"),
     [
