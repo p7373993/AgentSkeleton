@@ -19,13 +19,40 @@ def test_classify_domain_detects_finance_terms(tmp_path: Path) -> None:
 
 def test_classify_domain_defaults_to_general(tmp_path: Path) -> None:
     result = ClassifyDomainTool().execute(
-        {"text": "Write a short product brief"},
+        {"text": "Say hello"},
         ToolContext(workspace=tmp_path),
     )
 
     assert result.success is True
     assert result.payload["domain"] == "general"
     assert result.summary == "classified general"
+
+
+@pytest.mark.parametrize(
+    ("text", "domain"),
+    [
+        ("Fix this Python test failure", "coding"),
+        ("Summarize this CSV dataset", "data"),
+        ("Read the README file", "filesystem"),
+        ("Create an output artifact", "artifacts"),
+        ("Ask the user for clarification", "interactive"),
+        ("Load a custom tool module", "tool_packs"),
+        ("Write a short product brief", "writing"),
+    ],
+)
+def test_classify_domain_detects_broad_work_domains(
+    tmp_path: Path,
+    text: str,
+    domain: str,
+) -> None:
+    result = ClassifyDomainTool().execute(
+        {"text": text},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is True
+    assert result.payload["domain"] == domain
+    assert result.summary == f"classified {domain}"
 
 
 @pytest.mark.parametrize(
