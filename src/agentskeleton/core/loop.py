@@ -961,6 +961,16 @@ def _validate_tool_arguments(
     schema: dict[str, object],
     arguments: object,
 ) -> list[str]:
+    try:
+        return _validate_tool_arguments_inner(schema, arguments)
+    except Exception:
+        return ["Tool arguments could not be inspected"]
+
+
+def _validate_tool_arguments_inner(
+    schema: dict[str, object],
+    arguments: object,
+) -> list[str]:
     if not isinstance(arguments, dict):
         return ["Tool arguments must be an object"]
     if not all(isinstance(name, str) for name in arguments):

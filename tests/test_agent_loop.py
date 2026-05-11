@@ -1456,6 +1456,40 @@ def test_loop_rejects_recursive_tool_arguments_before_execution(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_recovers_when_tool_argument_inspection_fails(
+    tmp_path: Path,
+) -> None:
+    class ExplodingValuesArguments(dict):
+        def values(self):  # type: ignore[override]
+            raise RuntimeError("argument values unavailable")
+
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                "record",
+                ExplodingValuesArguments({"value": "ok"}),
+                "call-1",
+            ),
+            FinalAction(text="recovered"),
+        ],
+        logger,
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "block"
+    assert observation.result.success is False
+    assert observation.result.error == "Invalid arguments"
+    assert observation.result.payload["validation_errors"] == [
+        "Tool arguments could not be inspected"
+    ]
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_rejects_non_object_tool_arguments_before_execution(
     tmp_path: Path,
 ) -> None:
