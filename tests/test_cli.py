@@ -263,6 +263,37 @@ def test_eval_suite_command_prints_status_and_reason(
     assert "Reason: Model returned unsupported action: dict" in result.stdout
 
 
+def test_eval_suite_command_prints_scenario_failures(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "mismatch.yaml").write_text(
+        "\n".join(
+            [
+                "name: mismatch",
+                "goal: mismatch",
+                "actions:",
+                "  - type: final",
+                "    text: actual",
+                "expect:",
+                "  status: completed",
+                "  answer: expected",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval-suite", str(suite_dir)])
+
+    assert result.exit_code == 1
+    assert "FAIL: mismatch status=completed" in result.stdout
+    assert "Failure: answer expected 'expected' but got 'actual'" in result.stdout
+
+
 def test_eval_suite_command_enforces_required_domains(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     suite_dir = tmp_path / "evals"

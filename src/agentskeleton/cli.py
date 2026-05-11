@@ -251,6 +251,8 @@ def eval_suite(
             console.print(f"{marker}: {item['scenario']} status={item['status']}")
             if item["reason"]:
                 console.print(f"Reason: {item['reason']}")
+            for failure in item["failures"]:
+                console.print(f"Failure: {failure}")
         for failure in payload["coverage_failures"]:
             console.print(f"Coverage failure: {failure}")
 
