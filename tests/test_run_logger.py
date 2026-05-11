@@ -176,6 +176,21 @@ def test_run_logger_serializes_recursive_payload_values(tmp_path: Path) -> None:
     assert event["payload"]["payload"] == {"self": "<recursive>"}
 
 
+def test_run_logger_bounds_deep_payload_values(tmp_path: Path) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+    payload: dict[str, object] = {}
+    current = payload
+    for _ in range(1_200):
+        child: dict[str, object] = {}
+        current["child"] = child
+        current = child
+
+    logger.log("tool_finished", step=1, payload={"payload": payload})
+
+    raw = logger.path.read_text(encoding="utf-8")
+    assert "<max-depth-exceeded>" in raw
+
+
 def test_run_logger_reports_date_directory_file(tmp_path: Path) -> None:
     today = datetime.now(tz=UTC).strftime("%Y%m%d")
     date_path = tmp_path / today

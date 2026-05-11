@@ -12,6 +12,8 @@ _MAX_SESSION_FILE_BYTES = 2_097_152
 _MAX_TRANSCRIPT_CONTENT_CHARS = 4_096
 _MAX_TRANSCRIPT_METADATA_VALUE_CHARS = 4_096
 _MAX_TRANSCRIPT_METADATA_PREVIEW_CHARS = 200
+_MAX_TRANSCRIPT_METADATA_DEPTH = 64
+_MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 _WINDOWS_RESERVED_SESSION_BASENAMES = {
     "CON",
     "PRN",
@@ -335,7 +337,9 @@ def _bounded_transcript_content(content: str) -> str:
     )
 
 
-def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
+def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
+    if depth > _MAX_TRANSCRIPT_METADATA_DEPTH:
+        return _MAX_DEPTH_EXCEEDED
     seen = seen or set()
     if isinstance(value, dict):
         marker = id(value)
@@ -343,7 +347,10 @@ def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return {str(key): _json_safe(item, seen) for key, item in value.items()}
+            return {
+                str(key): _json_safe(item, seen, depth + 1)
+                for key, item in value.items()
+            }
         finally:
             seen.remove(marker)
     if isinstance(value, list | tuple):
@@ -352,7 +359,7 @@ def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return [_json_safe(item, seen) for item in value]
+            return [_json_safe(item, seen, depth + 1) for item in value]
         finally:
             seen.remove(marker)
     if isinstance(value, str):

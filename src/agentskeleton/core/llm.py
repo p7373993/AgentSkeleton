@@ -26,6 +26,8 @@ MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
 MAX_RESPONSE_OUTPUT_ITEMS = 100
 MAX_FUNCTION_CALL_ARGUMENT_BYTES = 2_097_152
 MAX_CONVERSATION_CONTENT_CHARS = 4_096
+MAX_JSON_SAFE_DEPTH = 64
+MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 
 
 class MissingAPIKeyError(RuntimeError):
@@ -367,7 +369,9 @@ def _json_size(value: Any) -> int:
     return len(json.dumps(_json_safe(value), default=str).encode("utf-8"))
 
 
-def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
+def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
+    if depth > MAX_JSON_SAFE_DEPTH:
+        return MAX_DEPTH_EXCEEDED
     if value is None or isinstance(value, str | int | float | bool):
         return value
 
@@ -378,7 +382,10 @@ def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return {str(key): _json_safe(item, seen) for key, item in value.items()}
+            return {
+                str(key): _json_safe(item, seen, depth + 1)
+                for key, item in value.items()
+            }
         finally:
             seen.remove(marker)
 
@@ -388,7 +395,7 @@ def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return [_json_safe(item, seen) for item in value]
+            return [_json_safe(item, seen, depth + 1) for item in value]
         finally:
             seen.remove(marker)
 

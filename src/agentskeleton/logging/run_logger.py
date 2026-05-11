@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 _MAX_RUN_LOG_STEM_LENGTH = 120
+_MAX_REDACT_DEPTH = 64
+_MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 SECRET_PATTERNS = [
     re.compile(r"(OPENAI_API_KEY\s*=\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"(Authorization:\s*Bearer\s+)[^\s]+", re.IGNORECASE),
@@ -48,7 +50,9 @@ def _safe_log_stem(value: str) -> str:
     return safe_value
 
 
-def redact(value: Any, seen: set[int] | None = None) -> Any:
+def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
+    if depth > _MAX_REDACT_DEPTH:
+        return _MAX_DEPTH_EXCEEDED
     seen = seen or set()
     if isinstance(value, dict):
         marker = id(value)
@@ -57,7 +61,11 @@ def redact(value: Any, seen: set[int] | None = None) -> Any:
         seen.add(marker)
         try:
             return {
-                str(key): "[REDACTED]" if _is_secret_key(key) else redact(item, seen)
+                str(key): (
+                    "[REDACTED]"
+                    if _is_secret_key(key)
+                    else redact(item, seen, depth + 1)
+                )
                 for key, item in value.items()
             }
         finally:
@@ -68,7 +76,7 @@ def redact(value: Any, seen: set[int] | None = None) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return [redact(item, seen) for item in value]
+            return [redact(item, seen, depth + 1) for item in value]
         finally:
             seen.remove(marker)
     if isinstance(value, str):

@@ -106,6 +106,22 @@ def test_session_store_serializes_recursive_metadata_values(tmp_path: Path) -> N
     assert session.transcript[0].metadata == {"self": "<recursive>"}
 
 
+def test_session_store_bounds_deep_metadata_values(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    metadata: dict[str, object] = {}
+    current = metadata
+    for _ in range(1_200):
+        child: dict[str, object] = {}
+        current["child"] = child
+        current = child
+
+    store.append_transcript("default", "assistant", "answer", metadata=metadata)
+
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    raw = transcript_path.read_text(encoding="utf-8")
+    assert "<max-depth-exceeded>" in raw
+
+
 def test_session_store_refreshes_summary_for_older_transcript_turns(tmp_path) -> None:
     store = SessionStore(tmp_path)
     store.append_transcript("default", "user", "old user")

@@ -653,6 +653,44 @@ def test_llm_client_serializes_recursive_tool_observation_payloads(tmp_path) -> 
     assert observation_output["payload"] == {"self": "<recursive>"}
 
 
+def test_llm_client_bounds_deep_tool_observation_payloads(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    payload: dict[str, object] = {}
+    current = payload
+    for _ in range(1_200):
+        child: dict[str, object] = {}
+        current["child"] = child
+        current = child
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult.model_construct(
+                    success=True,
+                    payload=payload,
+                    summary="ok",
+                    error=None,
+                ),
+            )
+        ],
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    output = fake_client.responses.calls[0]["input"][1]["output"]
+    assert isinstance(action, FinalAction)
+    assert "<max-depth-exceeded>" in output
+
+
 def test_llm_client_bounds_large_tool_observation_outputs(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="done", output=[])
     fake_client = FakeClient(response)
