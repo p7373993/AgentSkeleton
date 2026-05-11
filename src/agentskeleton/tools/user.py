@@ -51,6 +51,13 @@ class AskUserTool(Tool):
                 summary=f"User input failed: {type(exc).__name__}",
                 error="User input failed",
             )
+        if not isinstance(answer, str):
+            return ToolResult(
+                success=False,
+                payload={"question": question},
+                summary=f"User input returned invalid answer: {type(answer).__name__}",
+                error="User input invalid",
+            )
         return ToolResult(
             success=True,
             payload={"question": question, "answer": answer},

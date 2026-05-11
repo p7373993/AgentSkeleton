@@ -42,6 +42,21 @@ def test_ask_user_tool_returns_error_when_callback_fails(tmp_path: Path) -> None
     assert result.payload == {"question": "Continue?"}
 
 
+def test_ask_user_tool_rejects_non_string_callback_answer(tmp_path: Path) -> None:
+    result = AskUserTool().execute(
+        {"question": "Continue?"},
+        ToolContext(
+            workspace=tmp_path,
+            ask_user=lambda question: None,  # type: ignore[return-value]
+        ),
+    )
+
+    assert result.success is False
+    assert result.error == "User input invalid"
+    assert result.summary == "User input returned invalid answer: NoneType"
+    assert result.payload == {"question": "Continue?"}
+
+
 def test_ask_user_tool_rejects_missing_question(tmp_path: Path) -> None:
     def fail_if_called(question: str) -> str:
         raise AssertionError("ask_user callback should not be called")
