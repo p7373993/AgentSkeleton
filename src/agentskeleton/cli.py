@@ -1,7 +1,7 @@
 import json
 import sys
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 from uuid import uuid4
 
 import typer
@@ -95,12 +95,16 @@ def _exit_session_error(exc: ValueError) -> None:
     raise typer.Exit(1) from exc
 
 
+def _exit_run_log_error(exc: ValueError) -> NoReturn:
+    console.print(f"Run log error: {exc}", soft_wrap=True)
+    raise typer.Exit(1) from exc
+
+
 def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
     try:
         return RunLogger(logs_dir, run_id)
     except ValueError as exc:
-        console.print(f"Run log error: {exc}", soft_wrap=True)
-        raise typer.Exit(1) from exc
+        _exit_run_log_error(exc)
 
 
 def _summarize_run_log_or_exit(
@@ -115,8 +119,7 @@ def _summarize_run_log_or_exit(
             include_events=include_events,
         )
     except ValueError as exc:
-        console.print(f"Run log error: {exc}", soft_wrap=True)
-        raise typer.Exit(1) from exc
+        _exit_run_log_error(exc)
 
 
 def _registry_from_config(config) -> ToolRegistry:
@@ -593,7 +596,10 @@ def show_run(
     include_events: Annotated[bool, typer.Option("--events")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config)
-    log_path = _find_run_log(loaded.logs_dir, run_id)
+    try:
+        log_path = _find_run_log(loaded.logs_dir, run_id)
+    except ValueError as exc:
+        _exit_run_log_error(exc)
     if log_path is None:
         console.print(f"Run log not found: {run_id}")
         raise typer.Exit(1)
@@ -644,9 +650,13 @@ def list_runs(
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config)
+    try:
+        run_log_paths = _run_log_paths(loaded.logs_dir)
+    except ValueError as exc:
+        _exit_run_log_error(exc)
     summaries = [
         _summarize_run_log_or_exit(log_path)
-        for log_path in _run_log_paths(loaded.logs_dir)[:limit]
+        for log_path in run_log_paths[:limit]
     ]
 
     if as_json:
@@ -686,7 +696,10 @@ def restore_run(
     session: Annotated[str, typer.Option("--session")] = "default",
 ) -> None:
     loaded = _load_config_or_exit(config)
-    log_path = _find_run_log(loaded.logs_dir, run_id)
+    try:
+        log_path = _find_run_log(loaded.logs_dir, run_id)
+    except ValueError as exc:
+        _exit_run_log_error(exc)
     if log_path is None:
         console.print(f"Run log not found: {run_id}")
         raise typer.Exit(1)
@@ -746,18 +759,24 @@ def main() -> None:
 
 def _find_run_log(logs_dir: Path, run_id: str) -> Path | None:
     filename = f"{run_id}.jsonl"
-    matches = sorted(
-        (path for path in logs_dir.glob("*/*.jsonl") if path.name == filename),
-        reverse=True,
-    )
+    try:
+        matches = sorted(
+            (path for path in logs_dir.glob("*/*.jsonl") if path.name == filename),
+            reverse=True,
+        )
+    except OSError as exc:
+        raise ValueError(f"Run log directory could not be read: {logs_dir}") from exc
     return matches[0].resolve() if matches else None
 
 
 def _run_log_paths(logs_dir: Path) -> list[Path]:
-    return sorted(
-        (path for path in logs_dir.glob("*/*.jsonl") if path.is_file()),
-        reverse=True,
-    )
+    try:
+        return sorted(
+            (path for path in logs_dir.glob("*/*.jsonl") if path.is_file()),
+            reverse=True,
+        )
+    except OSError as exc:
+        raise ValueError(f"Run log directory could not be read: {logs_dir}") from exc
 
 
 def _summarize_run_log(

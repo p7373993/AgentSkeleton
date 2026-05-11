@@ -2042,6 +2042,25 @@ def test_show_run_reports_non_file_log_path(monkeypatch, tmp_path) -> None:
     assert result.exception is None or not isinstance(result.exception, OSError)
 
 
+def test_show_run_reports_log_discovery_failures(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    original_glob = Path.glob
+
+    def fail_run_log_glob(path: Path, pattern: str):
+        if path == Path("runs") and pattern == "*/*.jsonl":
+            raise OSError("permission denied")
+        return original_glob(path, pattern)
+
+    monkeypatch.setattr(Path, "glob", fail_run_log_glob)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 1
+    assert "Run log error: Run log directory could not be read: runs" in result.stdout
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
 def test_list_runs_ignores_non_file_log_paths(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
@@ -2053,6 +2072,44 @@ def test_list_runs_ignores_non_file_log_paths(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert "No run logs found." in result.stdout
+
+
+def test_list_runs_reports_log_discovery_failures(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    original_glob = Path.glob
+
+    def fail_run_log_glob(path: Path, pattern: str):
+        if path == Path("runs") and pattern == "*/*.jsonl":
+            raise OSError("permission denied")
+        return original_glob(path, pattern)
+
+    monkeypatch.setattr(Path, "glob", fail_run_log_glob)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs"])
+
+    assert result.exit_code == 1
+    assert "Run log error: Run log directory could not be read: runs" in result.stdout
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
+def test_restore_run_reports_log_discovery_failures(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    original_glob = Path.glob
+
+    def fail_run_log_glob(path: Path, pattern: str):
+        if path == Path("runs") and pattern == "*/*.jsonl":
+            raise OSError("permission denied")
+        return original_glob(path, pattern)
+
+    monkeypatch.setattr(Path, "glob", fail_run_log_glob)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1"])
+
+    assert result.exit_code == 1
+    assert "Run log error: Run log directory could not be read: runs" in result.stdout
+    assert result.exception is None or not isinstance(result.exception, OSError)
 
 
 def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None:
