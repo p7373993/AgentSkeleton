@@ -42,6 +42,7 @@ configure_streams_for_unicode(sys.stdout, sys.stderr)
 app = typer.Typer(help="Run a minimal local CLI agent.")
 console = Console(markup=False)
 MAX_RUN_LOG_BYTES = 2_097_152
+MAX_RUN_LOG_TEXT_CHARS = 4_096
 
 
 def build_default_registry(
@@ -865,7 +866,16 @@ def _run_log_text_value(value: object) -> object:
         if isinstance(byte_count, int):
             return f"{preview} (truncated, {byte_count} bytes)"
         return f"{preview} (truncated)"
+    if isinstance(value, str):
+        return _bounded_run_log_text(value)
     return value
+
+
+def _bounded_run_log_text(value: str) -> str:
+    if len(value) <= MAX_RUN_LOG_TEXT_CHARS:
+        return value
+    omitted = len(value) - MAX_RUN_LOG_TEXT_CHARS
+    return f"{value[:MAX_RUN_LOG_TEXT_CHARS]}\n[truncated {omitted} characters]"
 
 
 def _summary_transcript_content(summary: dict[str, object]) -> str | None:

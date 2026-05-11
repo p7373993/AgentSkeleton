@@ -1603,6 +1603,42 @@ def test_show_run_json_preserves_rich_markup_literals(
     assert payload["answer"] == "[bold]literal answer[/bold]"
 
 
+def test_show_run_json_bounds_large_raw_log_text_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    large_answer = "a" * 20_000
+    events = [
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "completed",
+                "answer": large_answer,
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert len(payload["answer"]) < 5_000
+    assert payload["answer"].startswith("aaaaaaaaaaaaaaaa")
+    assert "[truncated" in payload["answer"]
+    assert large_answer not in result.stdout
+
+
 def test_show_run_summarizes_tool_results_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
