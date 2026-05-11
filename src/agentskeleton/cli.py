@@ -793,7 +793,9 @@ def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
             continue
         if line.strip():
             try:
-                events.append(json.loads(line))
+                event = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if isinstance(event, dict):
+                events.append(event)
     return events
