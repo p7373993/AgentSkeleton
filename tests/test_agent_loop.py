@@ -400,6 +400,61 @@ def test_loop_bounds_logged_trace_context_values(tmp_path: Path) -> None:
     assert session not in str(logger.events)
 
 
+def test_loop_sanitizes_unstringable_trace_context_keys(tmp_path: Path) -> None:
+    class UnstringableKey:
+        def __str__(self) -> str:
+            raise RuntimeError("key unavailable")
+
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        trace=trace,
+    ).run("finish", trace_context={UnstringableKey(): "value"})
+
+    logged_payload = next(
+        event[2] for event in logger.events if event[0] == "run_started"
+    )
+    traced_payload = next(
+        event.payload for event in trace.events if event.name == "run_started"
+    )
+
+    assert state.final_status == "completed"
+    assert logged_payload["<uninspectable>"] == "value"
+    assert traced_payload["<uninspectable>"] == "value"
+
+
+def test_loop_ignores_uninspectable_trace_context_mapping(tmp_path: Path) -> None:
+    class ExplodingTraceContext(dict):
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("trace context unavailable")
+
+    logger = MemoryLogger()
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("finish", trace_context=ExplodingTraceContext({"session": "work"}))
+
+    assert state.final_status == "completed"
+    assert logger.events[0] == (
+        "run_started",
+        0,
+        {
+            "goal": "finish",
+            "workspace": str(tmp_path),
+            "resumed": False,
+            "conversation_turns": 0,
+        },
+    )
+
+
 def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:
     logger = MemoryLogger()
     seen_goals: list[str] = []

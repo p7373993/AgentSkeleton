@@ -976,7 +976,13 @@ def _conversation_message(
 def _trace_context(trace_context: object | None) -> dict[str, object]:
     if not isinstance(trace_context, Mapping):
         return {}
-    return {str(key): _logged_value(value) for key, value in trace_context.items()}
+    try:
+        return {
+            _safe_text(key): _logged_value(value)
+            for key, value in trace_context.items()
+        }
+    except Exception:
+        return {}
 
 
 def _validate_tool_arguments(
