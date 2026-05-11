@@ -38,6 +38,48 @@ def test_shell_tool_returns_nonzero_exit_code(tmp_path: Path) -> None:
     assert result.payload["stderr"].strip() == "bad"
 
 
+def test_shell_tool_rejects_missing_command(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute({}, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Command invalid"
+    assert result.summary == "Command invalid: command must be a string"
+    assert result.payload == {}
+
+
+def test_shell_tool_rejects_non_string_command(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute({"command": 123}, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Command invalid"
+    assert result.summary == "Command invalid: command must be a string"
+    assert result.payload == {}
+
+
+def test_shell_tool_rejects_blank_command(tmp_path: Path, monkeypatch) -> None:
+    def fake_run(*args, **kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute({"command": "   "}, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Command invalid"
+    assert result.summary == "Command invalid: command cannot be blank"
+    assert result.payload == {}
+
+
 def test_shell_tool_times_out(tmp_path: Path) -> None:
     result = ShellTool().execute(
         {"command": command_for("import time; time.sleep(2)")},

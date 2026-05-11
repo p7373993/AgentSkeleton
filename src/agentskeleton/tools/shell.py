@@ -33,7 +33,20 @@ class ShellTool(Tool):
     }
 
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
-        command = str(args["command"])
+        raw_command = args.get("command")
+        if not isinstance(raw_command, str):
+            return ToolResult(
+                success=False,
+                summary="Command invalid: command must be a string",
+                error="Command invalid",
+            )
+        command = raw_command
+        if not command.strip():
+            return ToolResult(
+                success=False,
+                summary="Command invalid: command cannot be blank",
+                error="Command invalid",
+            )
         started = time.perf_counter()
         try:
             completed = subprocess.run(
