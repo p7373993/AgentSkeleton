@@ -84,6 +84,9 @@ class PermissionPolicy:
             "invoke-restmethod",
             "iwr ",
             "irm ",
+            "requests.",
+            "urllib.",
+            "http.client",
         ]
         if any(net in normalized for net in network_patterns) and any(
             secret in normalized for secret in secret_patterns
