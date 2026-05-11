@@ -372,6 +372,21 @@ def test_session_store_reports_transcript_read_failures(
         store.load("default")
 
 
+def test_session_store_rejects_oversized_transcript_before_reading(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_bytes(b"x" * 2_097_153)
+
+    with pytest.raises(
+        ValueError,
+        match="Session transcript exceeds 2097152 bytes: default",
+    ):
+        store.load("default")
+
+
 def test_session_store_reports_transcript_file_stat_failure(
     tmp_path: Path,
     monkeypatch,
@@ -416,6 +431,21 @@ def test_session_store_reports_summary_read_failures(tmp_path, monkeypatch) -> N
     with pytest.raises(
         ValueError,
         match="Session summary could not be read: default",
+    ):
+        store.load("default")
+
+
+def test_session_store_rejects_oversized_summary_before_reading(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_bytes(b"x" * 2_097_153)
+
+    with pytest.raises(
+        ValueError,
+        match="Session summary exceeds 2097152 bytes: default",
     ):
         store.load("default")
 

@@ -8,6 +8,7 @@ from typing import Any
 from agentskeleton.core.state import ConversationMessage
 
 _MAX_SESSION_DIR_NAME_LENGTH = 120
+_MAX_SESSION_FILE_BYTES = 2_097_152
 _WINDOWS_RESERVED_SESSION_BASENAMES = {
     "CON",
     "PRN",
@@ -200,6 +201,11 @@ class SessionStore:
 
         transcript: list[ConversationMessage] = []
         try:
+            if path.stat().st_size > _MAX_SESSION_FILE_BYTES:
+                raise ValueError(
+                    f"Session transcript exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
+                    f"{safe_name}"
+                )
             raw_lines = path.read_bytes().splitlines()
         except OSError as exc:
             raise ValueError(
@@ -240,6 +246,11 @@ class SessionStore:
         if not summary_is_file:
             return None
         try:
+            if path.stat().st_size > _MAX_SESSION_FILE_BYTES:
+                raise ValueError(
+                    f"Session summary exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
+                    f"{safe_name}"
+                )
             summary = path.read_text(encoding="utf-8").strip()
         except OSError as exc:
             raise ValueError(
