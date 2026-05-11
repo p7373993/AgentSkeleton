@@ -141,7 +141,14 @@ class SessionStore:
             return []
 
         transcript: list[ConversationMessage] = []
-        for raw_line in path.read_bytes().splitlines():
+        safe_name = self._safe_name(name)
+        try:
+            raw_lines = path.read_bytes().splitlines()
+        except OSError as exc:
+            raise ValueError(
+                f"Session transcript could not be read: {safe_name}"
+            ) from exc
+        for raw_line in raw_lines:
             try:
                 line = raw_line.decode("utf-8")
             except UnicodeDecodeError:
@@ -168,8 +175,13 @@ class SessionStore:
         path = self._summary_path_for(name)
         if not path.is_file():
             return None
+        safe_name = self._safe_name(name)
         try:
             summary = path.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise ValueError(
+                f"Session summary could not be read: {safe_name}"
+            ) from exc
         except UnicodeDecodeError:
             return None
         return summary or None

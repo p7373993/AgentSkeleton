@@ -224,6 +224,54 @@ def test_session_store_ignores_invalid_utf8_summary(tmp_path) -> None:
     assert store.list_sessions() == []
 
 
+def test_session_store_reports_transcript_read_failures(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        json.dumps({"role": "user", "content": "hello"}),
+        encoding="utf-8",
+    )
+    original_read_bytes = Path.read_bytes
+
+    def fail_read_bytes(path: Path) -> bytes:
+        if path == transcript_path:
+            raise OSError("permission denied")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read_bytes)
+
+    with pytest.raises(
+        ValueError,
+        match="Session transcript could not be read: default",
+    ):
+        store.load("default")
+
+
+def test_session_store_reports_summary_read_failures(tmp_path, monkeypatch) -> None:
+    store = SessionStore(tmp_path)
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_text("summary", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == summary_path:
+            raise OSError("permission denied")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    with pytest.raises(
+        ValueError,
+        match="Session summary could not be read: default",
+    ):
+        store.load("default")
+
+
 def test_session_store_ignores_summary_directory(tmp_path) -> None:
     summary_path = tmp_path / "sessions" / "default" / "summary.md"
     summary_path.mkdir(parents=True)
