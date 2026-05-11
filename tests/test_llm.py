@@ -296,6 +296,29 @@ def test_llm_client_rejects_invalid_output_shape(tmp_path) -> None:
         ).next_action(state, ToolRegistry([DummyTool()]))
 
 
+def test_llm_client_rejects_too_many_response_output_items(tmp_path) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {"type": "message", "role": "assistant", "content": "note"}
+            for _ in range(101)
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Response output contains too many items",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_rejects_function_call_without_name(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",

@@ -23,6 +23,7 @@ AGENT_INSTRUCTIONS = (
 )
 MAX_TOOL_RESULT_OUTPUT_BYTES = 1_048_576
 MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
+MAX_RESPONSE_OUTPUT_ITEMS = 100
 
 
 class MissingAPIKeyError(RuntimeError):
@@ -90,7 +91,13 @@ def _response_output_items(response: Any) -> list[Any]:
     if isinstance(output, dict):
         return [output]
     if isinstance(output, list | tuple):
-        return list(output)
+        items = list(output)
+        if len(items) > MAX_RESPONSE_OUTPUT_ITEMS:
+            raise LLMResponseError(
+                "Response output contains too many items "
+                f"({len(items)} > {MAX_RESPONSE_OUTPUT_ITEMS})"
+            )
+        return items
     raise LLMResponseError("Response output must be a list of items")
 
 
