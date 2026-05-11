@@ -135,6 +135,9 @@ def _message_content_part_text(part: Any) -> str | None:
     if isinstance(part, str):
         return part
     part_type = _read_attr(part, "type")
+    if part_type == "refusal":
+        refusal = _read_attr(part, "refusal")
+        return refusal if isinstance(refusal, str) else None
     text = _read_attr(part, "text")
     if not isinstance(text, str):
         return None

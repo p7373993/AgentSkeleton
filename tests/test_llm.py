@@ -185,6 +185,34 @@ def test_llm_client_parses_final_text_from_message_output_content(tmp_path) -> N
     ]
 
 
+def test_llm_client_parses_refusal_text_from_message_output_content(tmp_path) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "refusal",
+                        "refusal": "I cannot help with that request.",
+                    }
+                ],
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "I cannot help with that request."
+
+
 def test_llm_client_continues_when_trace_sink_fails(tmp_path) -> None:
     response = SimpleNamespace(id="resp-1", output_text="done", output=[])
     fake_client = FakeClient(response)
