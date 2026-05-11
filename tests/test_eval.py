@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import agentskeleton.eval as eval_module
 from agentskeleton.config import RunConfig
 from agentskeleton.eval import (
     _read_log_events,
@@ -1126,6 +1127,51 @@ def test_run_scenario_reports_expected_file_read_failure(
 
     assert result.passed is False
     assert result.failures == ["file reports/summary.txt could not be read"]
+
+
+def test_run_scenario_rejects_oversized_expected_file_before_reading(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report_path = tmp_path / "reports" / "summary.txt"
+    report_path.parent.mkdir()
+    report_path.write_text("x" * 11, encoding="utf-8")
+    scenario_path = tmp_path / "large-report.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: large-report",
+                "goal: inspect report",
+                "actions:",
+                "  - type: final",
+                "    text: checked",
+                "expect:",
+                "  status: completed",
+                "  files:",
+                "    reports/summary.txt: summary",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scenario = load_scenario(scenario_path)
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_FILE_BYTES", 10)
+    original_read_text = Path.read_text
+
+    def fail_read_text(path: Path, *args, **kwargs) -> str:
+        if path == report_path:
+            raise AssertionError("oversized expected file should not be read")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == ["file reports/summary.txt exceeds 10 bytes"]
 
 
 def test_run_scenario_reports_expected_file_exists_stat_failure(

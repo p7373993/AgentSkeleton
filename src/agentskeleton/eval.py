@@ -724,6 +724,16 @@ def _expect_files(
             failures.append(f"file {path_text} expected but was not a file")
             continue
         try:
+            target_size = target.stat().st_size
+        except OSError:
+            failures.append(f"file {path_text} could not be checked")
+            continue
+        if target_size > MAX_SCENARIO_FILE_BYTES:
+            failures.append(
+                f"file {path_text} exceeds {MAX_SCENARIO_FILE_BYTES} bytes"
+            )
+            continue
+        try:
             actual_content = target.read_text(encoding="utf-8")
         except OSError:
             failures.append(f"file {path_text} could not be read")
