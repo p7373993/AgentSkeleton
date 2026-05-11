@@ -108,6 +108,14 @@ def _validate_goal_or_exit(goal: str) -> None:
         raise typer.Exit(1)
 
 
+def _print_json(payload: object) -> None:
+    console.print(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        soft_wrap=True,
+        markup=False,
+    )
+
+
 def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
     try:
         return RunLogger(logs_dir, run_id)
@@ -180,22 +188,17 @@ def tools(
     loaded = _load_config_or_exit(config, {"enabled_tools": tool})
     registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     if as_json:
-        console.print(
-            json.dumps(
-                {
-                    "tools": [
-                        {
-                            "name": registered_tool.name,
-                            "description": registered_tool.description,
-                            "risk": registered_tool.risk,
-                        }
-                        for registered_tool in registry.all()
-                    ]
-                },
-                ensure_ascii=False,
-                indent=2,
-            ),
-            soft_wrap=True,
+        _print_json(
+            {
+                "tools": [
+                    {
+                        "name": registered_tool.name,
+                        "description": registered_tool.description,
+                        "risk": registered_tool.risk,
+                    }
+                    for registered_tool in registry.all()
+                ]
+            }
         )
         return
 
@@ -232,7 +235,7 @@ def doctor(
     }
 
     if as_json:
-        console.print(json.dumps(payload, ensure_ascii=False, indent=2), soft_wrap=True)
+        _print_json(payload)
         return
 
     console.print("Status: ok")
@@ -261,7 +264,7 @@ def eval_scenario(
 
     payload = result.to_dict()
     if as_json:
-        console.print(json.dumps(payload, ensure_ascii=False, indent=2), soft_wrap=True)
+        _print_json(payload)
     else:
         console.print(f"Scenario: {payload['scenario']}")
         console.print(f"Passed: {payload['passed']}")
@@ -306,7 +309,7 @@ def eval_suite(
 
     payload = result.to_dict()
     if as_json:
-        console.print(json.dumps(payload, ensure_ascii=False, indent=2), soft_wrap=True)
+        _print_json(payload)
     else:
         console.print(f"Passed: {payload['passed']}")
         console.print(f"Scenarios: {payload['passed_count']}/{payload['total']}")
@@ -577,7 +580,7 @@ def sessions(
     payload = {"sessions": [summary.to_dict() for summary in summaries]}
 
     if as_json:
-        console.print(json.dumps(payload, ensure_ascii=False, indent=2), soft_wrap=True)
+        _print_json(payload)
         return
 
     if not summaries:
@@ -620,10 +623,7 @@ def show_run(
     )
 
     if as_json:
-        console.print(
-            json.dumps(summary, ensure_ascii=False, indent=2),
-            soft_wrap=True,
-        )
+        _print_json(summary)
         return
 
     console.print(f"Run id: {run_id}")
@@ -669,10 +669,7 @@ def list_runs(
     ]
 
     if as_json:
-        console.print(
-            json.dumps({"runs": summaries}, ensure_ascii=False, indent=2),
-            soft_wrap=True,
-        )
+        _print_json({"runs": summaries})
         return
 
     if not summaries:
