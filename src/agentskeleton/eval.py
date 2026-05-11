@@ -450,14 +450,35 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
         return config.workspace.resolve()
 
     workspace = (config.logs_dir / "workspaces" / run_id).expanduser().resolve()
-    workspace.mkdir(parents=True, exist_ok=True)
+    try:
+        workspace.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ValueError(
+            f"Scenario workspace could not be prepared: {workspace}"
+        ) from exc
     for requested_path, content in scenario.files.items():
         try:
             target = resolve_workspace_path(workspace, requested_path)
         except PathSecurityError as exc:
             raise ValueError(str(exc)) from exc
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(content.encode("utf-8"))
+        if target.parent.exists() and not target.parent.is_dir():
+            raise ValueError(
+                f"Scenario file parent is not a directory: {requested_path}"
+            )
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(
+                f"Scenario file parent could not be created: {requested_path}"
+            ) from exc
+        if target.exists() and not target.is_file():
+            raise ValueError(f"Scenario file path is not a file: {requested_path}")
+        try:
+            target.write_bytes(content.encode("utf-8"))
+        except OSError as exc:
+            raise ValueError(
+                f"Scenario file could not be written: {requested_path}"
+            ) from exc
     return workspace
 
 

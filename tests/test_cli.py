@@ -494,6 +494,41 @@ def test_eval_command_uses_scenario_tool_modules(
     assert payload["status"] == "completed"
 
 
+def test_eval_command_reports_declared_file_parent_conflict(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    scenario_path = tmp_path / "fixture-conflict.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-conflict",
+                "goal: prepare conflicting fixture files",
+                "files:",
+                "  reports: existing file",
+                "  reports/summary.txt: child file",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval", str(scenario_path)])
+
+    assert result.exit_code == 1
+    assert (
+        "Scenario error: Scenario file parent is not a directory: "
+        "reports/summary.txt"
+    ) in result.stdout
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
 @pytest.mark.parametrize(
     ("command", "user_input"),
     [

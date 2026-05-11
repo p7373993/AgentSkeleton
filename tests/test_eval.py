@@ -127,6 +127,42 @@ def test_run_scenario_applies_declared_workspace_files(tmp_path: Path) -> None:
     assert not (tmp_path / "data" / "input.txt").exists()
 
 
+def test_run_scenario_reports_declared_file_parent_conflict(
+    tmp_path: Path,
+) -> None:
+    scenario_path = tmp_path / "fixture-conflict.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-conflict",
+                "goal: prepare conflicting fixture files",
+                "files:",
+                "  reports: existing file",
+                "  reports/summary.txt: child file",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        run_scenario(
+            load_scenario(scenario_path),
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == (
+            "Scenario file parent is not a directory: reports/summary.txt"
+        )
+    else:
+        raise AssertionError("Expected conflicting scenario files to fail")
+
+
 def test_run_scenario_preserves_lf_newlines_in_declared_files(
     tmp_path: Path,
 ) -> None:
