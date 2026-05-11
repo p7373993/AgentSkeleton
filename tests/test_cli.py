@@ -102,6 +102,35 @@ def test_tools_command_can_output_json(monkeypatch, tmp_path) -> None:
     assert all(tool["description"] for tool in payload["tools"])
 
 
+def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "logs_dir: logs",
+                "enabled_tools:",
+                "  - read_file",
+                "  - ask_user",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--config", str(config_path), "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "status": "ok",
+        "workspace": str(tmp_path.resolve()),
+        "logs_dir": "logs",
+        "tool_count": 2,
+        "tools": ["read_file", "ask_user"],
+    }
+
+
 @pytest.mark.parametrize(
     ("command", "user_input"),
     [

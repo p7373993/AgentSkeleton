@@ -126,6 +126,33 @@ def tools(
 
 
 @app.command()
+def doctor(
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    loaded = _load_config_or_exit(config, {"enabled_tools": tool})
+    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
+    tool_names = [registered_tool.name for registered_tool in registry.all()]
+    payload = {
+        "status": "ok",
+        "workspace": str(loaded.workspace),
+        "logs_dir": str(loaded.logs_dir),
+        "tool_count": len(tool_names),
+        "tools": tool_names,
+    }
+
+    if as_json:
+        console.print(json.dumps(payload, ensure_ascii=False, indent=2), soft_wrap=True)
+        return
+
+    console.print("Status: ok")
+    console.print(f"Workspace: {payload['workspace']}", soft_wrap=True)
+    console.print(f"Logs: {payload['logs_dir']}", soft_wrap=True)
+    console.print(f"Tools: {payload['tool_count']}")
+
+
+@app.command()
 def run(
     goal: str,
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
