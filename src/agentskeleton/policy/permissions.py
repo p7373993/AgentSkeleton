@@ -248,6 +248,8 @@ def _split_shell_segments(command: str) -> list[str]:
         for segment in command.replace("&&", "|")
         .replace("&", "|")
         .replace(";", "|")
+        .replace("\r", "|")
+        .replace("\n", "|")
         .split("|")
         if segment.strip()
     ]
