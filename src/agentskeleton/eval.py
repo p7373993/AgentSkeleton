@@ -811,10 +811,20 @@ def _expect_events(
 
 
 def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]]:
-    if not log_path.exists():
+    try:
+        log_exists = log_path.exists()
+    except OSError:
+        failures.append(f"log file could not be checked: {log_path}")
+        return []
+    if not log_exists:
         failures.append(f"log file expected but was missing: {log_path}")
         return []
-    if not log_path.is_file():
+    try:
+        log_is_file = log_path.is_file()
+    except OSError:
+        failures.append(f"log file could not be checked: {log_path}")
+        return []
+    if not log_is_file:
         failures.append(f"log file expected but was not a file: {log_path}")
         return []
 

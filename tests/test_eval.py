@@ -853,6 +853,49 @@ def test_eval_log_reader_reports_log_path_directory(tmp_path: Path) -> None:
     assert failures == [f"log file expected but was not a file: {log_path}"]
 
 
+def test_eval_log_reader_reports_log_exists_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    log_path = tmp_path / "run.jsonl"
+    original_exists = Path.exists
+
+    def fail_log_exists(path: Path) -> bool:
+        if path == log_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_log_exists)
+    failures: list[str] = []
+
+    events = _read_log_events(log_path, failures)
+
+    assert events == []
+    assert failures == [f"log file could not be checked: {log_path}"]
+
+
+def test_eval_log_reader_reports_log_file_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    log_path = tmp_path / "run.jsonl"
+    log_path.write_text('{"type": "run_started"}\n', encoding="utf-8")
+    original_is_file = Path.is_file
+
+    def fail_log_is_file(path: Path) -> bool:
+        if path == log_path:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_log_is_file)
+    failures: list[str] = []
+
+    events = _read_log_events(log_path, failures)
+
+    assert events == []
+    assert failures == [f"log file could not be checked: {log_path}"]
+
+
 def test_eval_log_reader_reports_log_read_failure(
     tmp_path: Path,
     monkeypatch,
