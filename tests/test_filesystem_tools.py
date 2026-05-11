@@ -12,6 +12,15 @@ def test_resolve_workspace_path_blocks_parent_escape(tmp_path: Path) -> None:
         resolve_workspace_path(tmp_path, "../outside.txt")
 
 
+def test_resolve_workspace_path_blocks_absolute_paths_inside_workspace(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "inside.txt"
+
+    with pytest.raises(PathSecurityError, match="workspace-relative"):
+        resolve_workspace_path(tmp_path, str(target))
+
+
 def test_resolve_workspace_path_blocks_symlink_escape(tmp_path: Path) -> None:
     outside = tmp_path.parent / "outside-target"
     outside.mkdir(exist_ok=True)

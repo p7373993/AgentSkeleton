@@ -6,6 +6,12 @@ class PathSecurityError(ValueError):
 
 
 def resolve_workspace_path(workspace: Path, requested_path: str) -> Path:
+    raw_path = Path(requested_path)
+    if raw_path.is_absolute() or raw_path.drive:
+        raise PathSecurityError(
+            f"Path must be workspace-relative: {requested_path}"
+        )
+
     root = workspace.expanduser().resolve()
     candidate = (root / requested_path).resolve(strict=False)
 
