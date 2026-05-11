@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -49,6 +50,11 @@ SHELL_EVAL_COMMANDS = {
     "sh",
     "zsh",
 }
+PYTHON_NETWORK_IMPORT_RE = re.compile(
+    r"\bfrom\s+(requests|urllib(?:\.[a-z0-9_]+)*|http\.client|socket)\b"
+    r"|\bimport\s+[^;\n\r]*\b"
+    r"(requests|urllib(?:\.[a-z0-9_]+)*|http\.client|socket)\b"
+)
 
 
 @dataclass(frozen=True)
@@ -158,6 +164,7 @@ class PermissionPolicy:
             _contains_fetch_command(normalized)
             or _contains_git_network_command(normalized)
             or _contains_gh_network_command(normalized)
+            or _contains_python_network_import(normalized)
         ) or any(
             net in normalized for net in network_library_patterns
         )
@@ -298,6 +305,13 @@ def _contains_gh_network_command(command: str) -> bool:
     )
 
 
+def _contains_python_network_import(command: str) -> bool:
+    return any(
+        _segment_has_python_network_import(segment)
+        for segment in _split_shell_segments(command)
+    )
+
+
 def _segment_has_fetch_command(segment: str) -> bool:
     return any(
         _normalize_executable_token(token) in FETCH_COMMANDS
@@ -323,6 +337,13 @@ def _segment_has_gh_network_command(segment: str) -> bool:
         _normalize_option_token(token) in GH_NETWORK_SUBCOMMANDS
         for token in tokens[1:]
     )
+
+
+def _segment_has_python_network_import(segment: str) -> bool:
+    tokens = segment.split()
+    if _first_executable_token(tokens) not in {"python", "python3"}:
+        return False
+    return PYTHON_NETWORK_IMPORT_RE.search(segment) is not None
 
 
 def _first_executable_token(tokens: list[str]) -> str | None:
