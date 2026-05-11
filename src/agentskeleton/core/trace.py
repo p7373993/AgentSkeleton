@@ -6,6 +6,8 @@ from typing import Any, Protocol
 
 from rich.console import Console
 
+from agentskeleton.logging.run_logger import redact
+
 
 @dataclass(frozen=True)
 class TraceEvent:
@@ -108,4 +110,4 @@ def preview(value: Any, max_chars: int = 500) -> str:
 
 
 def _compact_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, default=str)
+    return json.dumps(redact(value), ensure_ascii=False, default=str)

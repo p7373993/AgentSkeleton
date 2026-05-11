@@ -160,3 +160,32 @@ def test_console_trace_sink_prints_repeated_instructions_once() -> None:
     output = console.export_text()
     assert output.count("[llm sys]") == 1
     assert output.count("[llm ->]") == 2
+
+
+def test_console_trace_sink_serializes_recursive_payloads() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    arguments = {}
+    arguments["self"] = arguments
+
+    trace.emit("tool_started", {"tool_name": "trace_tool", "arguments": arguments})
+
+    output = console.export_text()
+    assert "<recursive>" in output
+
+
+def test_console_trace_sink_redacts_secret_payloads() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "tool_started",
+        {
+            "tool_name": "trace_tool",
+            "arguments": {"api_key": "sk-secret123"},
+        },
+    )
+
+    output = console.export_text()
+    assert "sk-secret123" not in output
+    assert "[REDACTED]" in output
