@@ -622,6 +622,39 @@ def test_llm_client_rejects_oversized_mapping_function_call_arguments(
     assert state.response_context_items == []
 
 
+def test_llm_client_rejects_uninspectable_mapping_function_call_arguments(
+    tmp_path,
+) -> None:
+    class ExplodingValuesArguments(dict):
+        def values(self):  # type: ignore[override]
+            raise RuntimeError("argument values unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                name="read_file",
+                arguments=ExplodingValuesArguments({"path": "README.md"}),
+                call_id="call-1",
+            )
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Function call arguments could not be inspected",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_parses_multiple_function_calls_as_batch(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",

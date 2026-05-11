@@ -379,13 +379,22 @@ class LLMClient:
 
     def _parse_arguments(self, raw_arguments: str | dict[str, Any]) -> dict[str, Any]:
         if isinstance(raw_arguments, dict):
-            if _json_exceeds_depth(raw_arguments, MAX_JSON_SAFE_DEPTH):
-                raise LLMResponseError("Function call arguments are too deeply nested")
-            if _json_size(raw_arguments) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
+            try:
+                if _json_exceeds_depth(raw_arguments, MAX_JSON_SAFE_DEPTH):
+                    raise LLMResponseError(
+                        "Function call arguments are too deeply nested"
+                    )
+                if _json_size(raw_arguments) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
+                    raise LLMResponseError(
+                        "Function call arguments are too large "
+                        f"(max {MAX_FUNCTION_CALL_ARGUMENT_BYTES} bytes)"
+                    )
+            except LLMResponseError:
+                raise
+            except Exception as exc:
                 raise LLMResponseError(
-                    "Function call arguments are too large "
-                    f"(max {MAX_FUNCTION_CALL_ARGUMENT_BYTES} bytes)"
-                )
+                    "Function call arguments could not be inspected"
+                ) from exc
             return raw_arguments
         if isinstance(raw_arguments, str):
             if len(raw_arguments.encode("utf-8")) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
