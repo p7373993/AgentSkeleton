@@ -29,6 +29,7 @@ MAX_CONVERSATION_CONTENT_CHARS = 4_096
 MAX_CONVERSATION_ROLE_CHARS = 64
 ALLOWED_CONVERSATION_ROLES = {"assistant", "developer", "system", "user"}
 MAX_FUNCTION_CALL_METADATA_BYTES = 512
+MAX_CONTEXT_METADATA_CHARS = 512
 MAX_JSON_SAFE_DEPTH = 64
 MAX_JSON_SAFE_ITEMS = 200
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
@@ -412,9 +413,23 @@ def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if item.get("type") == "function_call" and isinstance(item.get("arguments"), dict):
         item["arguments"] = json.dumps(_json_safe(item["arguments"]))
+    for field in ("id", "name", "call_id", "status", "type"):
+        if field in item:
+            item[field] = _bounded_context_metadata(item[field])
+    if "role" in item:
+        item["role"] = _safe_conversation_role(item["role"])
     if "content" in item:
         item["content"] = _bounded_context_content(item["content"])
     return _json_safe(item)
+
+
+def _bounded_context_metadata(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    if len(value) <= MAX_CONTEXT_METADATA_CHARS:
+        return value
+    omitted = len(value) - MAX_CONTEXT_METADATA_CHARS
+    return f"{value[:MAX_CONTEXT_METADATA_CHARS]}\n[truncated {omitted} characters]"
 
 
 def _bounded_context_content(

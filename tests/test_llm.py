@@ -782,6 +782,43 @@ def test_llm_client_bounds_large_context_item_content(tmp_path) -> None:
     assert large_content not in str(state.response_context_items)
 
 
+def test_llm_client_bounds_large_context_item_metadata(tmp_path) -> None:
+    large_id = "i" * 10_000
+    large_status = "s" * 10_000
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": "message",
+                "id": large_id,
+                "role": "assistant",
+                "status": large_status,
+                "content": "done",
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    stored_item = state.response_context_items[1]
+    assert isinstance(action, FinalAction)
+    assert isinstance(stored_item["id"], str)
+    assert isinstance(stored_item["status"], str)
+    assert len(stored_item["id"]) < 700
+    assert len(stored_item["status"]) < 700
+    assert stored_item["id"].startswith("i" * 40)
+    assert stored_item["status"].startswith("s" * 40)
+    assert "[truncated" in stored_item["id"]
+    assert "[truncated" in stored_item["status"]
+    assert large_id not in str(state.response_context_items)
+    assert large_status not in str(state.response_context_items)
+
+
 def test_llm_client_bounds_large_nested_context_item_content(tmp_path) -> None:
     large_text = "x" * 10_000
     response = SimpleNamespace(
