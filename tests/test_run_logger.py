@@ -237,6 +237,40 @@ def test_run_logger_serializes_non_json_payload_values(tmp_path: Path) -> None:
     assert event["payload"]["42"] == "numeric key"
 
 
+def test_run_logger_serializes_unstringable_payload_values(tmp_path: Path) -> None:
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("value unavailable")
+
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={"payload": UnstringableValue()},
+    )
+
+    event = json.loads(logger.path.read_text(encoding="utf-8").splitlines()[0])
+    assert event["payload"]["payload"] == "<uninspectable>"
+
+
+def test_run_logger_serializes_unstringable_payload_keys(tmp_path: Path) -> None:
+    class UnstringableKey:
+        def __str__(self) -> str:
+            raise RuntimeError("key unavailable")
+
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={UnstringableKey(): "value"},
+    )
+
+    event = json.loads(logger.path.read_text(encoding="utf-8").splitlines()[0])
+    assert event["payload"]["<uninspectable>"] == "value"
+
+
 def test_run_logger_serializes_recursive_payload_values(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
     payload = {}

@@ -97,7 +97,7 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
         return _bounded_log_string(redacted)
     if value is None or isinstance(value, int | float | bool):
         return value
-    return str(value)
+    return _safe_text(value)
 
 
 def _redact_mapping(
@@ -116,7 +116,7 @@ def _redact_mapping(
         for index, (key, item) in enumerate(raw_items):
             if index >= item_limit:
                 continue
-            redacted_items[str(key)] = (
+            redacted_items[_safe_text(key)] = (
                 "[REDACTED]"
                 if _is_secret_key(key)
                 else redact(item, seen, depth + 1)
@@ -174,8 +174,15 @@ def _bounded_log_string(value: str) -> str:
     return f"{value[:_MAX_LOG_STRING_CHARS]}\n[truncated {omitted} characters]"
 
 
+def _safe_text(value: object) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return _UNINSPECTABLE_VALUE
+
+
 def _is_secret_key(key: object) -> bool:
-    normalized = str(key).strip().lower().replace("-", "_")
+    normalized = _safe_text(key).strip().lower().replace("-", "_")
     return any(term in normalized for term in SECRET_KEY_TERMS)
 
 
