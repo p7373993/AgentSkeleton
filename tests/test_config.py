@@ -57,6 +57,11 @@ def test_load_config_merges_yaml_and_overrides(tmp_path: Path) -> None:
     assert config.workspace == workspace.resolve()
 
 
+def test_load_config_rejects_explicit_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="Config file not found"):
+        load_config(tmp_path / "missing.yaml")
+
+
 def test_load_config_uses_model_from_environment(monkeypatch) -> None:
     monkeypatch.setenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5.4-mini")
 

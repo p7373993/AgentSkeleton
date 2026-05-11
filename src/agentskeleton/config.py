@@ -93,7 +93,9 @@ def load_config(
     if env_base_url:
         data["base_url"] = env_base_url
 
-    if config_path is not None and config_path.exists():
+    if config_path is not None:
+        if not config_path.exists():
+            raise ValueError(f"Config file not found: {config_path}")
         loaded = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         if not isinstance(loaded, dict):
             raise ValueError(f"Config file must contain a mapping: {config_path}")

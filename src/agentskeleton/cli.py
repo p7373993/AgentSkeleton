@@ -67,7 +67,7 @@ def _load_config_or_exit(
     try:
         return load_config(config_path, overrides)
     except ValueError as exc:
-        console.print(f"Configuration error: {exc}")
+        console.print(f"Configuration error: {exc}", soft_wrap=True)
         raise typer.Exit(1) from exc
 
 
@@ -78,7 +78,7 @@ def _build_registry_or_exit(
     try:
         return build_default_registry(enabled_tools, tool_modules)
     except ValueError as exc:
-        console.print(f"Configuration error: {exc}")
+        console.print(f"Configuration error: {exc}", soft_wrap=True)
         raise typer.Exit(1) from exc
 
 
