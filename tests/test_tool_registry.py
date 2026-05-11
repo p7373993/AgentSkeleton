@@ -43,6 +43,13 @@ def test_registry_rejects_duplicate_tools() -> None:
         registry.register(EchoTool())
 
 
+def test_registry_rejects_non_tool_values() -> None:
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Registered value must be a Tool"):
+        registry.register(object())
+
+
 def test_registry_rejects_non_string_tool_names() -> None:
     class NonStringNameTool(EchoTool):
         name = 123
