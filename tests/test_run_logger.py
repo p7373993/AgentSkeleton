@@ -55,6 +55,27 @@ def test_run_logger_bounds_very_long_run_id_filenames(tmp_path: Path) -> None:
     assert {event["run_id"] for event in events} == set(run_ids)
 
 
+@pytest.mark.parametrize(
+    ("run_id", "expected_name"),
+    [
+        ("NUL", "NUL_.jsonl"),
+        ("CON.log", "CON.log_.jsonl"),
+        ("COM1", "COM1_.jsonl"),
+    ],
+)
+def test_run_logger_suffixes_windows_reserved_run_id_stems(
+    tmp_path: Path,
+    run_id: str,
+    expected_name: str,
+) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id=run_id)
+
+    logger.log("run_started", step=0, payload={"goal": "test"})
+
+    assert logger.path.name == expected_name
+    assert logger.path.is_file()
+
+
 def test_run_logger_redacts_obvious_secrets(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
 

@@ -10,6 +10,14 @@ from typing import Any
 _MAX_RUN_LOG_STEM_LENGTH = 120
 _MAX_REDACT_DEPTH = 64
 _MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+_WINDOWS_RESERVED_LOG_BASENAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
 SECRET_PATTERNS = [
     re.compile(r"(OPENAI_API_KEY\s*=\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"(Authorization:\s*Bearer\s+)[^\s]+", re.IGNORECASE),
@@ -47,6 +55,9 @@ def _safe_log_stem(value: str) -> str:
         digest = hashlib.sha256(safe_value.encode("utf-8")).hexdigest()[:12]
         prefix_length = _MAX_RUN_LOG_STEM_LENGTH - len(digest) - 1
         safe_value = f"{safe_value[:prefix_length]}-{digest}"
+    base_name = safe_value.split(".", 1)[0].upper()
+    if base_name in _WINDOWS_RESERVED_LOG_BASENAMES:
+        safe_value = f"{safe_value}_"
     return safe_value
 
 
