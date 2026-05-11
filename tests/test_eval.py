@@ -55,6 +55,35 @@ def test_run_scenario_executes_scripted_actions_and_checks_expectations(
     assert result.log_path.exists()
 
 
+def test_run_scenario_includes_domain_metadata(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "finance.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: finance-read",
+                "domain: finance",
+                "goal: inspect an invoice",
+                "actions:",
+                "  - type: final",
+                "    text: finance ok",
+                "expect:",
+                "  status: completed",
+                "  answer: finance ok",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.domain == "finance"
+    assert result.to_dict()["domain"] == "finance"
+
+
 def test_run_scenario_applies_declared_workspace_files(tmp_path: Path) -> None:
     scenario_path = tmp_path / "fixture-read.yaml"
     scenario_path.write_text(
@@ -382,9 +411,23 @@ def test_load_scenario_suite_discovers_yaml_files_in_order(tmp_path: Path) -> No
 
 
 def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> None:
-    passing = load_scenario(_write_final_scenario(tmp_path, "passing", "ok", "ok"))
+    passing = load_scenario(
+        _write_final_scenario(
+            tmp_path,
+            "passing",
+            "ok",
+            "ok",
+            domain="finance",
+        )
+    )
     failing = load_scenario(
-        _write_final_scenario(tmp_path, "failing", "actual", "expected")
+        _write_final_scenario(
+            tmp_path,
+            "failing",
+            "actual",
+            "expected",
+            domain="writing",
+        )
     )
 
     suite = run_scenario_suite(
@@ -397,6 +440,11 @@ def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> No
     assert suite.total == 2
     assert suite.passed_count == 1
     assert suite.failed_count == 1
+    assert suite.domains == {
+        "finance": {"passed": 1, "failed": 0, "total": 1},
+        "writing": {"passed": 0, "failed": 1, "total": 1},
+    }
+    assert suite.to_dict()["domains"] == suite.domains
     assert [result.scenario for result in suite.results] == ["passing", "failing"]
     assert suite.results[1].failures == [
         "answer expected 'expected' but got 'actual'"
@@ -408,12 +456,15 @@ def _write_final_scenario(
     name: str,
     final_text: str,
     expected_answer: str,
+    domain: str | None = None,
 ) -> Path:
+    domain_lines = [f"domain: {domain}"] if domain else []
     scenario_path = tmp_path / f"{name}.yaml"
     scenario_path.write_text(
         "\n".join(
             [
                 f"name: {name}",
+                *domain_lines,
                 f"goal: {name}",
                 "actions:",
                 "  - type: final",

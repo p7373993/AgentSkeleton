@@ -1,4 +1,5 @@
 name: write-denied
+domain: reliability
 goal: Deny an unconfirmed workspace write.
 actions:
   - type: tool

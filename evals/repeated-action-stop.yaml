@@ -1,4 +1,5 @@
 name: repeated-action-stop
+domain: reliability
 goal: Stop a repeated unproductive action.
 actions:
   - type: tool

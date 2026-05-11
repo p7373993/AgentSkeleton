@@ -20,3 +20,9 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     assert result.passed is True
     assert result.total == 7
     assert result.failed_count == 0
+    assert result.domains == {
+        "artifacts": {"passed": 1, "failed": 0, "total": 1},
+        "filesystem": {"passed": 2, "failed": 0, "total": 2},
+        "reliability": {"passed": 3, "failed": 0, "total": 3},
+        "tool_packs": {"passed": 1, "failed": 0, "total": 1},
+    }

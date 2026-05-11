@@ -1,4 +1,5 @@
 name: domain-tool-pack
+domain: tool_packs
 goal: Classify a finance request using a scenario-provided tool pack.
 config:
   tool_modules:

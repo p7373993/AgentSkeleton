@@ -23,6 +23,7 @@ RegistryFactory = Callable[[RunConfig], ToolRegistry]
 @dataclass(frozen=True)
 class Scenario:
     name: str
+    domain: str
     goal: str
     actions: list[AgentAction]
     expect: dict[str, object] = field(default_factory=dict)
@@ -33,6 +34,7 @@ class Scenario:
 @dataclass(frozen=True)
 class ScenarioResult:
     scenario: str
+    domain: str
     passed: bool
     status: str | None
     answer: str | None
@@ -44,6 +46,7 @@ class ScenarioResult:
     def to_dict(self) -> dict[str, object]:
         return {
             "scenario": self.scenario,
+            "domain": self.domain,
             "passed": self.passed,
             "status": self.status,
             "answer": self.answer,
@@ -74,12 +77,28 @@ class ScenarioSuiteResult:
     def passed(self) -> bool:
         return self.failed_count == 0
 
+    @property
+    def domains(self) -> dict[str, dict[str, int]]:
+        summary: dict[str, dict[str, int]] = {}
+        for result in self.results:
+            domain = summary.setdefault(
+                result.domain,
+                {"passed": 0, "failed": 0, "total": 0},
+            )
+            domain["total"] += 1
+            if result.passed:
+                domain["passed"] += 1
+            else:
+                domain["failed"] += 1
+        return dict(sorted(summary.items()))
+
     def to_dict(self) -> dict[str, object]:
         return {
             "passed": self.passed,
             "total": self.total,
             "passed_count": self.passed_count,
             "failed_count": self.failed_count,
+            "domains": self.domains,
             "results": [result.to_dict() for result in self.results],
         }
 
@@ -120,6 +139,7 @@ def load_scenario(path: Path) -> Scenario:
     name = raw.get("name") or path.stem
     return Scenario(
         name=str(name),
+        domain=str(raw.get("domain") or "general"),
         goal=goal,
         actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],
         expect=expect,
@@ -164,6 +184,7 @@ def run_scenario(
     failures = _compare_expectations(scenario.expect, state, workspace)
     return ScenarioResult(
         scenario=scenario.name,
+        domain=scenario.domain,
         passed=not failures,
         status=state.final_status,
         answer=state.final_answer,

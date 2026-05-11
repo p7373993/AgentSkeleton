@@ -1,4 +1,5 @@
 name: artifact-write
+domain: artifacts
 goal: Produce a report artifact from scenario fixtures.
 config:
   permission_profile: trusted

@@ -1,4 +1,5 @@
 name: fixture-workspace-read
+domain: filesystem
 goal: Read a scenario-provided workspace fixture.
 files:
   briefs/domain.txt: This fixture belongs to the scenario workspace.

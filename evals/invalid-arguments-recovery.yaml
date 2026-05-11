@@ -1,4 +1,5 @@
 name: invalid-arguments-recovery
+domain: reliability
 goal: Recover after a malformed tool call.
 actions:
   - type: tool
