@@ -157,6 +157,47 @@ def test_run_can_disable_session(monkeypatch, tmp_path) -> None:
     assert [turn.content for turn in session.transcript] == ["remember alpha"]
 
 
+def test_run_output_includes_run_id_and_final_reason(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    monkeypatch.setattr("agentskeleton.cli.uuid4", lambda: "run-fixed")
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "model_error",
+                    "final_answer": None,
+                    "final_reason": "Model call failed: RuntimeError",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "continue"])
+
+    assert result.exit_code == 0
+    assert "Run id: run-fixed" in result.stdout
+    assert "Status: model_error" in result.stdout
+    assert "Reason: Model call failed: RuntimeError" in result.stdout
+    assert "Run log:" in result.stdout
+
+
 def test_run_uses_enabled_tools_from_config(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")

@@ -145,7 +145,10 @@ def run(
             state.final_answer,
             {"run_id": run_id, "status": state.final_status},
         )
+    console.print(f"Run id: {run_id}")
     console.print(f"Status: {state.final_status}")
+    if getattr(state, "final_reason", None):
+        console.print(f"Reason: {state.final_reason}")
     if state.final_answer:
         console.print(state.final_answer)
     console.print(f"Run log: {logger.path}")
