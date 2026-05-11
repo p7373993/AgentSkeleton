@@ -343,6 +343,8 @@ def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if item.get("type") == "function_call" and isinstance(item.get("arguments"), dict):
         item["arguments"] = json.dumps(_json_safe(item["arguments"]))
+    if isinstance(item.get("content"), str):
+        item["content"] = _bounded_conversation_content(item["content"])
     return _json_safe(item)
 
 

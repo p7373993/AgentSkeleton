@@ -612,6 +612,41 @@ def test_llm_client_serializes_non_json_context_item_values(tmp_path) -> None:
     ]
 
 
+def test_llm_client_bounds_large_context_item_content(tmp_path) -> None:
+    large_content = "x" * 10_000
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": large_content,
+            },
+            {
+                "type": "function_call",
+                "name": "read_file",
+                "arguments": '{"path": "README.md"}',
+                "call_id": "call-1",
+            },
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    stored_content = state.response_context_items[1]["content"]
+    assert isinstance(action, ToolCallAction)
+    assert isinstance(stored_content, str)
+    assert len(stored_content) < 4_200
+    assert stored_content.startswith("x" * 40)
+    assert "[truncated 5904 characters]" in stored_content
+    assert large_content not in str(state.response_context_items)
+
+
 def test_llm_client_serializes_non_json_tool_observation_payloads(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="done", output=[])
     fake_client = FakeClient(response)
