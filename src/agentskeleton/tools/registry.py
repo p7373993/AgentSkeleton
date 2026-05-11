@@ -123,6 +123,12 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
     enum = schema.get("enum")
     if enum is not None and not isinstance(enum, list):
         raise ValueError(f"Tool {tool_name} {label} enum must be a list")
+    if isinstance(enum, list) and not all(
+        _matches_schema_type(item, schema_type) for item in enum
+    ):
+        raise ValueError(
+            f"Tool {tool_name} {label} enum values must match declared type"
+        )
 
     properties = schema.get("properties")
     if properties is not None:
@@ -192,3 +198,29 @@ def _schema_type_includes(raw_type: object, expected_type: str) -> bool:
     if isinstance(raw_type, list):
         return expected_type in raw_type
     return False
+
+
+def _matches_schema_type(value: object, raw_type: object) -> bool:
+    if isinstance(raw_type, str):
+        return _matches_single_schema_type(value, raw_type)
+    if isinstance(raw_type, list):
+        return any(_matches_single_schema_type(value, item) for item in raw_type)
+    return True
+
+
+def _matches_single_schema_type(value: object, expected_type: object) -> bool:
+    if expected_type == "array":
+        return isinstance(value, list)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == "null":
+        return value is None
+    if expected_type == "number":
+        return isinstance(value, int | float) and not isinstance(value, bool)
+    if expected_type == "object":
+        return isinstance(value, Mapping)
+    if expected_type == "string":
+        return isinstance(value, str)
+    return True
