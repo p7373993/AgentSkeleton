@@ -43,6 +43,26 @@ def test_registry_rejects_duplicate_tools() -> None:
         registry.register(EchoTool())
 
 
+def test_registry_rejects_empty_tool_names() -> None:
+    class EmptyNameTool(EchoTool):
+        name = " "
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool name cannot be empty"):
+        registry.register(EmptyNameTool())
+
+
+def test_registry_rejects_tool_names_with_surrounding_whitespace() -> None:
+    class WhitespaceNameTool(EchoTool):
+        name = " echo "
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool name cannot contain whitespace"):
+        registry.register(WhitespaceNameTool())
+
+
 def test_registry_exports_openai_function_schemas() -> None:
     registry = ToolRegistry([EchoTool()])
 

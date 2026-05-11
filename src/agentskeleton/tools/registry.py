@@ -11,9 +11,14 @@ class ToolRegistry:
             self.register(tool)
 
     def register(self, tool: Tool) -> None:
-        if tool.name in self._tools:
-            raise ValueError(f"Tool already registered: {tool.name}")
-        self._tools[tool.name] = tool
+        name = tool.name.strip()
+        if not name:
+            raise ValueError("Tool name cannot be empty")
+        if name != tool.name:
+            raise ValueError("Tool name cannot contain whitespace")
+        if name in self._tools:
+            raise ValueError(f"Tool already registered: {name}")
+        self._tools[name] = tool
 
     def get(self, name: str) -> Tool:
         try:
