@@ -184,6 +184,39 @@ def test_run_logger_bounds_large_payload_strings(tmp_path: Path) -> None:
     assert large_output not in raw
 
 
+def test_run_logger_bounds_wide_payload_values(tmp_path: Path) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+    payload = {
+        "items": list(range(250)),
+        **{f"key_{index}": index for index in range(250)},
+    }
+
+    logger.log("tool_finished", step=1, payload=payload)
+
+    raw = logger.path.read_text(encoding="utf-8")
+    event = json.loads(raw.splitlines()[0])
+    stored_payload = event["payload"]
+    items = stored_payload["items"]
+
+    assert stored_payload["key_0"] == 0
+    assert stored_payload["key_197"] == 197
+    assert "key_198" not in stored_payload
+    assert "key_249" not in stored_payload
+    assert stored_payload["__truncated_items__"] == {
+        "truncated": True,
+        "items": 251,
+        "omitted": 52,
+    }
+    assert items[:3] == [0, 1, 2]
+    assert items[198] == 198
+    assert items[199] == {
+        "truncated": True,
+        "items": 250,
+        "omitted": 51,
+    }
+    assert "key_249" not in raw
+
+
 def test_run_logger_serializes_non_json_payload_values(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
     marker = object()

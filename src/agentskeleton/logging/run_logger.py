@@ -10,7 +10,9 @@ from typing import Any
 _MAX_RUN_LOG_STEM_LENGTH = 120
 _MAX_REDACT_DEPTH = 64
 _MAX_LOG_STRING_CHARS = 4_096
+_MAX_LOG_COLLECTION_ITEMS = 200
 _MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+_TRUNCATED_ITEMS_KEY = "__truncated_items__"
 _WINDOWS_RESERVED_LOG_BASENAMES = {
     "CON",
     "PRN",
@@ -72,14 +74,23 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return {
-                str(key): (
+            redacted_items: dict[str, Any] = {}
+            item_limit = _collection_item_limit(len(value))
+            for index, (key, item) in enumerate(value.items()):
+                if index >= item_limit:
+                    continue
+                redacted_items[str(key)] = (
                     "[REDACTED]"
                     if _is_secret_key(key)
                     else redact(item, seen, depth + 1)
                 )
-                for key, item in value.items()
-            }
+            omitted = len(value) - item_limit
+            if omitted:
+                redacted_items[_TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
+                    len(value),
+                    omitted,
+                )
+            return redacted_items
         finally:
             seen.remove(marker)
     if isinstance(value, list | tuple):
@@ -88,7 +99,14 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
             return "<recursive>"
         seen.add(marker)
         try:
-            return [redact(item, seen, depth + 1) for item in value]
+            item_limit = _collection_item_limit(len(value))
+            redacted_items = [
+                redact(item, seen, depth + 1) for item in value[:item_limit]
+            ]
+            omitted = len(value) - item_limit
+            if omitted > 0:
+                redacted_items.append(_truncated_items_marker(len(value), omitted))
+            return redacted_items
         finally:
             seen.remove(marker)
     if isinstance(value, str):
@@ -102,6 +120,20 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
     if value is None or isinstance(value, int | float | bool):
         return value
     return str(value)
+
+
+def _collection_item_limit(total_items: int) -> int:
+    if total_items <= _MAX_LOG_COLLECTION_ITEMS:
+        return total_items
+    return _MAX_LOG_COLLECTION_ITEMS - 1
+
+
+def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]:
+    return {
+        "truncated": True,
+        "items": total_items,
+        "omitted": omitted,
+    }
 
 
 def _bounded_log_string(value: str) -> str:
