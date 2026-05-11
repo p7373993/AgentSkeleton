@@ -76,7 +76,15 @@ class PermissionPolicy:
             "password",
             "secret",
         ]
-        network_patterns = ["curl ", "wget ", "invoke-webrequest", "iwr "]
+        network_patterns = [
+            "curl ",
+            "curl.exe",
+            "wget ",
+            "invoke-webrequest",
+            "invoke-restmethod",
+            "iwr ",
+            "irm ",
+        ]
         if any(net in normalized for net in network_patterns) and any(
             secret in normalized for secret in secret_patterns
         ):
