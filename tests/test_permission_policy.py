@@ -299,3 +299,24 @@ def test_policy_confirms_network_shell_commands(command: str) -> None:
 
     assert decision.outcome == "confirm"
     assert "network" in decision.reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "Start-Process notepad.exe",
+        "nohup python server.py &",
+        "python -m http.server 8000",
+        "npm run dev",
+        "uvicorn app:app --reload",
+    ],
+)
+def test_policy_confirms_spawn_or_long_running_shell_commands(command: str) -> None:
+    decision = PermissionPolicy().decide(
+        "shell",
+        {"command": command},
+        "shell",
+    )
+
+    assert decision.outcome == "confirm"
+    assert "spawn" in decision.reason

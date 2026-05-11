@@ -129,6 +129,11 @@ class PermissionPolicy:
             "http.client",
             "git push",
             "start ",
+            "start-process",
+            "nohup ",
+            "python -m http.server",
+            "npm run dev",
+            "uvicorn ",
         ]
         if (
             self.confirm_risky_actions
