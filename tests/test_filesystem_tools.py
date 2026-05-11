@@ -38,6 +38,26 @@ def test_list_dir_lists_direct_children(tmp_path: Path) -> None:
     ]
 
 
+def test_list_dir_returns_error_when_listing_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    original_iterdir = Path.iterdir
+
+    def fail_iterdir(path: Path):
+        if path == tmp_path:
+            raise OSError("permission denied")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_iterdir)
+
+    result = ListDirTool().execute({"path": "."}, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.summary == "Directory listing failed: ."
+    assert result.error == "Directory listing failed"
+
+
 def test_read_file_reads_utf8_text(tmp_path: Path) -> None:
     (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
 
@@ -61,6 +81,28 @@ def test_read_file_rejects_binary_content(tmp_path: Path) -> None:
 
     assert result.success is False
     assert result.error == "Binary file rejected"
+
+
+def test_read_file_returns_error_when_read_fails(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "note.txt"
+    target.write_text("hello", encoding="utf-8")
+    original_read_bytes = Path.read_bytes
+
+    def fail_read_bytes(path: Path) -> bytes:
+        if path == target:
+            raise OSError("permission denied")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read_bytes)
+
+    result = ReadFileTool().execute(
+        {"path": "note.txt"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File read failed: note.txt"
+    assert result.error == "File read failed"
 
 
 def test_write_file_writes_text_and_reports_bytes(tmp_path: Path) -> None:
@@ -87,6 +129,30 @@ def test_write_file_does_not_clobber_existing_temp_sibling(tmp_path: Path) -> No
     assert result.success is True
     assert target.read_text(encoding="utf-8") == "hello"
     assert temp_sibling.read_text(encoding="utf-8") == "keep me"
+
+
+def test_write_file_returns_error_when_write_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    original_write_bytes = Path.write_bytes
+
+    def fail_write_bytes(path: Path, data: bytes) -> int:
+        if path.name.startswith(".out.txt."):
+            raise OSError("disk full")
+        return original_write_bytes(path, data)
+
+    monkeypatch.setattr(Path, "write_bytes", fail_write_bytes)
+
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.summary == "File write failed: out.txt"
+    assert result.error == "File write failed"
+    assert not (tmp_path / "out.txt").exists()
 
 
 def test_write_file_rejects_directory_target(tmp_path: Path) -> None:

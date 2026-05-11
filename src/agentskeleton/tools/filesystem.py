@@ -34,12 +34,19 @@ class ListDirTool(Tool):
         if not path.is_dir():
             return _error(f"Not a directory: {requested}", "Not a directory")
 
+        try:
+            children = sorted(path.iterdir(), key=lambda item: item.name.lower())
+        except OSError:
+            return _error(
+                f"Directory listing failed: {requested}",
+                "Directory listing failed",
+            )
         entries = [
             {
                 "name": child.name,
                 "type": "directory" if child.is_dir() else "file",
             }
-            for child in sorted(path.iterdir(), key=lambda item: item.name.lower())
+            for child in children
         ]
         return ToolResult(
             success=True,
@@ -71,7 +78,10 @@ class ReadFileTool(Tool):
         if not path.is_file():
             return _error(f"Not a file: {requested}", "Not a file")
 
-        raw = path.read_bytes()
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return _error(f"File read failed: {requested}", "File read failed")
         if b"\x00" in raw:
             return _error(f"Binary file rejected: {requested}", "Binary file rejected")
         try:
@@ -120,7 +130,10 @@ class WriteFileTool(Tool):
                     f"Parent directory not found: {requested}",
                     "Parent directory not found",
                 )
-            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                return _error(f"File write failed: {requested}", "File write failed")
         elif not path.parent.is_dir():
             return _error(
                 f"Parent is not a directory: {requested}",
@@ -135,9 +148,14 @@ class WriteFileTool(Tool):
         try:
             temp_path.write_bytes(encoded)
             temp_path.replace(path)
+        except OSError:
+            return _error(f"File write failed: {requested}", "File write failed")
         finally:
-            if temp_path.exists():
-                temp_path.unlink()
+            try:
+                if temp_path.exists():
+                    temp_path.unlink()
+            except OSError:
+                pass
 
         return ToolResult(
             success=True,
