@@ -184,6 +184,17 @@ class MalformedResultTool(RecordTool):
         )
 
 
+class LargePayloadTool(RecordTool):
+    name = "large_payload"
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return ToolResult(
+            success=True,
+            payload={"content": "x" * 1_100_000},
+            summary="large payload ok",
+        )
+
+
 def make_loop(tmp_path: Path, actions, logger: MemoryLogger | None = None) -> AgentLoop:
     return AgentLoop(
         config=RunConfig(workspace=tmp_path),
@@ -1804,6 +1815,33 @@ def test_loop_converts_malformed_tool_result_to_observation(tmp_path: Path) -> N
             "error": "Malformed tool result",
         },
     ) in logger.events
+
+
+def test_loop_bounds_stored_successful_tool_result_payload(tmp_path: Path) -> None:
+    large_payload = "x" * 1_100_000
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="large_payload",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([LargePayloadTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    payload = state.observations[0].result.payload
+    assert state.final_status == "completed"
+    assert payload["truncated"] is True
+    assert payload["bytes"] > 1_048_576
+    assert str(payload["preview"]).startswith('{"content":"xxxxxxxxxxxxxxxx')
+    assert large_payload not in str(state.observations)
 
 
 def test_loop_stops_after_repeating_same_action_three_times(tmp_path: Path) -> None:

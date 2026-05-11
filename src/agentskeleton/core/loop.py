@@ -42,6 +42,8 @@ MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 MAX_TOOL_ACTION_METADATA_BYTES = 512
 MAX_FINAL_ACTION_STATUS_BYTES = 512
 MAX_VALIDATION_ERRORS = 50
+MAX_STORED_TOOL_RESULT_PAYLOAD_BYTES = 1_048_576
+MAX_STORED_TOOL_RESULT_PAYLOAD_PREVIEW_CHARS = 200
 
 
 class AgentLoop:
@@ -511,10 +513,11 @@ class AgentLoop:
             state.final_reason = result.summary
             return
 
+        stored_result = _bounded_successful_tool_result(result)
         state.observations.append(
-            ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            ToolObservation(action.call_id, tool.name, decision.outcome, stored_result)
         )
-        self._log_tool_finished(state, tool.name, result)
+        self._log_tool_finished(state, tool.name, stored_result)
 
     def _record_repeated_action(
         self,
@@ -696,6 +699,45 @@ def _logged_value(value: object) -> object:
     if len(encoded) <= MAX_LOGGED_TEXT_BYTES:
         return safe_value
     preview = encoded.decode("utf-8", errors="ignore")[:MAX_LOGGED_TEXT_PREVIEW_CHARS]
+    return {
+        "truncated": True,
+        "bytes": len(encoded),
+        "preview": f"{preview}...",
+    }
+
+
+def _bounded_successful_tool_result(result: ToolResult) -> ToolResult:
+    payload = _bounded_stored_tool_payload(result.payload)
+    if payload is result.payload:
+        return result
+    return ToolResult(
+        success=result.success,
+        payload=payload,
+        summary=result.summary,
+        error=result.error,
+    )
+
+
+def _bounded_stored_tool_payload(payload: Mapping[str, object]) -> dict[str, object]:
+    safe_payload = _json_log_safe(payload)
+    try:
+        encoded = json.dumps(
+            safe_payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        encoded = repr(payload).encode("utf-8", errors="replace")
+        safe_payload = str(payload)
+
+    if len(encoded) <= MAX_STORED_TOOL_RESULT_PAYLOAD_BYTES:
+        if isinstance(safe_payload, dict):
+            return safe_payload
+        return {"value": safe_payload}
+    preview = encoded.decode("utf-8", errors="ignore")[
+        :MAX_STORED_TOOL_RESULT_PAYLOAD_PREVIEW_CHARS
+    ]
     return {
         "truncated": True,
         "bytes": len(encoded),
