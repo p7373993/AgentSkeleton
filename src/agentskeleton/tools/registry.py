@@ -6,6 +6,7 @@ from typing import Any
 from agentskeleton.tools.base import Tool
 
 TOOL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+SUPPORTED_TOOL_RISKS = ("interactive", "read", "shell", "write")
 SUPPORTED_JSON_SCHEMA_TYPES = (
     "array",
     "boolean",
@@ -49,6 +50,11 @@ class ToolRegistry:
             raise ValueError(f"Tool {name} risk cannot be empty")
         if tool.risk.strip() != tool.risk:
             raise ValueError(f"Tool {name} risk cannot contain whitespace")
+        if tool.risk not in SUPPORTED_TOOL_RISKS:
+            raise ValueError(
+                f"Tool {name} risk must be one of: "
+                f"{', '.join(SUPPORTED_TOOL_RISKS)}"
+            )
         _validate_args_schema(tool)
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")

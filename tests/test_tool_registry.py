@@ -127,6 +127,10 @@ def test_registry_rejects_invalid_tool_descriptions(
         (123, "Tool echo risk must be a string"),
         (" ", "Tool echo risk cannot be empty"),
         (" read ", "Tool echo risk cannot contain whitespace"),
+        (
+            "network",
+            "Tool echo risk must be one of: interactive, read, shell, write",
+        ),
     ],
 )
 def test_registry_rejects_invalid_tool_risk_metadata(
