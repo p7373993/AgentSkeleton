@@ -19,6 +19,13 @@ class MemoryLogger:
         self.events.append((event_type, step, payload))
 
 
+class FailingLogger:
+    path = Path("failing.jsonl")
+
+    def log(self, event_type: str, step: int, payload: dict[str, object]) -> None:
+        raise OSError("log sink unavailable")
+
+
 class ScriptedLLM:
     def __init__(self, actions) -> None:
         self.actions = list(actions)
@@ -174,6 +181,19 @@ def test_loop_logs_run_start_context(tmp_path: Path) -> None:
             "session": "work",
         },
     )
+
+
+def test_loop_continues_when_logger_fails(tmp_path: Path) -> None:
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=FailingLogger(),
+    ).run("finish")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert state.step_count == 1
 
 
 def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:

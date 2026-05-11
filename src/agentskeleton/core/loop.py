@@ -78,7 +78,7 @@ class AgentLoop:
             "conversation_turns": len(state.conversation),
             **(trace_context or {}),
         }
-        self.logger.log(
+        self._log_event(
             "run_started",
             0,
             start_payload,
@@ -94,13 +94,13 @@ class AgentLoop:
         while state.step_count < self.config.max_steps:
             state.step_count += 1
             self.trace.emit("step_started", {"step": state.step_count})
-            self.logger.log("model_requested", state.step_count, {"goal": goal})
+            self._log_event("model_requested", state.step_count, {"goal": goal})
             try:
                 action = self.llm.next_action(state, self.registry)
             except Exception as exc:
                 state.final_status = "model_error"
                 state.final_reason = f"Model call failed: {type(exc).__name__}"
-                self.logger.log(
+                self._log_event(
                     "run_error",
                     state.step_count,
                     {
@@ -127,7 +127,7 @@ class AgentLoop:
                     "run_finished",
                     {"status": state.final_status, "answer": action.text},
                 )
-                self.logger.log(
+                self._log_event(
                     "run_finished",
                     state.step_count,
                     {"status": state.final_status, "answer": action.text},
@@ -185,7 +185,7 @@ class AgentLoop:
         return normalized
 
     def _execute_tool_action(self, state: RunState, action: ToolCallAction) -> None:
-        self.logger.log(
+        self._log_event(
             "model_action",
             state.step_count,
             {
@@ -246,7 +246,7 @@ class AgentLoop:
             return
 
         decision = self.policy.decide(tool.name, action.arguments, tool.risk)
-        self.logger.log(
+        self._log_event(
             "policy_decision",
             state.step_count,
             {
@@ -292,7 +292,7 @@ class AgentLoop:
             state.final_reason = result.summary
             return
 
-        self.logger.log("tool_started", state.step_count, {"tool_name": tool.name})
+        self._log_event("tool_started", state.step_count, {"tool_name": tool.name})
         self.trace.emit(
             "tool_started",
             {"tool_name": tool.name, "arguments": action.arguments},
@@ -372,7 +372,7 @@ class AgentLoop:
         tool_name: str,
         result: ToolResult,
     ) -> None:
-        self.logger.log(
+        self._log_event(
             "tool_finished",
             state.step_count,
             {
@@ -408,7 +408,7 @@ class AgentLoop:
             "error_type": action_type,
             "error": reason,
         }
-        self.logger.log("run_error", state.step_count, payload)
+        self._log_event("run_error", state.step_count, payload)
         self.trace.emit("run_error", payload)
 
     def _log_run_finished(self, state: RunState) -> None:
@@ -416,7 +416,18 @@ class AgentLoop:
         if state.final_reason:
             payload["reason"] = state.final_reason
         self.trace.emit("run_finished", payload)
-        self.logger.log("run_finished", state.step_count, payload)
+        self._log_event("run_finished", state.step_count, payload)
+
+    def _log_event(
+        self,
+        event_type: str,
+        step: int,
+        payload: dict[str, object],
+    ) -> None:
+        try:
+            self.logger.log(event_type, step, payload)
+        except Exception:
+            return
 
 
 def _action_fingerprint(action: ToolCallAction) -> str:
