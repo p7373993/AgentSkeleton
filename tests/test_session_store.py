@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from agentskeleton.core.session import SessionStore
 
@@ -27,6 +28,28 @@ def test_session_store_appends_and_loads_transcript_turns(tmp_path) -> None:
         for line in transcript_path.read_text(encoding="utf-8").splitlines()
     ]
     assert [row["role"] for row in rows] == ["user", "assistant"]
+
+
+def test_session_store_serializes_non_json_metadata_values(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    marker = object()
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata={
+            "workspace": tmp_path,
+            "raw": marker,
+            42: "numeric key",
+        },
+    )
+
+    session = store.load("default")
+
+    assert session.transcript[0].metadata["workspace"] == str(tmp_path)
+    assert session.transcript[0].metadata["raw"] == str(marker)
+    assert session.transcript[0].metadata["42"] == "numeric key"
 
 
 def test_session_store_refreshes_summary_for_older_transcript_turns(tmp_path) -> None:

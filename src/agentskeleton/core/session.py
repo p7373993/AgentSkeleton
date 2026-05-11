@@ -93,7 +93,7 @@ class SessionStore:
         row = {
             "role": role,
             "content": content,
-            "metadata": metadata or {},
+            "metadata": _json_safe(metadata or {}),
         }
         with self._transcript_path_for(name).open("a", encoding="utf-8") as file:
             file.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -181,3 +181,13 @@ def _summarize_transcript(
             content = f"{content[: max_turn_chars - 1]}..."
         lines.append(f"- {turn.role}: {content}")
     return "\n".join(lines)
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if value is None or isinstance(value, int | float | bool | str):
+        return value
+    return str(value)
