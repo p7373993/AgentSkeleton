@@ -736,8 +736,12 @@ def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]
         return []
 
     events: list[dict[str, Any]] = []
-    lines = log_path.read_text(encoding="utf-8").splitlines()
-    for line_number, line in enumerate(lines, 1):
+    for line_number, raw_line in enumerate(log_path.read_bytes().splitlines(), 1):
+        try:
+            line = raw_line.decode("utf-8")
+        except UnicodeDecodeError:
+            failures.append(f"log line {line_number} could not be decoded as UTF-8")
+            continue
         if not line.strip():
             continue
         try:

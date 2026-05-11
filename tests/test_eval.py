@@ -2,6 +2,7 @@ from pathlib import Path
 
 from agentskeleton.config import RunConfig
 from agentskeleton.eval import (
+    _read_log_events,
     load_scenario,
     load_scenario_suite,
     load_scenario_suite_config,
@@ -702,6 +703,21 @@ def test_run_scenario_checks_expected_log_events(tmp_path: Path) -> None:
 
     assert result.passed is True
     assert result.failures == []
+
+
+def test_eval_log_reader_reports_invalid_utf8_lines(tmp_path: Path) -> None:
+    log_path = tmp_path / "run.jsonl"
+    log_path.write_bytes(
+        b'{"type": "run_started", "payload": {"goal": "finish"}}\n'
+        b"\xff\xfe\x00broken\n"
+        b'{"type": "run_finished", "payload": {"status": "completed"}}\n'
+    )
+    failures: list[str] = []
+
+    events = _read_log_events(log_path, failures)
+
+    assert [event["type"] for event in events] == ["run_started", "run_finished"]
+    assert failures == ["log line 2 could not be decoded as UTF-8"]
 
 
 def test_run_scenario_reports_log_event_mismatch(tmp_path: Path) -> None:
