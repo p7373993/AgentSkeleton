@@ -191,6 +191,21 @@ class AgentLoop:
                         if state.final_status is not None:
                             self._log_run_finished(state)
                             return state
+                        continue
+                    metadata_error = _validate_tool_action_metadata(tool_call)
+                    if metadata_error is not None:
+                        self._record_invalid_action(
+                            state,
+                            tool_call,
+                            reason=(
+                                "Model returned invalid tool call: "
+                                f"{metadata_error}"
+                            ),
+                            error_type="invalid_tool_call",
+                        )
+                        if state.final_status is not None:
+                            self._log_run_finished(state)
+                            return state
                 duplicate_call_id = _duplicate_batch_call_id(action.tool_calls)
                 if duplicate_call_id is not None:
                     self._record_invalid_action(

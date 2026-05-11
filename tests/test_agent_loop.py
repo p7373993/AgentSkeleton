@@ -866,6 +866,51 @@ def test_loop_rejects_duplicate_batch_call_ids_before_execution(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_batch_tool_call_metadata_before_duplicate_check(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    oversized_call_id = "a" * 513
+
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallBatchAction(
+                tool_calls=[
+                    ToolCallAction(
+                        tool_name="record",
+                        arguments={"value": "x"},
+                        call_id=oversized_call_id,
+                    ),
+                    ToolCallAction(
+                        tool_name="record",
+                        arguments={"value": "y"},
+                        call_id=oversized_call_id,
+                    ),
+                ]
+            )
+        ],
+        logger,
+    ).run("record")
+
+    reason = "Model returned invalid tool call: call_id exceeds 512 bytes"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert oversized_call_id not in str(logger.events)
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_call",
+            "error": reason,
+        },
+    ) in logger.events
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_rejects_oversized_tool_call_batch_before_execution(
     tmp_path: Path,
 ) -> None:
