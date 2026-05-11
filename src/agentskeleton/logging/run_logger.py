@@ -16,11 +16,21 @@ SECRET_PATTERNS = [
     re.compile(r"(password\s*[:=]\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"\bsk-[A-Za-z0-9_-]+"),
 ]
+SECRET_KEYS = {
+    "api_key",
+    "apikey",
+    "x-api-key",
+    "password",
+    "authorization",
+}
 
 
 def redact(value: Any) -> Any:
     if isinstance(value, dict):
-        return {key: redact(item) for key, item in value.items()}
+        return {
+            key: "[REDACTED]" if _is_secret_key(key) else redact(item)
+            for key, item in value.items()
+        }
     if isinstance(value, list):
         return [redact(item) for item in value]
     if isinstance(value, str):
@@ -32,6 +42,11 @@ def redact(value: Any) -> Any:
                 redacted = pattern.sub("[REDACTED]", redacted)
         return redacted
     return value
+
+
+def _is_secret_key(key: object) -> bool:
+    normalized = str(key).strip().lower().replace("-", "_")
+    return normalized in {secret.replace("-", "_") for secret in SECRET_KEYS}
 
 
 class RunLogger:

@@ -55,3 +55,25 @@ def test_run_logger_redacts_common_key_value_secrets(tmp_path: Path) -> None:
     assert "hunter2" not in raw
     assert "vendor-secret" not in raw
     assert raw.count("[REDACTED]") == 3
+
+
+def test_run_logger_redacts_secret_mapping_values(tmp_path: Path) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={
+            "api_key": "abc123",
+            "nested": {
+                "password": "hunter2",
+                "headers": {"Authorization": "Bearer token123"},
+            },
+        },
+    )
+
+    raw = logger.path.read_text(encoding="utf-8")
+    assert "abc123" not in raw
+    assert "hunter2" not in raw
+    assert "token123" not in raw
+    assert raw.count("[REDACTED]") == 3
