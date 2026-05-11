@@ -491,6 +491,37 @@ def test_llm_client_skips_output_items_without_context_type(tmp_path) -> None:
     ]
 
 
+def test_llm_client_serializes_non_json_context_item_values(tmp_path) -> None:
+    marker = object()
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": marker,
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert state.response_context_items == [
+        {"role": "user", "content": "read"},
+        {
+            "type": "message",
+            "role": "assistant",
+            "content": str(marker),
+        },
+    ]
+
+
 def test_llm_client_serializes_non_json_tool_observation_payloads(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="done", output=[])
     fake_client = FakeClient(response)
