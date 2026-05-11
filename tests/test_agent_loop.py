@@ -1353,6 +1353,31 @@ def test_loop_rejects_invalid_tool_arguments_before_execution(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_bounds_large_validation_error_lists(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    arguments = {
+        "value": "ok",
+        **{f"extra_{index}": "x" for index in range(200)},
+    }
+
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction("record", arguments, "call-1"),
+            FinalAction(text="recovered"),
+        ],
+        logger,
+    ).run("record")
+
+    validation_errors = state.observations[0].result.payload["validation_errors"]
+    assert isinstance(validation_errors, list)
+    assert len(validation_errors) == 50
+    assert validation_errors[0] == "Unexpected argument: extra_0"
+    assert validation_errors[-1] == "[truncated 151 validation errors]"
+    assert "extra_199" not in str(validation_errors)
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_bounds_deep_tool_arguments_before_validation(tmp_path: Path) -> None:
     logger = MemoryLogger()
     value: dict[str, object] = {}

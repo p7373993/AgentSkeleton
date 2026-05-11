@@ -41,6 +41,7 @@ MAX_LOGGED_VALUE_DEPTH = 64
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 MAX_TOOL_ACTION_METADATA_BYTES = 512
 MAX_FINAL_ACTION_STATUS_BYTES = 512
+MAX_VALIDATION_ERRORS = 50
 
 
 class AgentLoop:
@@ -842,7 +843,7 @@ def _validate_tool_arguments(
             continue
         errors.extend(_validate_schema_value(name, value, property_schema))
 
-    return errors
+    return _bounded_validation_errors(errors)
 
 
 def _contains_recursive_json_value(
@@ -922,6 +923,17 @@ def _validate_array_items(
     for index, item in enumerate(value):
         errors.extend(_validate_schema_value(f"{name}[{index}]", item, items_schema))
     return errors
+
+
+def _bounded_validation_errors(errors: list[str]) -> list[str]:
+    if len(errors) <= MAX_VALIDATION_ERRORS:
+        return errors
+    limit = MAX_VALIDATION_ERRORS - 1
+    omitted = len(errors) - limit
+    return [
+        *errors[:limit],
+        f"[truncated {omitted} validation errors]",
+    ]
 
 
 def _validate_nested_object(
