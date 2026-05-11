@@ -50,6 +50,22 @@ def test_resolve_workspace_path_blocks_windows_reserved_device_names(
         resolve_workspace_path(tmp_path, requested_path)
 
 
+@pytest.mark.parametrize(
+    "requested_path",
+    [
+        "note.txt:secret",
+        "folder./note.txt",
+        "folder /note.txt",
+    ],
+)
+def test_resolve_workspace_path_blocks_ambiguous_windows_path_parts(
+    tmp_path: Path,
+    requested_path: str,
+) -> None:
+    with pytest.raises(PathSecurityError, match="ambiguous Windows path part"):
+        resolve_workspace_path(tmp_path, requested_path)
+
+
 def test_list_dir_lists_direct_children(tmp_path: Path) -> None:
     (tmp_path / "a.txt").write_text("a", encoding="utf-8")
     (tmp_path / "folder").mkdir()

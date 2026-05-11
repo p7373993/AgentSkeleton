@@ -24,6 +24,10 @@ def resolve_workspace_path(workspace: Path, requested_path: str) -> Path:
         raise PathSecurityError(
             f"Path contains reserved Windows device name: {requested_path}"
         )
+    if _contains_ambiguous_windows_path_part(raw_path):
+        raise PathSecurityError(
+            f"Path contains ambiguous Windows path part: {requested_path}"
+        )
 
     root = workspace.expanduser().resolve()
     candidate = (root / requested_path).resolve(strict=False)
@@ -44,3 +48,9 @@ def _contains_windows_reserved_basename(path: Path) -> bool:
         if base_name in _WINDOWS_RESERVED_PATH_BASENAMES:
             return True
     return False
+
+
+def _contains_ambiguous_windows_path_part(path: Path) -> bool:
+    return any(
+        ":" in part or part.endswith(" ") or part.endswith(".") for part in path.parts
+    )
