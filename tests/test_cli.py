@@ -1621,6 +1621,55 @@ def test_list_runs_prints_recent_runs(monkeypatch, tmp_path) -> None:
     assert "finish" in result.stdout
 
 
+def test_list_runs_prints_tool_failure_counts(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    (log_dir / "run-1.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-1",
+                        "step": 0,
+                        "payload": {"goal": "debug failure"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "tool_finished",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {
+                            "tool_name": "shell",
+                            "success": False,
+                            "summary": "Command exited with 1",
+                            "error": "Command failed",
+                        },
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {"status": "tool_error"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs"])
+
+    assert result.exit_code == 0
+    assert "Tool Failures" in result.stdout
+    assert "1/1" in result.stdout
+
+
 def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
