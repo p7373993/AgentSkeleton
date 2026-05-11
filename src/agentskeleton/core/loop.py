@@ -322,12 +322,15 @@ class AgentLoop:
                 summary=summary,
                 error="Unknown tool",
             )
-            state.observations.append(
-                ToolObservation(action.call_id, action.tool_name, "block", result)
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                action.tool_name,
+                "block",
+                result,
             )
-            self._log_tool_finished(state, action.tool_name, result)
             state.final_status = "unknown_tool"
-            state.final_reason = result.summary
+            state.final_reason = stored_result.summary
             return
 
         validation_errors = _validate_tool_arguments(tool.args_schema, action.arguments)
@@ -342,10 +345,13 @@ class AgentLoop:
                 summary="Invalid tool arguments",
                 error="Invalid arguments",
             )
-            state.observations.append(
-                ToolObservation(action.call_id, tool.name, "block", result)
+            self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                "block",
+                result,
             )
-            self._log_tool_finished(state, tool.name, result)
             return
 
         decision = self.policy.decide(tool.name, action.arguments, tool.risk)
@@ -373,12 +379,15 @@ class AgentLoop:
                 summary=decision.reason,
                 error="Permission blocked",
             )
-            state.observations.append(
-                ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                decision.outcome,
+                result,
             )
-            self._log_tool_finished(state, tool.name, result)
             state.final_status = "blocked"
-            state.final_reason = result.summary
+            state.final_reason = stored_result.summary
             return
 
         if decision.outcome == "confirm":
@@ -390,17 +399,15 @@ class AgentLoop:
                     summary=f"Permission confirmation failed: {type(exc).__name__}",
                     error=str(exc),
                 )
-                state.observations.append(
-                    ToolObservation(
-                        action.call_id,
-                        tool.name,
-                        decision.outcome,
-                        result,
-                    )
+                stored_result = self._record_tool_observation(
+                    state,
+                    action.call_id,
+                    tool.name,
+                    decision.outcome,
+                    result,
                 )
-                self._log_tool_finished(state, tool.name, result)
                 state.final_status = "denied"
-                state.final_reason = result.summary
+                state.final_reason = stored_result.summary
                 return
             if not isinstance(confirmed, bool):
                 result = ToolResult(
@@ -411,17 +418,15 @@ class AgentLoop:
                     ),
                     error="Permission confirmation invalid",
                 )
-                state.observations.append(
-                    ToolObservation(
-                        action.call_id,
-                        tool.name,
-                        decision.outcome,
-                        result,
-                    )
+                stored_result = self._record_tool_observation(
+                    state,
+                    action.call_id,
+                    tool.name,
+                    decision.outcome,
+                    result,
                 )
-                self._log_tool_finished(state, tool.name, result)
                 state.final_status = "denied"
-                state.final_reason = result.summary
+                state.final_reason = stored_result.summary
                 return
             if not confirmed:
                 result = ToolResult(
@@ -429,17 +434,15 @@ class AgentLoop:
                     summary=decision.reason,
                     error="Permission denied",
                 )
-                state.observations.append(
-                    ToolObservation(
-                        action.call_id,
-                        tool.name,
-                        decision.outcome,
-                        result,
-                    )
+                stored_result = self._record_tool_observation(
+                    state,
+                    action.call_id,
+                    tool.name,
+                    decision.outcome,
+                    result,
                 )
-                self._log_tool_finished(state, tool.name, result)
                 state.final_status = "denied"
-                state.final_reason = result.summary
+                state.final_reason = stored_result.summary
                 return
 
         self._log_event("tool_started", state.step_count, {"tool_name": tool.name})
@@ -467,12 +470,15 @@ class AgentLoop:
                 summary=f"Tool raised an exception: {type(exc).__name__}",
                 error=str(exc),
             )
-            state.observations.append(
-                ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                decision.outcome,
+                result,
             )
-            self._log_tool_finished(state, tool.name, result)
             state.final_status = "tool_error"
-            state.final_reason = result.summary
+            state.final_reason = stored_result.summary
             return
 
         if not isinstance(result, ToolResult):
@@ -486,12 +492,15 @@ class AgentLoop:
                 summary=f"Tool returned invalid result: {type(result).__name__}",
                 error="Invalid tool result",
             )
-            state.observations.append(
-                ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                decision.outcome,
+                result,
             )
-            self._log_tool_finished(state, tool.name, result)
             state.final_status = "tool_error"
-            state.final_reason = result.summary
+            state.final_reason = stored_result.summary
             return
 
         result_errors = _validate_tool_result_metadata(result)
@@ -506,19 +515,24 @@ class AgentLoop:
                 summary=f"Tool returned malformed result: {result_errors[0]}",
                 error="Malformed tool result",
             )
-            state.observations.append(
-                ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                decision.outcome,
+                result,
             )
-            self._log_tool_finished(state, tool.name, result)
             state.final_status = "tool_error"
-            state.final_reason = result.summary
+            state.final_reason = stored_result.summary
             return
 
-        stored_result = _bounded_successful_tool_result(result)
-        state.observations.append(
-            ToolObservation(action.call_id, tool.name, decision.outcome, stored_result)
+        self._record_tool_observation(
+            state,
+            action.call_id,
+            tool.name,
+            decision.outcome,
+            result,
         )
-        self._log_tool_finished(state, tool.name, stored_result)
 
     def _record_repeated_action(
         self,
@@ -548,13 +562,31 @@ class AgentLoop:
             ),
             error="Repeated action",
         )
-        state.observations.append(
-            ToolObservation(action.call_id, action.tool_name, "block", result)
+        stored_result = self._record_tool_observation(
+            state,
+            action.call_id,
+            action.tool_name,
+            "block",
+            result,
         )
-        self._log_tool_finished(state, action.tool_name, result)
         state.final_status = "repeated_action"
-        state.final_reason = result.summary
+        state.final_reason = stored_result.summary
         return True
+
+    def _record_tool_observation(
+        self,
+        state: RunState,
+        call_id: str,
+        tool_name: str,
+        policy_decision: str,
+        result: ToolResult,
+    ) -> ToolResult:
+        stored_result = _bounded_stored_tool_result(result)
+        state.observations.append(
+            ToolObservation(call_id, tool_name, policy_decision, stored_result)
+        )
+        self._log_tool_finished(state, tool_name, stored_result)
+        return stored_result
 
     def _log_tool_finished(
         self,
@@ -707,7 +739,7 @@ def _logged_value(value: object) -> object:
     }
 
 
-def _bounded_successful_tool_result(result: ToolResult) -> ToolResult:
+def _bounded_stored_tool_result(result: ToolResult) -> ToolResult:
     payload = _bounded_stored_tool_payload(result.payload)
     summary = _bounded_stored_tool_text(result.summary)
     error = (

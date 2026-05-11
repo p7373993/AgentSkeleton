@@ -1512,11 +1512,11 @@ def test_loop_rejects_non_string_tool_argument_names_before_execution(
     observation = state.observations[0]
     assert observation.policy_decision == "block"
     assert observation.result.success is False
-    assert observation.result.payload == {
-        "tool_name": "record",
-        "arguments": arguments,
-        "validation_errors": ["Tool argument names must be strings"],
-    }
+    assert observation.result.payload["tool_name"] == "record"
+    assert observation.result.payload["arguments"] == {str(bad_key): "x"}
+    assert observation.result.payload["validation_errors"] == [
+        "Tool argument names must be strings"
+    ]
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
@@ -1687,7 +1687,7 @@ def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:
     ) in logger.events
 
 
-def test_loop_bounds_logged_tool_error_message(tmp_path: Path) -> None:
+def test_loop_bounds_stored_and_logged_tool_error_message(tmp_path: Path) -> None:
     logger = MemoryLogger()
     trace = MemoryTraceSink()
     error_message = "x" * 5_000
@@ -1723,13 +1723,18 @@ def test_loop_bounds_logged_tool_error_message(tmp_path: Path) -> None:
         if event.name == "tool_finished"
     )
     assert state.final_status == "tool_error"
-    assert state.observations[0].result.error == error_message
+    stored_error = state.observations[0].result.error
+    assert stored_error is not None
+    assert stored_error.startswith("x" * 40)
+    assert "[truncated" in stored_error
+    assert len(stored_error) < 5_000
     assert isinstance(logged_error, dict)
     assert logged_error["truncated"] is True
-    assert logged_error["bytes"] == 5_000
+    assert logged_error["bytes"] == len(stored_error.encode("utf-8"))
     assert str(logged_error["preview"]).startswith("xxxxxxxxxxxxxxxx")
     assert len(str(logged_error["preview"])) < 300
     assert traced_error == logged_error
+    assert error_message not in str(state.observations)
     assert error_message not in str(logger.events)
 
 
@@ -1880,6 +1885,32 @@ def test_loop_bounds_stored_successful_tool_result_summary(tmp_path: Path) -> No
     assert "[truncated" in summary
     assert len(summary) < 5_000
     assert large_summary not in str(state.observations)
+
+
+def test_loop_bounds_stored_unknown_tool_arguments(tmp_path: Path) -> None:
+    large_argument = "x" * 1_100_000
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="missing_tool",
+                    arguments={"value": large_argument},
+                    call_id="call-1",
+                )
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    payload = state.observations[0].result.payload
+    assert state.final_status == "unknown_tool"
+    assert payload["truncated"] is True
+    assert payload["bytes"] > 1_048_576
+    assert str(payload["preview"]).startswith('{"tool_name":"missing_tool"')
+    assert large_argument not in str(state.observations)
 
 
 def test_loop_stops_after_repeating_same_action_three_times(tmp_path: Path) -> None:
