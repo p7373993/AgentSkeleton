@@ -128,6 +128,13 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
             raise ValueError(
                 f"Tool {tool_name} {label} required entries must be strings"
             )
+        property_names = set(properties) if isinstance(properties, Mapping) else set()
+        for item in required:
+            if item not in property_names:
+                raise ValueError(
+                    f"Tool {tool_name} {label} required entry must reference "
+                    f"a property: {item}"
+                )
 
     items = schema.get("items")
     if items is not None:
