@@ -301,10 +301,12 @@ def test_policy_confirms_package_install_shell_commands(command: str) -> None:
 @pytest.mark.parametrize(
     "command",
     [
+        "curl.exe https://example.test/data.json",
         "Invoke-WebRequest https://example.test -OutFile data.json",
         "Invoke-RestMethod https://example.test/api",
         "iwr https://example.test",
         "irm https://example.test/api",
+        "wget.exe https://example.test/data.json",
         "python -c \"import requests; requests.get('https://example.test')\"",
         (
             "python -c \"import urllib.request; "
