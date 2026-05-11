@@ -248,5 +248,32 @@ def chat(
             console.print(f"Run log: {logger.path}")
 
 
+@app.command()
+def resume(
+    session: Annotated[str, typer.Argument()] = "default",
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    base_url: Annotated[str | None, typer.Option("--base-url")] = None,
+    reasoning_effort: Annotated[
+        str | None,
+        typer.Option("--reasoning-effort"),
+    ] = None,
+    max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
+    trace: Annotated[bool, typer.Option("--trace")] = False,
+) -> None:
+    chat(
+        config=config,
+        model=model,
+        base_url=base_url,
+        reasoning_effort=reasoning_effort,
+        max_steps=max_steps,
+        tool=tool,
+        session=session,
+        no_session=False,
+        trace=trace,
+    )
+
+
 def main() -> None:
     app()
