@@ -166,6 +166,22 @@ def test_config_rejects_unknown_permission_profile(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, permission_profile="reckless")
 
 
+def test_config_rejects_workspace_file(tmp_path: Path) -> None:
+    workspace_file = tmp_path / "workspace"
+    workspace_file.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="workspace must be a directory path"):
+        RunConfig(workspace=workspace_file)
+
+
+def test_config_rejects_workspace_with_file_parent(tmp_path: Path) -> None:
+    parent_file = tmp_path / "workspace"
+    parent_file.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="workspace must be a directory path"):
+        RunConfig(workspace=parent_file / "child")
+
+
 def test_config_rejects_logs_dir_file(tmp_path: Path) -> None:
     logs_file = tmp_path / "runs"
     logs_file.write_text("not a directory", encoding="utf-8")

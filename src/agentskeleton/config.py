@@ -28,7 +28,14 @@ class RunConfig(BaseModel):
     @field_validator("workspace")
     @classmethod
     def resolve_workspace(cls, value: Path) -> Path:
-        return value.expanduser().resolve()
+        expanded = value.expanduser()
+        for candidate in (expanded, *expanded.parents):
+            if not candidate.exists():
+                continue
+            if not candidate.is_dir():
+                raise ValueError(f"workspace must be a directory path: {value}")
+            break
+        return expanded.resolve()
 
     @field_validator("logs_dir")
     @classmethod

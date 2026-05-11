@@ -607,6 +607,21 @@ def test_cli_reports_logs_dir_file_config_error(monkeypatch, tmp_path) -> None:
     assert "logs_dir must be a directory" in result.stdout
 
 
+def test_cli_reports_workspace_file_config_error(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    workspace_file = tmp_path / "workspace"
+    workspace_file.write_text("not a directory", encoding="utf-8")
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("workspace: workspace\n", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--config", str(config_path)])
+
+    assert result.exit_code == 1
+    assert "Configuration error:" in result.stdout
+    assert "workspace must be a directory path" in result.stdout
+
+
 def test_default_registry_can_filter_enabled_tools() -> None:
     registry = build_default_registry(["read_file", "ask_user"])
 
