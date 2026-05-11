@@ -785,7 +785,11 @@ def _summary_transcript_content(summary: dict[str, object]) -> str | None:
 
 def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
-    for line in log_path.read_text(encoding="utf-8").splitlines():
+    for raw_line in log_path.read_bytes().splitlines():
+        try:
+            line = raw_line.decode("utf-8")
+        except UnicodeDecodeError:
+            continue
         if line.strip():
             try:
                 events.append(json.loads(line))

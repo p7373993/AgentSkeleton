@@ -1474,6 +1474,41 @@ def test_show_run_ignores_malformed_jsonl_lines(monkeypatch, tmp_path) -> None:
     assert payload["steps"] == 3
 
 
+def test_show_run_ignores_invalid_utf8_log_lines(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    log_path.write_bytes(
+        json.dumps(
+            {
+                "type": "run_started",
+                "run_id": "run-1",
+                "step": 0,
+                "payload": {"goal": "finish"},
+            }
+        ).encode("utf-8")
+        + b"\n\xff\xfe\x00broken\n"
+        + json.dumps(
+            {
+                "type": "run_finished",
+                "run_id": "run-1",
+                "step": 3,
+                "payload": {"status": "completed", "answer": "done"},
+            }
+        ).encode("utf-8")
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "completed"
+    assert payload["goal"] == "finish"
+    assert payload["steps"] == 3
+
+
 def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     first_dir = tmp_path / "runs" / "20260510"
