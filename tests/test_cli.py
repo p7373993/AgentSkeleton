@@ -286,6 +286,49 @@ def test_eval_suite_command_prints_required_domain_failures(
     assert "Coverage failure: required domain writing has no scenarios" in result.stdout
 
 
+def test_eval_suite_command_uses_manifest_required_domains(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "suite.yaml").write_text(
+        "\n".join(
+            [
+                "required_domains:",
+                "  - finance",
+                "  - writing",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (suite_dir / "alpha.yaml").write_text(
+        "\n".join(
+            [
+                "name: alpha",
+                "domain: finance",
+                "goal: alpha",
+                "actions:",
+                "  - type: final",
+                "    text: alpha done",
+                "expect:",
+                "  status: completed",
+                "  answer: alpha done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval-suite", str(suite_dir), "--json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["required_domains"] == ["finance", "writing"]
+    assert payload["coverage_failures"] == ["required domain writing has no scenarios"]
+
+
 def test_eval_command_uses_scenario_tool_modules(
     monkeypatch,
     tmp_path,

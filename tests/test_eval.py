@@ -4,6 +4,7 @@ from agentskeleton.config import RunConfig
 from agentskeleton.eval import (
     load_scenario,
     load_scenario_suite,
+    load_scenario_suite_config,
     run_scenario,
     run_scenario_suite,
 )
@@ -557,6 +558,45 @@ def test_load_scenario_suite_discovers_yaml_files_in_order(tmp_path: Path) -> No
     scenarios = load_scenario_suite(suite_dir)
 
     assert [scenario.name for scenario in scenarios] == ["a", "b"]
+
+
+def test_load_scenario_suite_config_reads_manifest_required_domains(
+    tmp_path: Path,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "suite.yaml").write_text(
+        "\n".join(
+            [
+                "required_domains:",
+                "  - finance",
+                "  - writing",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (suite_dir / "alpha.yaml").write_text(
+        "\n".join(
+            [
+                "name: alpha",
+                "domain: finance",
+                "goal: alpha",
+                "actions:",
+                "  - type: final",
+                "    text: alpha done",
+                "expect:",
+                "  status: completed",
+                "  answer: alpha done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_scenario_suite_config(suite_dir)
+    scenarios = load_scenario_suite(suite_dir)
+
+    assert config.required_domains == ["finance", "writing"]
+    assert [scenario.name for scenario in scenarios] == ["alpha"]
 
 
 def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> None:

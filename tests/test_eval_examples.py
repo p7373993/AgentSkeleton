@@ -2,11 +2,16 @@ from pathlib import Path
 
 from agentskeleton.cli import build_default_registry
 from agentskeleton.config import RunConfig
-from agentskeleton.eval import load_scenario_suite, run_scenario_suite
+from agentskeleton.eval import (
+    load_scenario_suite,
+    load_scenario_suite_config,
+    run_scenario_suite,
+)
 
 
 def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
+    suite_config = load_scenario_suite_config(repo_root / "evals")
     scenarios = load_scenario_suite(repo_root / "evals")
     result = run_scenario_suite(
         scenarios,
@@ -15,17 +20,18 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
             config.enabled_tools,
             config.tool_modules,
         ),
-        required_domains=[
-            "artifacts",
-            "coding",
-            "data",
-            "filesystem",
-            "reliability",
-            "tool_packs",
-            "writing",
-        ],
+        required_domains=suite_config.required_domains,
     )
 
+    assert suite_config.required_domains == [
+        "artifacts",
+        "coding",
+        "data",
+        "filesystem",
+        "reliability",
+        "tool_packs",
+        "writing",
+    ]
     assert result.passed is True
     assert result.total == 10
     assert result.failed_count == 0

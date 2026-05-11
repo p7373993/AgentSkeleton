@@ -16,6 +16,7 @@ from agentskeleton.core.trace import ConsoleTraceSink, NullTraceSink
 from agentskeleton.eval import (
     load_scenario,
     load_scenario_suite,
+    load_scenario_suite_config,
     run_scenario,
     run_scenario_suite,
 )
@@ -90,6 +91,20 @@ def _build_registry_or_exit(
 
 def _registry_from_config(config) -> ToolRegistry:
     return build_default_registry(config.enabled_tools, config.tool_modules)
+
+
+def _merge_required_domains(
+    manifest_domains: list[str],
+    option_domains: list[str] | None,
+) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for domain in [*manifest_domains, *(option_domains or [])]:
+        if domain in seen:
+            continue
+        merged.append(domain)
+        seen.add(domain)
+    return merged
 
 
 @app.command()
@@ -209,11 +224,15 @@ def eval_suite(
 ) -> None:
     loaded = _load_config_or_exit(config, {"enabled_tools": tool})
     try:
+        suite_config = load_scenario_suite_config(path)
         result = run_scenario_suite(
             load_scenario_suite(path),
             loaded,
             registry_factory=_registry_from_config,
-            required_domains=require_domain,
+            required_domains=_merge_required_domains(
+                suite_config.required_domains,
+                require_domain,
+            ),
         )
     except ValueError as exc:
         console.print(f"Scenario error: {exc}", soft_wrap=True)

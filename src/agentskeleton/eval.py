@@ -18,6 +18,12 @@ from agentskeleton.policy.paths import PathSecurityError, resolve_workspace_path
 from agentskeleton.tools.registry import ToolRegistry
 
 RegistryFactory = Callable[[RunConfig], ToolRegistry]
+SUITE_MANIFEST_NAMES = {"suite.yaml", "suite.yml"}
+
+
+@dataclass(frozen=True)
+class ScenarioSuiteConfig:
+    required_domains: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -170,6 +176,19 @@ def load_scenario_suite(path: Path) -> list[Scenario]:
     return [load_scenario(scenario_path) for scenario_path in scenario_paths]
 
 
+def load_scenario_suite_config(path: Path) -> ScenarioSuiteConfig:
+    manifest = _suite_manifest_path(path)
+    if manifest is None:
+        return ScenarioSuiteConfig()
+
+    raw = yaml.safe_load(manifest.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"Suite manifest must contain a mapping: {manifest}")
+    return ScenarioSuiteConfig(
+        required_domains=_parse_required_domains(raw.get("required_domains", [])),
+    )
+
+
 def run_scenario(
     scenario: Scenario,
     config: RunConfig,
@@ -235,15 +254,44 @@ def _scenario_paths(path: Path) -> list[Path]:
     if not path.exists():
         raise ValueError(f"Scenario path not found: {path}")
     if path.is_file():
+        if path.name in SUITE_MANIFEST_NAMES:
+            return []
         return [path]
     return sorted(
         [
             scenario_path
             for pattern in ("*.yaml", "*.yml")
             for scenario_path in path.rglob(pattern)
+            if scenario_path.name not in SUITE_MANIFEST_NAMES
         ],
         key=lambda item: item.as_posix(),
     )
+
+
+def _suite_manifest_path(path: Path) -> Path | None:
+    if path.is_file():
+        return None
+    candidates = [path / name for name in sorted(SUITE_MANIFEST_NAMES)]
+    existing = [candidate for candidate in candidates if candidate.exists()]
+    if not existing:
+        return None
+    if len(existing) > 1:
+        raise ValueError(f"Multiple suite manifests found: {path}")
+    return existing[0]
+
+
+def _parse_required_domains(raw: object) -> list[str]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("Suite required_domains must be a list")
+    domains: list[str] = []
+    for item in raw:
+        domain = str(item)
+        if not domain.strip():
+            raise ValueError("Suite required_domains cannot contain empty names")
+        domains.append(domain)
+    return domains
 
 
 def _parse_files(raw: object) -> dict[str, str]:
