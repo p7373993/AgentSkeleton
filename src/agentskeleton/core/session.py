@@ -211,7 +211,13 @@ class SessionStore:
                     f"Session transcript exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
                     f"{safe_name}"
                 )
-            raw_lines = path.read_bytes().splitlines()
+            raw_transcript = path.read_bytes()
+            if len(raw_transcript) > _MAX_SESSION_FILE_BYTES:
+                raise ValueError(
+                    f"Session transcript exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
+                    f"{safe_name}"
+                )
+            raw_lines = raw_transcript.splitlines()
         except OSError as exc:
             raise ValueError(
                 f"Session transcript could not be read: {safe_name}"
@@ -261,8 +267,14 @@ class SessionStore:
                     f"Session summary exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
                     f"{safe_name}"
                 )
+            raw_summary = path.read_text(encoding="utf-8")
+            if len(raw_summary.encode("utf-8")) > _MAX_SESSION_FILE_BYTES:
+                raise ValueError(
+                    f"Session summary exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
+                    f"{safe_name}"
+                )
             summary = _bounded_transcript_content(
-                path.read_text(encoding="utf-8").strip(),
+                raw_summary.strip(),
             )
         except OSError as exc:
             raise ValueError(
