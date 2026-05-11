@@ -43,6 +43,24 @@ def test_registry_rejects_duplicate_tools() -> None:
         registry.register(EchoTool())
 
 
+def test_registry_rejects_too_many_tools() -> None:
+    registry = ToolRegistry()
+
+    for index in range(128):
+        tool_type = type(
+            f"EchoTool{index}",
+            (EchoTool,),
+            {"name": f"echo_{index}"},
+        )
+        registry.register(tool_type())
+
+    class ExtraTool(EchoTool):
+        name = "echo_extra"
+
+    with pytest.raises(ValueError, match="Too many tools registered"):
+        registry.register(ExtraTool())
+
+
 def test_registry_rejects_non_tool_values() -> None:
     registry = ToolRegistry()
 

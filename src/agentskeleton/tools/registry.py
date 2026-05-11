@@ -20,6 +20,7 @@ SUPPORTED_JSON_SCHEMA_TYPES = (
 MAX_TOOL_SCHEMA_DEPTH = 64
 MAX_TOOL_SCHEMA_BYTES = 2_097_152
 MAX_TOOL_DESCRIPTION_BYTES = 65_536
+MAX_REGISTERED_TOOLS = 128
 
 
 class ToolRegistry:
@@ -64,6 +65,8 @@ class ToolRegistry:
         _validate_args_schema(tool)
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")
+        if len(self._tools) >= MAX_REGISTERED_TOOLS:
+            raise ValueError(f"Too many tools registered (max {MAX_REGISTERED_TOOLS})")
         self._tools[name] = tool
 
     def get(self, name: str) -> Tool:
