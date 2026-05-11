@@ -42,7 +42,17 @@ class ScriptedInvalidAction:
     type_name: str = "unexpected"
 
 
-ScenarioAction = AgentAction | ScriptedModelError | ScriptedInvalidAction
+@dataclass(frozen=True)
+class ScriptedConversationAssertion:
+    contents: list[str]
+
+
+ScenarioAction = (
+    AgentAction
+    | ScriptedModelError
+    | ScriptedInvalidAction
+    | ScriptedConversationAssertion
+)
 
 
 @dataclass(frozen=True)
@@ -152,14 +162,17 @@ class ScriptedScenarioLLM:
         self._actions = list(actions)
 
     def next_action(self, state: RunState, registry: ToolRegistry) -> AgentAction:
-        if not self._actions:
-            raise RuntimeError("Scenario actions exhausted")
-        action = self._actions.pop(0)
-        if isinstance(action, ScriptedModelError):
-            raise RuntimeError(action.message)
-        if isinstance(action, ScriptedInvalidAction):
-            return {"type": action.type_name}  # type: ignore[return-value]
-        return action
+        while self._actions:
+            action = self._actions.pop(0)
+            if isinstance(action, ScriptedConversationAssertion):
+                _assert_conversation_contents(state, action.contents)
+                continue
+            if isinstance(action, ScriptedModelError):
+                raise RuntimeError(action.message)
+            if isinstance(action, ScriptedInvalidAction):
+                return {"type": action.type_name}  # type: ignore[return-value]
+            return action
+        raise RuntimeError("Scenario actions exhausted")
 
 
 def load_scenario(path: Path) -> Scenario:
@@ -480,7 +493,33 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
     if action_type == "invalid":
         return ScriptedInvalidAction(type_name=str(raw.get("type_name", "unexpected")))
 
+    if action_type == "assert_conversation":
+        return ScriptedConversationAssertion(
+            contents=_parse_string_list(
+                raw.get("contents", []),
+                f"Scenario action {index + 1} contents",
+            )
+        )
+
     raise ValueError(f"Unknown scenario action type: {action_type}")
+
+
+def _parse_string_list(raw: object, label: str) -> list[str]:
+    if not isinstance(raw, list):
+        raise ValueError(f"{label} must be a list")
+    return [str(item) for item in raw]
+
+
+def _assert_conversation_contents(
+    state: RunState,
+    expected_contents: list[str],
+) -> None:
+    actual_contents = [turn.content for turn in state.conversation]
+    if actual_contents != expected_contents:
+        raise RuntimeError(
+            "Conversation assertion failed: "
+            f"expected {expected_contents!r} but got {actual_contents!r}"
+        )
 
 
 def _parse_tool_call(

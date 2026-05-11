@@ -7,6 +7,10 @@ conversation:
   - role: assistant
     content: alpha stored
 actions:
+  - type: assert_conversation
+    contents:
+      - remember alpha
+      - alpha stored
   - type: final
     text: resume context ok
 expect:
