@@ -1246,7 +1246,13 @@ def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:
             "type": "run_started",
             "run_id": "run-1",
             "step": 0,
-            "payload": {"goal": "finish"},
+            "payload": {
+                "goal": "finish",
+                "workspace": str(tmp_path),
+                "session": "work",
+                "resumed": True,
+                "conversation_turns": 2,
+            },
         },
         {
             "type": "run_finished",
@@ -1272,6 +1278,8 @@ def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:
     assert "Status: completed" in result.stdout
     assert "Reason: finished cleanly" in result.stdout
     assert "Goal: finish" in result.stdout
+    assert "Session: work" in result.stdout
+    assert "Conversation turns: 2" in result.stdout
     assert "Steps: 3" in result.stdout
     assert f"Log: {log_path}" in result.stdout
 
@@ -1306,6 +1314,10 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
     assert payload == {
         "run_id": "run-1",
         "goal": None,
+        "workspace": None,
+        "session": None,
+        "resumed": None,
+        "conversation_turns": None,
         "status": "completed",
         "reason": "finished cleanly",
         "answer": "done",
@@ -1417,6 +1429,10 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
             {
                 "run_id": "run-new",
                 "goal": "new goal",
+                "workspace": None,
+                "session": None,
+                "resumed": None,
+                "conversation_turns": None,
                 "status": "max_steps",
                 "reason": "step limit",
                 "answer": None,

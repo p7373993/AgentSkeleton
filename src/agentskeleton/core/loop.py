@@ -71,20 +71,23 @@ class AgentLoop:
             goal=goal,
             conversation=self._normalize_conversation(conversation or []),
         )
+        start_payload = {
+            "goal": goal,
+            "workspace": str(state.workspace),
+            "resumed": bool(state.conversation),
+            "conversation_turns": len(state.conversation),
+            **(trace_context or {}),
+        }
         self.logger.log(
             "run_started",
             0,
-            {"goal": goal, "workspace": str(state.workspace)},
+            start_payload,
         )
         self.trace.emit(
             "run_started",
             {
-                "goal": goal,
-                "workspace": str(state.workspace),
                 "model": self.config.model,
-                "resumed": bool(state.conversation),
-                "conversation_turns": len(state.conversation),
-                **(trace_context or {}),
+                **start_payload,
             },
         )
 

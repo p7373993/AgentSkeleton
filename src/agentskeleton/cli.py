@@ -564,6 +564,10 @@ def show_run(
         console.print(f"Reason: {summary['reason']}")
     if summary["goal"]:
         console.print(f"Goal: {summary['goal']}", soft_wrap=True)
+    if summary["session"]:
+        console.print(f"Session: {summary['session']}")
+    if summary["conversation_turns"] is not None:
+        console.print(f"Conversation turns: {summary['conversation_turns']}")
     if summary["steps"] is not None:
         console.print(f"Steps: {summary['steps']}")
     console.print(f"Log: {summary['log']}", soft_wrap=True)
@@ -648,6 +652,10 @@ def _summarize_run_log(
     return {
         "run_id": resolved_run_id,
         "goal": start_payload.get("goal"),
+        "workspace": start_payload.get("workspace"),
+        "session": start_payload.get("session"),
+        "resumed": start_payload.get("resumed"),
+        "conversation_turns": start_payload.get("conversation_turns"),
         "status": final_payload.get("status", "unknown"),
         "reason": final_payload.get("reason"),
         "answer": final_payload.get("answer"),

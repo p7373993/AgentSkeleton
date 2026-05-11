@@ -85,6 +85,32 @@ def test_loop_stops_on_final_answer(tmp_path: Path) -> None:
     assert state.step_count == 1
 
 
+def test_loop_logs_run_start_context(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run(
+        "continue",
+        conversation=[{"role": "user", "content": "previous"}],
+        trace_context={"session": "work"},
+    )
+
+    assert logger.events[0] == (
+        "run_started",
+        0,
+        {
+            "goal": "continue",
+            "workspace": str(tmp_path),
+            "resumed": True,
+            "conversation_turns": 1,
+            "session": "work",
+        },
+    )
+
+
 def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(
