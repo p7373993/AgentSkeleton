@@ -7,6 +7,7 @@ reasoning_effort: low
 text_verbosity: low
 max_steps: 20
 workspace: "."
+permission_profile: standard
 confirm_risky_actions: true
 logs_dir: "runs"
 shell_timeout_seconds: 30

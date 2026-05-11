@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 PermissionOutcome = Literal["allow", "confirm", "block"]
+PermissionProfile = Literal["standard", "read_only", "trusted"]
 
 
 @dataclass(frozen=True)
@@ -11,8 +12,13 @@ class PermissionDecision:
 
 
 class PermissionPolicy:
-    def __init__(self, confirm_risky_actions: bool = True) -> None:
+    def __init__(
+        self,
+        confirm_risky_actions: bool = True,
+        profile: PermissionProfile = "standard",
+    ) -> None:
         self.confirm_risky_actions = confirm_risky_actions
+        self.profile = profile
 
     def decide(
         self,
@@ -23,8 +29,14 @@ class PermissionPolicy:
         if risk == "read" or risk == "interactive":
             return PermissionDecision("allow", "read-only or interactive tool")
 
+        if self.profile == "read_only":
+            return PermissionDecision(
+                "block",
+                "Tool is blocked by read-only profile",
+            )
+
         if tool_name == "write_file" or risk == "write":
-            if self.confirm_risky_actions:
+            if self.confirm_risky_actions and self.profile != "trusted":
                 return PermissionDecision(
                     "confirm",
                     "Tool writes files in the workspace",
@@ -79,8 +91,10 @@ class PermissionPolicy:
             "git push",
             "start ",
         ]
-        if self.confirm_risky_actions and any(
-            pattern in normalized for pattern in confirm_patterns
+        if (
+            self.confirm_risky_actions
+            and self.profile != "trusted"
+            and any(pattern in normalized for pattern in confirm_patterns)
         ):
             return PermissionDecision(
                 "confirm",

@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -15,6 +15,7 @@ class RunConfig(BaseModel):
     text_verbosity: str = "low"
     max_steps: int = Field(default=20, gt=0)
     workspace: Path = Path(".")
+    permission_profile: Literal["standard", "read_only", "trusted"] = "standard"
     confirm_risky_actions: bool = True
     logs_dir: Path = Path("runs")
     shell_timeout_seconds: int = Field(default=30, gt=0)

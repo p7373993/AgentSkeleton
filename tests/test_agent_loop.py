@@ -215,6 +215,28 @@ def test_loop_stops_when_policy_blocks_tool(tmp_path: Path) -> None:
     assert state.observations[0].policy_decision == "confirm"
 
 
+def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path, permission_profile="read_only"),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="write_record",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                )
+            ]
+        ),
+        registry=ToolRegistry([WriteRecordTool()]),
+        logger=MemoryLogger(),
+        confirmer=lambda decision, action: True,
+    ).run("record")
+
+    assert state.final_status == "blocked"
+    assert state.observations[0].policy_decision == "block"
+    assert state.observations[0].result.error == "Permission blocked"
+
+
 def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:
     state = make_loop(
         tmp_path,

@@ -50,7 +50,10 @@ class AgentLoop:
         self.llm = llm
         self.registry = registry
         self.logger = logger
-        self.policy = policy or PermissionPolicy(config.confirm_risky_actions)
+        self.policy = policy or PermissionPolicy(
+            config.confirm_risky_actions,
+            config.permission_profile,
+        )
         self.confirmer = confirmer or (lambda _decision, _action: False)
         self.ask_user = ask_user
         self.run_id = run_id

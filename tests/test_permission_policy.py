@@ -28,6 +28,48 @@ def test_policy_allows_write_when_confirmation_disabled() -> None:
     assert decision.outcome == "allow"
 
 
+def test_read_only_profile_blocks_write_tools() -> None:
+    decision = PermissionPolicy(profile="read_only").decide(
+        "write_file",
+        {"path": "README.md", "content": "hello"},
+        "write",
+    )
+
+    assert decision.outcome == "block"
+    assert "read-only profile" in decision.reason
+
+
+def test_read_only_profile_blocks_shell_tools() -> None:
+    decision = PermissionPolicy(profile="read_only").decide(
+        "shell",
+        {"command": "Get-ChildItem"},
+        "shell",
+    )
+
+    assert decision.outcome == "block"
+    assert "read-only profile" in decision.reason
+
+
+def test_trusted_profile_allows_risky_write_without_confirmation() -> None:
+    decision = PermissionPolicy(profile="trusted").decide(
+        "write_file",
+        {"path": "README.md", "content": "hello"},
+        "write",
+    )
+
+    assert decision.outcome == "allow"
+
+
+def test_trusted_profile_still_blocks_destructive_shell_commands() -> None:
+    decision = PermissionPolicy(profile="trusted").decide(
+        "shell",
+        {"command": "rm -rf /"},
+        "shell",
+    )
+
+    assert decision.outcome == "block"
+
+
 def test_policy_blocks_clearly_destructive_shell_commands() -> None:
     decision = PermissionPolicy().decide("shell", {"command": "rm -rf /"}, "shell")
 
