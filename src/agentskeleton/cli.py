@@ -160,13 +160,13 @@ def _merge_required_domains(
 
 def _assistant_transcript_content(state) -> str | None:
     if state.final_answer:
-        return state.final_answer
+        return _bounded_display_text(str(state.final_answer))
 
     if state.final_status:
         content = f"Run stopped with status {state.final_status}."
         if getattr(state, "final_reason", None):
             content = f"{content} Reason: {state.final_reason}"
-        return content
+        return _bounded_display_text(content)
 
     return None
 

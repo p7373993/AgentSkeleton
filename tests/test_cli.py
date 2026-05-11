@@ -1148,6 +1148,46 @@ def test_run_bounds_large_final_reason_output(monkeypatch, tmp_path) -> None:
     assert large_reason not in result.stdout
 
 
+def test_assistant_transcript_content_bounds_large_text() -> None:
+    large_answer = "a" * 20_000
+    answer_state = type(
+        "State",
+        (),
+        {
+            "final_status": "completed",
+            "final_answer": large_answer,
+            "final_reason": None,
+        },
+    )()
+
+    answer_content = cli_module._assistant_transcript_content(answer_state)
+
+    assert answer_content is not None
+    assert len(answer_content) < 5_000
+    assert answer_content.startswith("aaaaaaaaaaaaaaaa")
+    assert "[truncated" in answer_content
+    assert large_answer not in answer_content
+
+    large_reason = "r" * 20_000
+    reason_state = type(
+        "State",
+        (),
+        {
+            "final_status": "model_error",
+            "final_answer": None,
+            "final_reason": large_reason,
+        },
+    )()
+
+    reason_content = cli_module._assistant_transcript_content(reason_state)
+
+    assert reason_content is not None
+    assert len(reason_content) < 5_000
+    assert reason_content.startswith("Run stopped with status model_error.")
+    assert "[truncated" in reason_content
+    assert large_reason not in reason_content
+
+
 def test_run_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
