@@ -135,6 +135,17 @@ def test_trusted_profile_blocks_python_credential_exfiltration(
     assert "credentials" in decision.reason
 
 
+def test_trusted_profile_blocks_encoded_shell_commands() -> None:
+    decision = PermissionPolicy(profile="trusted").decide(
+        "shell",
+        {"command": "powershell -NoProfile -EncodedCommand SQBFAFgA"},
+        "shell",
+    )
+
+    assert decision.outcome == "block"
+    assert "encoded" in decision.reason
+
+
 def test_policy_blocks_clearly_destructive_shell_commands() -> None:
     decision = PermissionPolicy().decide("shell", {"command": "rm -rf /"}, "shell")
 

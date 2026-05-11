@@ -1,0 +1,36 @@
+name: shell-encoded-command-blocked
+domain: reliability
+goal: Block opaque encoded shell commands even in trusted profile.
+config:
+  permission_profile: trusted
+actions:
+  - type: tool
+    tool: shell
+    call_id: encoded-shell-command
+    arguments:
+      command: "powershell -NoProfile -EncodedCommand SQBFAFgA"
+expect:
+  status: blocked
+  reason: Shell command uses encoded content
+  observations: 1
+  observations_detail:
+    - tool: shell
+      success: false
+      summary: Shell command uses encoded content
+      error: Permission blocked
+  events:
+    - type: policy_decision
+      payload:
+        tool_name: shell
+        outcome: block
+        reason: Shell command uses encoded content
+    - type: tool_finished
+      payload:
+        tool_name: shell
+        success: false
+        summary: Shell command uses encoded content
+        error: Permission blocked
+    - type: run_finished
+      payload:
+        status: blocked
+        reason: Shell command uses encoded content

@@ -62,6 +62,9 @@ class PermissionPolicy:
         if any(pattern in normalized for pattern in destructive_patterns):
             return PermissionDecision("block", "Shell command looks destructive")
 
+        if _looks_like_encoded_command(normalized):
+            return PermissionDecision("block", "Shell command uses encoded content")
+
         if _looks_like_recursive_delete(normalized):
             return PermissionDecision("block", "Shell command looks destructive")
 
@@ -134,3 +137,8 @@ def _looks_like_recursive_delete(command: str) -> bool:
 
 def _is_compact_recursive_flag(token: str) -> bool:
     return token.startswith("-") and len(token) <= 4 and "r" in token[1:]
+
+
+def _looks_like_encoded_command(command: str) -> bool:
+    tokens = command.replace(";", " ").replace("|", " ").split()
+    return any(token in {"-encodedcommand", "-enc"} for token in tokens)
