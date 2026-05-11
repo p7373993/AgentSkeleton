@@ -195,6 +195,17 @@ class LargePayloadTool(RecordTool):
         )
 
 
+class LargeSummaryTool(RecordTool):
+    name = "large_summary"
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return ToolResult(
+            success=True,
+            payload={"ok": True},
+            summary="s" * 1_100_000,
+        )
+
+
 def make_loop(tmp_path: Path, actions, logger: MemoryLogger | None = None) -> AgentLoop:
     return AgentLoop(
         config=RunConfig(workspace=tmp_path),
@@ -1842,6 +1853,33 @@ def test_loop_bounds_stored_successful_tool_result_payload(tmp_path: Path) -> No
     assert payload["bytes"] > 1_048_576
     assert str(payload["preview"]).startswith('{"content":"xxxxxxxxxxxxxxxx')
     assert large_payload not in str(state.observations)
+
+
+def test_loop_bounds_stored_successful_tool_result_summary(tmp_path: Path) -> None:
+    large_summary = "s" * 1_100_000
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="large_summary",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([LargeSummaryTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    summary = state.observations[0].result.summary
+    assert state.final_status == "completed"
+    assert summary.startswith("s" * 40)
+    assert "[truncated" in summary
+    assert len(summary) < 5_000
+    assert large_summary not in str(state.observations)
 
 
 def test_loop_stops_after_repeating_same_action_three_times(tmp_path: Path) -> None:

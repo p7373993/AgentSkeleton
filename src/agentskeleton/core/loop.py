@@ -44,6 +44,7 @@ MAX_FINAL_ACTION_STATUS_BYTES = 512
 MAX_VALIDATION_ERRORS = 50
 MAX_STORED_TOOL_RESULT_PAYLOAD_BYTES = 1_048_576
 MAX_STORED_TOOL_RESULT_PAYLOAD_PREVIEW_CHARS = 200
+MAX_STORED_TOOL_RESULT_TEXT_CHARS = 4_096
 
 
 class AgentLoop:
@@ -708,13 +709,23 @@ def _logged_value(value: object) -> object:
 
 def _bounded_successful_tool_result(result: ToolResult) -> ToolResult:
     payload = _bounded_stored_tool_payload(result.payload)
-    if payload is result.payload:
+    summary = _bounded_stored_tool_text(result.summary)
+    error = (
+        _bounded_stored_tool_text(result.error)
+        if result.error is not None
+        else None
+    )
+    if (
+        payload == result.payload
+        and summary == result.summary
+        and error == result.error
+    ):
         return result
     return ToolResult(
         success=result.success,
         payload=payload,
-        summary=result.summary,
-        error=result.error,
+        summary=summary,
+        error=error,
     )
 
 
@@ -743,6 +754,16 @@ def _bounded_stored_tool_payload(payload: Mapping[str, object]) -> dict[str, obj
         "bytes": len(encoded),
         "preview": f"{preview}...",
     }
+
+
+def _bounded_stored_tool_text(value: str) -> str:
+    if len(value) <= MAX_STORED_TOOL_RESULT_TEXT_CHARS:
+        return value
+    omitted = len(value) - MAX_STORED_TOOL_RESULT_TEXT_CHARS
+    return (
+        f"{value[:MAX_STORED_TOOL_RESULT_TEXT_CHARS]}"
+        f"\n[truncated {omitted} characters]"
+    )
 
 
 def _json_log_safe(
