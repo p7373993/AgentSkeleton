@@ -196,6 +196,33 @@ def test_loop_logs_run_start_context(tmp_path: Path) -> None:
     )
 
 
+def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    seen_goals: list[str] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_goals.append(state.goal)
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run(123)
+
+    assert state.final_status == "completed"
+    assert state.goal == "123"
+    assert seen_goals == ["123"]
+    assert logger.events[0][2]["goal"] == "123"
+    assert (
+        "model_requested",
+        1,
+        {"goal": "123"},
+    ) in logger.events
+
+
 def test_loop_continues_when_logger_fails(tmp_path: Path) -> None:
     state = AgentLoop(
         config=RunConfig(workspace=tmp_path),

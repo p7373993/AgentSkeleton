@@ -65,14 +65,15 @@ class AgentLoop:
         conversation: list[ConversationMessage | dict[str, object]] | None = None,
         trace_context: dict[str, object] | None = None,
     ) -> RunState:
+        normalized_goal = str(goal)
         state = RunState(
             run_id=self.run_id or str(uuid4()),
             workspace=self.config.workspace,
-            goal=goal,
+            goal=normalized_goal,
             conversation=self._normalize_conversation(conversation or []),
         )
         start_payload = {
-            "goal": goal,
+            "goal": normalized_goal,
             "workspace": str(state.workspace),
             "resumed": bool(state.conversation),
             "conversation_turns": len(state.conversation),
@@ -94,7 +95,11 @@ class AgentLoop:
         while state.step_count < self.config.max_steps:
             state.step_count += 1
             self._emit_trace("step_started", {"step": state.step_count})
-            self._log_event("model_requested", state.step_count, {"goal": goal})
+            self._log_event(
+                "model_requested",
+                state.step_count,
+                {"goal": normalized_goal},
+            )
             try:
                 action = self.llm.next_action(state, self.registry)
             except Exception as exc:
