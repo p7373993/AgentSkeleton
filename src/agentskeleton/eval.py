@@ -888,6 +888,14 @@ def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]
     if not log_is_file:
         failures.append(f"log file expected but was not a file: {log_path}")
         return []
+    try:
+        log_size = log_path.stat().st_size
+    except OSError:
+        failures.append(f"log file could not be checked: {log_path}")
+        return []
+    if log_size > MAX_SCENARIO_FILE_BYTES:
+        failures.append(f"log file exceeds {MAX_SCENARIO_FILE_BYTES} bytes: {log_path}")
+        return []
 
     events: list[dict[str, Any]] = []
     try:

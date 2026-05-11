@@ -986,6 +986,29 @@ def test_eval_log_reader_reports_log_read_failure(
     assert failures == [f"log file could not be read: {log_path}"]
 
 
+def test_eval_log_reader_rejects_oversized_log_before_reading(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    log_path = tmp_path / "run.jsonl"
+    log_path.write_bytes(b"x" * 11)
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_FILE_BYTES", 10)
+    original_read_bytes = Path.read_bytes
+
+    def fail_read_bytes(path: Path) -> bytes:
+        if path == log_path:
+            raise AssertionError("oversized log file should not be read")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read_bytes)
+    failures: list[str] = []
+
+    events = _read_log_events(log_path, failures)
+
+    assert events == []
+    assert failures == [f"log file exceeds 10 bytes: {log_path}"]
+
+
 def test_run_scenario_reports_log_event_mismatch(tmp_path: Path) -> None:
     scenario_path = tmp_path / "event-mismatch.yaml"
     scenario_path.write_text(
