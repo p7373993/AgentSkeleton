@@ -1191,6 +1191,51 @@ def test_llm_client_serializes_non_json_tool_observation_payloads(tmp_path) -> N
     assert observation_output["payload"]["raw"] == str(marker)
 
 
+def test_llm_client_serializes_unstringable_tool_observation_payloads(
+    tmp_path,
+) -> None:
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("value unavailable")
+
+    class UnstringableKey:
+        def __str__(self) -> str:
+            raise RuntimeError("key unavailable")
+
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult.model_construct(
+                    success=True,
+                    payload={UnstringableKey(): UnstringableValue()},
+                    summary="ok",
+                    error=None,
+                ),
+            )
+        ],
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    call = fake_client.responses.calls[0]
+    observation_output = json.loads(call["input"][1]["output"])
+    assert isinstance(action, FinalAction)
+    assert observation_output["payload"] == {
+        "<uninspectable>": "<uninspectable>"
+    }
+
+
 def test_llm_client_serializes_recursive_tool_observation_payloads(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="done", output=[])
     fake_client = FakeClient(response)

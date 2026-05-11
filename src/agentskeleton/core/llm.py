@@ -699,7 +699,7 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
         finally:
             seen.remove(marker)
 
-    return str(value)
+    return _safe_text(value)
 
 
 def _json_safe_mapping(
@@ -718,7 +718,7 @@ def _json_safe_mapping(
         for index, (key, item) in enumerate(raw_items):
             if index >= item_limit:
                 continue
-            safe_items[str(key)] = _json_safe(item, seen, depth + 1)
+            safe_items[_safe_text(key)] = _json_safe(item, seen, depth + 1)
     except Exception:
         return UNINSPECTABLE_VALUE
     omitted = total_items - item_limit
@@ -749,6 +749,13 @@ def _json_safe_sequence(
     if omitted > 0:
         safe_items.append(_truncated_items_marker(total_items, omitted))
     return safe_items
+
+
+def _safe_text(value: object) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return UNINSPECTABLE_VALUE
 
 
 def _json_size_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
