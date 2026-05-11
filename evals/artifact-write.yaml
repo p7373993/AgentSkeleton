@@ -1,0 +1,22 @@
+name: artifact-write
+goal: Produce a report artifact from scenario fixtures.
+config:
+  permission_profile: trusted
+files:
+  inputs/source.txt: raw data
+actions:
+  - type: tool
+    tool: write_file
+    call_id: write-report
+    arguments:
+      path: reports/summary.txt
+      content: summary from raw data
+      create_parent_dirs: true
+  - type: final
+    text: artifact write ok
+expect:
+  status: completed
+  answer: artifact write ok
+  observations: 1
+  files:
+    reports/summary.txt: summary from raw data

@@ -7,7 +7,7 @@ from agentskeleton.eval import (
     run_scenario,
     run_scenario_suite,
 )
-from agentskeleton.tools.filesystem import ReadFileTool
+from agentskeleton.tools.filesystem import ReadFileTool, WriteFileTool
 from agentskeleton.tools.registry import ToolRegistry
 
 
@@ -119,6 +119,124 @@ def test_run_scenario_reports_failed_expectations(tmp_path: Path) -> None:
 
     assert result.passed is False
     assert result.failures == ["answer expected 'expected' but got 'actual'"]
+
+
+def test_run_scenario_checks_expected_file_outputs(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "write-report.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: write-report",
+                "goal: write report",
+                "files:",
+                "  inputs/source.txt: raw data",
+                "actions:",
+                "  - type: tool",
+                "    tool: write_file",
+                "    call_id: write-1",
+                "    arguments:",
+                "      path: reports/summary.txt",
+                "      content: summary from raw data",
+                "      create_parent_dirs: true",
+                "  - type: final",
+                "    text: report written",
+                "expect:",
+                "  status: completed",
+                "  answer: report written",
+                "  observations: 1",
+                "  files:",
+                "    reports/summary.txt: summary from raw data",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(
+            workspace=tmp_path,
+            logs_dir=tmp_path / "runs",
+            permission_profile="trusted",
+        ),
+        ToolRegistry([WriteFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
+def test_run_scenario_applies_config_overrides(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "trusted-write.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: trusted-write",
+                "goal: write trusted report",
+                "config:",
+                "  permission_profile: trusted",
+                "files:",
+                "  inputs/source.txt: raw data",
+                "actions:",
+                "  - type: tool",
+                "    tool: write_file",
+                "    call_id: write-1",
+                "    arguments:",
+                "      path: reports/summary.txt",
+                "      content: summary from raw data",
+                "      create_parent_dirs: true",
+                "  - type: final",
+                "    text: report written",
+                "expect:",
+                "  status: completed",
+                "  answer: report written",
+                "  observations: 1",
+                "  files:",
+                "    reports/summary.txt: summary from raw data",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([WriteFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.status == "completed"
+    assert result.failures == []
+
+
+def test_run_scenario_reports_expected_file_mismatch(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "missing-report.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: missing-report",
+                "goal: skip report",
+                "files:",
+                "  inputs/source.txt: raw data",
+                "actions:",
+                "  - type: final",
+                "    text: skipped",
+                "expect:",
+                "  status: completed",
+                "  files:",
+                "    reports/summary.txt: summary from raw data",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([WriteFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == ["file reports/summary.txt expected but was missing"]
 
 
 def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:

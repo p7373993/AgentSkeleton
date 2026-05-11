@@ -24,6 +24,7 @@ class Scenario:
     actions: list[AgentAction]
     expect: dict[str, object] = field(default_factory=dict)
     files: dict[str, str] = field(default_factory=dict)
+    config_overrides: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,7 @@ def load_scenario(path: Path) -> Scenario:
         raise ValueError("Scenario must define expectations")
 
     files = _parse_files(raw.get("files", {}))
+    config_overrides = _parse_config_overrides(raw.get("config", {}))
     name = raw.get("name") or path.stem
     return Scenario(
         name=str(name),
@@ -119,6 +121,7 @@ def load_scenario(path: Path) -> Scenario:
         actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],
         expect=expect,
         files=files,
+        config_overrides=config_overrides,
     )
 
 
@@ -135,8 +138,9 @@ def run_scenario(
     registry: ToolRegistry,
 ) -> ScenarioResult:
     run_id = f"eval-{uuid4()}"
-    workspace = _prepare_workspace(config, run_id, scenario)
-    run_config = config.model_copy(update={"workspace": workspace})
+    scenario_config = _apply_config_overrides(config, scenario.config_overrides)
+    workspace = _prepare_workspace(scenario_config, run_id, scenario)
+    run_config = scenario_config.model_copy(update={"workspace": workspace})
     logger = RunLogger(run_config.logs_dir, run_id)
     loop = AgentLoop(
         config=run_config,
@@ -148,7 +152,7 @@ def run_scenario(
         trace=NullTraceSink(),
     )
     state = loop.run(scenario.goal, trace_context={"scenario": scenario.name})
-    failures = _compare_expectations(scenario.expect, state)
+    failures = _compare_expectations(scenario.expect, state, workspace)
     return ScenarioResult(
         scenario=scenario.name,
         passed=not failures,
@@ -190,6 +194,23 @@ def _parse_files(raw: object) -> dict[str, str]:
     if not isinstance(raw, dict):
         raise ValueError("Scenario files must be a mapping")
     return {str(path): str(content) for path, content in raw.items()}
+
+
+def _parse_config_overrides(raw: object) -> dict[str, object]:
+    if not isinstance(raw, dict):
+        raise ValueError("Scenario config must be a mapping")
+    return dict(raw)
+
+
+def _apply_config_overrides(
+    config: RunConfig,
+    overrides: dict[str, object],
+) -> RunConfig:
+    if not overrides:
+        return config
+    data = config.model_dump()
+    data.update(overrides)
+    return RunConfig(**data)
 
 
 def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Path:
@@ -235,7 +256,11 @@ def _parse_action(raw: object, index: int) -> AgentAction:
     raise ValueError(f"Unknown scenario action type: {action_type}")
 
 
-def _compare_expectations(expect: dict[str, object], state: RunState) -> list[str]:
+def _compare_expectations(
+    expect: dict[str, object],
+    state: RunState,
+    workspace: Path,
+) -> list[str]:
     failures: list[str] = []
     _expect_equal(failures, "status", expect, state.final_status)
     _expect_equal(failures, "answer", expect, state.final_answer)
@@ -244,6 +269,7 @@ def _compare_expectations(expect: dict[str, object], state: RunState) -> list[st
             "observations expected "
             f"{expect['observations']!r} but got {len(state.observations)!r}"
         )
+    _expect_files(failures, expect.get("files"), workspace)
     return failures
 
 
@@ -255,3 +281,36 @@ def _expect_equal(
 ) -> None:
     if key in expect and expect[key] != actual:
         failures.append(f"{key} expected {expect[key]!r} but got {actual!r}")
+
+
+def _expect_files(
+    failures: list[str],
+    raw_files: object,
+    workspace: Path,
+) -> None:
+    if raw_files is None:
+        return
+    if not isinstance(raw_files, dict):
+        failures.append("files expectation must be a mapping")
+        return
+
+    for requested_path, expected_content in raw_files.items():
+        path_text = str(requested_path)
+        try:
+            target = resolve_workspace_path(workspace, path_text)
+        except PathSecurityError as exc:
+            failures.append(str(exc))
+            continue
+        if not target.exists():
+            failures.append(f"file {path_text} expected but was missing")
+            continue
+        if not target.is_file():
+            failures.append(f"file {path_text} expected but was not a file")
+            continue
+        actual_content = target.read_text(encoding="utf-8")
+        expected_text = str(expected_content)
+        if actual_content != expected_text:
+            failures.append(
+                f"file {path_text} expected {expected_text!r} "
+                f"but got {actual_content!r}"
+            )
