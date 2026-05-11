@@ -115,14 +115,14 @@ class SessionStore:
     def append_transcript(
         self,
         name: str,
-        role: str,
-        content: str,
+        role: object,
+        content: object,
         metadata: dict[str, Any] | None = None,
     ) -> None:
         self._ensure_session_dir(name)
         row = {
-            "role": role,
-            "content": _bounded_transcript_content(content),
+            "role": str(role),
+            "content": _bounded_transcript_content(str(content)),
             "metadata": _json_safe(metadata or {}),
         }
         transcript_path = self._transcript_path_for(name)

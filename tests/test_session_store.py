@@ -32,6 +32,23 @@ def test_session_store_appends_and_loads_transcript_turns(tmp_path) -> None:
     assert [row["role"] for row in rows] == ["user", "assistant"]
 
 
+def test_session_store_serializes_non_string_transcript_fields_on_append(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(
+        "default",
+        123,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+    )
+
+    session = store.load("default")
+
+    assert session.transcript[0].role == "123"
+    assert session.transcript[0].content == "None"
+
+
 def test_session_store_bounds_large_transcript_content_on_append(
     tmp_path: Path,
 ) -> None:
