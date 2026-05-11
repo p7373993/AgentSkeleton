@@ -14,6 +14,8 @@ class ToolRegistry:
             self.register(tool)
 
     def register(self, tool: Tool) -> None:
+        if not isinstance(tool.name, str):
+            raise ValueError("Tool name must be a string")
         name = tool.name.strip()
         if not name:
             raise ValueError("Tool name cannot be empty")
