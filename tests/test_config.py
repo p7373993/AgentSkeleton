@@ -68,6 +68,22 @@ def test_load_config_rejects_explicit_missing_file(tmp_path: Path) -> None:
         load_config(tmp_path / "missing.yaml")
 
 
+def test_load_config_reports_malformed_yaml(tmp_path: Path) -> None:
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("model: [unterminated\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Config file could not be parsed"):
+        load_config(config_path)
+
+
+def test_load_config_reports_invalid_utf8_yaml(tmp_path: Path) -> None:
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_bytes(b"\xff\xfe\x00broken")
+
+    with pytest.raises(ValueError, match=r"Config file could not be read as UTF-8"):
+        load_config(config_path)
+
+
 def test_load_config_uses_model_from_environment(monkeypatch) -> None:
     monkeypatch.setenv("AZURE_OPENAI_DEPLOYMENT", "gpt-5.4-mini")
 

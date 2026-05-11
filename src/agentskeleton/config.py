@@ -103,7 +103,16 @@ def load_config(
     if config_path is not None:
         if not config_path.exists():
             raise ValueError(f"Config file not found: {config_path}")
-        loaded = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        try:
+            config_text = config_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                f"Config file could not be read as UTF-8: {config_path}"
+            ) from exc
+        try:
+            loaded = yaml.safe_load(config_text) or {}
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Config file could not be parsed: {config_path}") from exc
         if not isinstance(loaded, dict):
             raise ValueError(f"Config file must contain a mapping: {config_path}")
         data.update(loaded)
