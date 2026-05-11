@@ -169,11 +169,20 @@ def _looks_like_remote_execution(command: str) -> bool:
         "python3",
         "node",
     )
-    segments = [segment.strip() for segment in command.split("|")]
+    segments = _split_shell_segments(command)
     for index, segment in enumerate(segments[:-1]):
         if not any(pattern in segment for pattern in fetch_patterns):
             continue
-        next_tokens = segments[index + 1].split()
-        if next_tokens and next_tokens[0] in executor_commands:
-            return True
+        for next_segment in segments[index + 1 :]:
+            next_tokens = next_segment.split()
+            if next_tokens and next_tokens[0] in executor_commands:
+                return True
     return False
+
+
+def _split_shell_segments(command: str) -> list[str]:
+    return [
+        segment.strip()
+        for segment in command.replace("&&", "|").replace(";", "|").split("|")
+        if segment.strip()
+    ]
