@@ -65,6 +65,9 @@ class PermissionPolicy:
         if _looks_like_encoded_command(normalized):
             return PermissionDecision("block", "Shell command uses encoded content")
 
+        if _looks_like_remote_execution(normalized):
+            return PermissionDecision("block", "Shell command executes remote content")
+
         if _looks_like_recursive_delete(normalized):
             return PermissionDecision("block", "Shell command looks destructive")
 
@@ -142,3 +145,35 @@ def _is_compact_recursive_flag(token: str) -> bool:
 def _looks_like_encoded_command(command: str) -> bool:
     tokens = command.replace(";", " ").replace("|", " ").split()
     return any(token in {"-encodedcommand", "-enc"} for token in tokens)
+
+
+def _looks_like_remote_execution(command: str) -> bool:
+    fetch_patterns = (
+        "curl ",
+        "curl.exe",
+        "wget ",
+        "invoke-webrequest",
+        "invoke-restmethod",
+        "iwr ",
+        "irm ",
+    )
+    executor_commands = (
+        "bash",
+        "sh",
+        "zsh",
+        "powershell",
+        "pwsh",
+        "iex",
+        "invoke-expression",
+        "python",
+        "python3",
+        "node",
+    )
+    segments = [segment.strip() for segment in command.split("|")]
+    for index, segment in enumerate(segments[:-1]):
+        if not any(pattern in segment for pattern in fetch_patterns):
+            continue
+        next_tokens = segments[index + 1].split()
+        if next_tokens and next_tokens[0] in executor_commands:
+            return True
+    return False
