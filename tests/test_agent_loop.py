@@ -102,6 +102,30 @@ class TagsRecordTool(RecordTool):
         return ToolResult(success=True, payload={"tags": args["tags"]}, summary="ok")
 
 
+class ConfigRecordTool(RecordTool):
+    name = "config_record"
+    args_schema = {
+        "type": "object",
+        "properties": {
+            "settings": {
+                "type": "object",
+                "properties": {"enabled": {"type": "boolean"}},
+                "required": ["enabled"],
+                "additionalProperties": False,
+            }
+        },
+        "required": ["settings"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return ToolResult(
+            success=True,
+            payload={"settings": args["settings"]},
+            summary="ok",
+        )
+
+
 class ExplodingTool(RecordTool):
     name = "explode"
 
@@ -583,6 +607,32 @@ def test_loop_rejects_invalid_array_item_tool_argument(tmp_path: Path) -> None:
     assert state.observations[0].result.payload["validation_errors"] == [
         "Argument tags[1] must be string"
     ]
+
+
+def test_loop_rejects_invalid_nested_object_tool_argument(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="config_record",
+                    arguments={"settings": {"enabled": "yes"}},
+                    call_id="call-1",
+                ),
+                FinalAction(text="recovered"),
+            ]
+        ),
+        registry=ToolRegistry([ConfigRecordTool()]),
+        logger=logger,
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].result.success is False
+    assert state.observations[0].result.payload["validation_errors"] == [
+        "Argument settings.enabled must be boolean"
+    ]
+    assert not any(event[0] == "tool_started" for event in logger.events)
 
 
 def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:

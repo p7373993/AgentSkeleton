@@ -456,21 +456,7 @@ def _validate_tool_arguments(
         property_schema = properties.get(name)
         if not isinstance(property_schema, dict):
             continue
-        expected_type = property_schema.get("type")
-        expected_types = _normalize_json_types(expected_type)
-        if expected_types and not any(
-            _matches_json_type(value, item) for item in expected_types
-        ):
-            errors.append(
-                f"Argument {name} must be {_format_json_types(expected_types)}"
-            )
-            continue
-        enum_values = property_schema.get("enum")
-        if isinstance(enum_values, list) and value not in enum_values:
-            errors.append(
-                f"Argument {name} must be one of: {_format_enum_values(enum_values)}"
-            )
-        errors.extend(_validate_array_items(name, value, property_schema))
+        errors.extend(_validate_schema_value(name, value, property_schema))
 
     return errors
 
@@ -491,6 +477,28 @@ def _format_enum_values(values: list[object]) -> str:
     return ", ".join(str(value) for value in values)
 
 
+def _validate_schema_value(
+    name: str,
+    value: object,
+    value_schema: dict[str, object],
+) -> list[str]:
+    expected_types = _normalize_json_types(value_schema.get("type"))
+    if expected_types and not any(
+        _matches_json_type(value, item) for item in expected_types
+    ):
+        return [f"Argument {name} must be {_format_json_types(expected_types)}"]
+
+    errors: list[str] = []
+    enum_values = value_schema.get("enum")
+    if isinstance(enum_values, list) and value not in enum_values:
+        errors.append(
+            f"Argument {name} must be one of: {_format_enum_values(enum_values)}"
+        )
+    errors.extend(_validate_array_items(name, value, value_schema))
+    errors.extend(_validate_nested_object(name, value, value_schema))
+    return errors
+
+
 def _validate_array_items(
     name: str,
     value: object,
@@ -503,22 +511,35 @@ def _validate_array_items(
         return []
 
     errors: list[str] = []
-    expected_types = _normalize_json_types(items_schema.get("type"))
-    enum_values = items_schema.get("enum")
     for index, item in enumerate(value):
-        item_name = f"{name}[{index}]"
-        if expected_types and not any(
-            _matches_json_type(item, expected_type) for expected_type in expected_types
-        ):
-            errors.append(
-                f"Argument {item_name} must be {_format_json_types(expected_types)}"
-            )
+        errors.extend(_validate_schema_value(f"{name}[{index}]", item, items_schema))
+    return errors
+
+
+def _validate_nested_object(
+    name: str,
+    value: object,
+    object_schema: dict[str, object],
+) -> list[str]:
+    if not isinstance(value, dict):
+        return []
+
+    properties = object_schema.get("properties", {})
+    if not isinstance(properties, dict):
+        properties = {}
+
+    errors: list[str] = []
+    for child_name, child_value in value.items():
+        child_schema = properties.get(child_name)
+        if not isinstance(child_schema, dict):
             continue
-        if isinstance(enum_values, list) and item not in enum_values:
-            errors.append(
-                f"Argument {item_name} must be one of: "
-                f"{_format_enum_values(enum_values)}"
+        errors.extend(
+            _validate_schema_value(
+                f"{name}.{child_name}",
+                child_value,
+                child_schema,
             )
+        )
     return errors
 
 
