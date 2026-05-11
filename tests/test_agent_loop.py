@@ -188,6 +188,38 @@ def test_loop_stops_on_final_answer(tmp_path: Path) -> None:
     assert state.step_count == 1
 
 
+def test_loop_bounds_logged_final_answer(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+    answer = "x" * 5_000
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text=answer)]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        trace=trace,
+    ).run("finish")
+
+    logged_answer = next(
+        event[2]["answer"] for event in logger.events if event[0] == "run_finished"
+    )
+    traced_answer = next(
+        event.payload["answer"]
+        for event in trace.events
+        if event.name == "run_finished"
+    )
+    assert state.final_status == "completed"
+    assert state.final_answer == answer
+    assert isinstance(logged_answer, dict)
+    assert logged_answer["truncated"] is True
+    assert logged_answer["bytes"] == 5_000
+    assert str(logged_answer["preview"]).startswith("xxxxxxxxxxxxxxxx")
+    assert len(str(logged_answer["preview"])) < 300
+    assert traced_answer == logged_answer
+    assert answer not in str(logger.events)
+
+
 def test_loop_rejects_blank_goal_before_model_call(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(

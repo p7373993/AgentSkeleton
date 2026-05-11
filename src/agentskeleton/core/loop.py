@@ -139,15 +139,7 @@ class AgentLoop:
                     return state
                 state.final_status = action.status
                 state.final_answer = action.text
-                self._emit_trace(
-                    "run_finished",
-                    {"status": state.final_status, "answer": action.text},
-                )
-                self._log_event(
-                    "run_finished",
-                    state.step_count,
-                    {"status": state.final_status, "answer": action.text},
-                )
+                self._log_run_finished(state)
                 return state
 
             if isinstance(action, ToolCallAction):
@@ -543,9 +535,16 @@ class AgentLoop:
         self._emit_trace("run_error", payload)
 
     def _log_run_finished(self, state: RunState) -> None:
-        payload = {"status": state.final_status, "answer": state.final_answer}
+        payload = {
+            "status": state.final_status,
+            "answer": (
+                _logged_text(state.final_answer)
+                if state.final_answer is not None
+                else None
+            ),
+        }
         if state.final_reason:
-            payload["reason"] = state.final_reason
+            payload["reason"] = _logged_text(state.final_reason)
         self._emit_trace("run_finished", payload)
         self._log_event("run_finished", state.step_count, payload)
 
