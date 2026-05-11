@@ -1800,6 +1800,23 @@ def test_show_run_ignores_invalid_utf8_log_lines(monkeypatch, tmp_path) -> None:
     assert payload["steps"] == 3
 
 
+def test_show_run_rejects_oversized_log_before_reading(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    log_path.write_bytes(b"x" * 2_097_153)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 1
+    assert "Run log error: Run log exceeds 2097152 bytes" in result.stdout
+
+
 def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     first_dir = tmp_path / "runs" / "20260510"

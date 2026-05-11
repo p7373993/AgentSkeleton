@@ -40,6 +40,7 @@ configure_streams_for_unicode(sys.stdout, sys.stderr)
 
 app = typer.Typer(help="Run a minimal local CLI agent.")
 console = Console()
+MAX_RUN_LOG_BYTES = 2_097_152
 
 
 def build_default_registry(
@@ -879,7 +880,11 @@ def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
 
     events: list[dict[str, Any]] = []
     try:
+        if log_path.stat().st_size > MAX_RUN_LOG_BYTES:
+            raise ValueError(f"Run log exceeds {MAX_RUN_LOG_BYTES} bytes: {log_path}")
         raw_lines = log_path.read_bytes().splitlines()
+    except ValueError:
+        raise
     except OSError as exc:
         raise ValueError(f"Run log could not be read: {log_path}") from exc
     for raw_line in raw_lines:
