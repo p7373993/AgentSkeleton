@@ -650,6 +650,10 @@ def restore_run(
         raise typer.Exit(1)
 
     store = SessionStore(loaded.logs_dir)
+    if _session_has_restored_run(store, session, run_id):
+        console.print(f"Run {run_id} is already restored in session {session}")
+        return
+
     store.append_transcript(
         session,
         "user",
@@ -668,6 +672,18 @@ def restore_run(
         store.append_transcript(session, "assistant", assistant_content, metadata)
 
     console.print(f"Restored run {run_id} into session {session}")
+
+
+def _session_has_restored_run(
+    store: SessionStore,
+    session: str,
+    run_id: str,
+) -> bool:
+    return any(
+        turn.metadata.get("source") == "run_log"
+        and turn.metadata.get("run_id") == run_id
+        for turn in store.load(session).transcript
+    )
 
 
 def main() -> None:

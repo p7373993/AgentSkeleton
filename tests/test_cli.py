@@ -1772,3 +1772,41 @@ def test_restore_run_imports_final_answer(monkeypatch, tmp_path) -> None:
         "source": "run_log",
         "status": "completed",
     }
+
+
+def test_restore_run_does_not_duplicate_existing_import(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "summarize"},
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "summary done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    first = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+    second = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert first.exit_code == 0
+    assert second.exit_code == 0
+    assert "already restored" in second.stdout
+    session = SessionStore(tmp_path / "runs").load("work")
+    assert [turn.content for turn in session.transcript] == [
+        "summarize",
+        "summary done",
+    ]
