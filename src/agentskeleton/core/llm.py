@@ -190,9 +190,10 @@ class LLMClient:
         return state.goal
 
     def _conversation_items(self, state: RunState) -> list[dict[str, str]]:
+        conversation = state.conversation[-self.config.session_context_turns :]
         return [
             {"role": turn.role, "content": turn.content}
-            for turn in [*state.conversation, _current_user_turn(state.goal)]
+            for turn in [*conversation, _current_user_turn(state.goal)]
         ]
 
     def _serialize_output_item(self, item: Any) -> dict[str, Any]:

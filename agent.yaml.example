@@ -6,6 +6,9 @@ base_url: null
 reasoning_effort: low
 text_verbosity: low
 max_steps: 20
+# Number of prior transcript turns sent to the model for session resume/chat.
+# Full transcripts remain persisted under logs_dir.
+session_context_turns: 20
 workspace: "."
 permission_profile: standard
 confirm_risky_actions: true
