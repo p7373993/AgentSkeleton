@@ -17,7 +17,7 @@ from agentskeleton.core.actions import (
     ToolCallBatchAction,
 )
 from agentskeleton.core.loop import AgentLoop
-from agentskeleton.core.state import RunState
+from agentskeleton.core.state import ConversationMessage, RunState
 from agentskeleton.core.trace import NullTraceSink
 from agentskeleton.logging.run_logger import RunLogger
 from agentskeleton.policy.paths import PathSecurityError, resolve_workspace_path
@@ -55,6 +55,7 @@ class Scenario:
     files: dict[str, str] = field(default_factory=dict)
     config_overrides: dict[str, object] = field(default_factory=dict)
     user_answers: list[str] = field(default_factory=list)
+    conversation: list[ConversationMessage] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -185,6 +186,7 @@ def load_scenario(path: Path) -> Scenario:
     files = _parse_files(raw.get("files", {}))
     config_overrides = _parse_config_overrides(raw.get("config", {}))
     user_answers = _parse_user_answers(raw.get("user_answers", []))
+    conversation = _parse_conversation(raw.get("conversation", []))
     name = raw.get("name") or path.stem
     return Scenario(
         name=str(name),
@@ -195,6 +197,7 @@ def load_scenario(path: Path) -> Scenario:
         files=files,
         config_overrides=config_overrides,
         user_answers=user_answers,
+        conversation=conversation,
     )
 
 
@@ -248,7 +251,11 @@ def run_scenario(
             else None
         ),
     )
-    state = loop.run(scenario.goal, trace_context={"scenario": scenario.name})
+    state = loop.run(
+        scenario.goal,
+        conversation=scenario.conversation,
+        trace_context={"scenario": scenario.name},
+    )
     log_path = Path(logger.path).resolve()
     failures = _compare_expectations(scenario.expect, state, workspace, log_path)
     return ScenarioResult(
@@ -348,6 +355,33 @@ def _parse_user_answers(raw: object) -> list[str]:
     if not isinstance(raw, list):
         raise ValueError("Scenario user_answers must be a list")
     return [str(answer) for answer in raw]
+
+
+def _parse_conversation(raw: object) -> list[ConversationMessage]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("Scenario conversation must be a list")
+
+    conversation: list[ConversationMessage] = []
+    for index, item in enumerate(raw, 1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Scenario conversation turn {index} must be a mapping")
+        role = item.get("role", "user")
+        content = item.get("content", "")
+        metadata = item.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            raise ValueError(
+                f"Scenario conversation turn {index} metadata must be a mapping"
+            )
+        conversation.append(
+            ConversationMessage(
+                role=str(role),
+                content=str(content),
+                metadata=dict(metadata),
+            )
+        )
+    return conversation
 
 
 def _scripted_user_answers(answers: list[str]) -> Callable[[str], str]:

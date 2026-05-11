@@ -365,6 +365,44 @@ def test_run_scenario_uses_scripted_user_answers(tmp_path: Path) -> None:
     assert result.failures == []
 
 
+def test_run_scenario_starts_with_declared_conversation(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "resume-context.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: resume-context",
+                "goal: continue the prior task",
+                "conversation:",
+                "  - role: user",
+                "    content: remember alpha",
+                "  - role: assistant",
+                "    content: alpha stored",
+                "actions:",
+                "  - type: final",
+                "    text: resumed ok",
+                "expect:",
+                "  status: completed",
+                "  answer: resumed ok",
+                "  events:",
+                "    - type: run_started",
+                "      payload:",
+                "        resumed: true",
+                "        conversation_turns: 2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
 def test_run_scenario_executes_scripted_model_error_and_checks_reason(
     tmp_path: Path,
 ) -> None:

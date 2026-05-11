@@ -1,0 +1,24 @@
+name: resume-context
+domain: reliability
+goal: Continue a task with prior conversation context.
+conversation:
+  - role: user
+    content: remember alpha
+  - role: assistant
+    content: alpha stored
+actions:
+  - type: final
+    text: resume context ok
+expect:
+  status: completed
+  answer: resume context ok
+  events:
+    - type: run_started
+      payload:
+        resumed: true
+        conversation_turns: 2
+        scenario: resume-context
+    - type: run_finished
+      payload:
+        status: completed
+        answer: resume context ok
