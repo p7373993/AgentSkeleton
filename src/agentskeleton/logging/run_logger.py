@@ -9,6 +9,7 @@ from typing import Any
 
 _MAX_RUN_LOG_STEM_LENGTH = 120
 _MAX_REDACT_DEPTH = 64
+_MAX_LOG_STRING_CHARS = 4_096
 _MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 _WINDOWS_RESERVED_LOG_BASENAMES = {
     "CON",
@@ -97,10 +98,17 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
                 redacted = pattern.sub(r"\1[REDACTED]", redacted)
             else:
                 redacted = pattern.sub("[REDACTED]", redacted)
-        return redacted
+        return _bounded_log_string(redacted)
     if value is None or isinstance(value, int | float | bool):
         return value
     return str(value)
+
+
+def _bounded_log_string(value: str) -> str:
+    if len(value) <= _MAX_LOG_STRING_CHARS:
+        return value
+    omitted = len(value) - _MAX_LOG_STRING_CHARS
+    return f"{value[:_MAX_LOG_STRING_CHARS]}\n[truncated {omitted} characters]"
 
 
 def _is_secret_key(key: object) -> bool:

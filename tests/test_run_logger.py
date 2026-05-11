@@ -166,6 +166,24 @@ def test_run_logger_redacts_common_token_and_secret_names(tmp_path: Path) -> Non
     assert "visible-value" in raw
 
 
+def test_run_logger_bounds_large_payload_strings(tmp_path: Path) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+    large_output = "x" * 20_000
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={"stdout": large_output},
+    )
+
+    raw = logger.path.read_text(encoding="utf-8")
+    event = json.loads(raw.splitlines()[0])
+    assert len(event["payload"]["stdout"]) < 5_000
+    assert event["payload"]["stdout"].startswith("xxxxxxxxxxxxxxxx")
+    assert "[truncated" in event["payload"]["stdout"]
+    assert large_output not in raw
+
+
 def test_run_logger_serializes_non_json_payload_values(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
     marker = object()
