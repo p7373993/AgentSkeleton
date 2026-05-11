@@ -420,12 +420,15 @@ class AgentLoop:
 
 
 def _action_fingerprint(action: ToolCallAction) -> str:
-    arguments = json.dumps(
-        action.arguments,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    )
+    try:
+        arguments = json.dumps(
+            action.arguments,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
+    except (TypeError, ValueError):
+        arguments = repr(action.arguments)
     return f"{action.tool_name}:{arguments}"
 
 
@@ -435,6 +438,8 @@ def _validate_tool_arguments(
 ) -> list[str]:
     if not isinstance(arguments, dict):
         return ["Tool arguments must be an object"]
+    if not all(isinstance(name, str) for name in arguments):
+        return ["Tool argument names must be strings"]
 
     if schema.get("type") != "object":
         return []

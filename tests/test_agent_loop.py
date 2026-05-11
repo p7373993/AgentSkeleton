@@ -568,6 +568,39 @@ def test_loop_rejects_non_object_tool_arguments_before_execution(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_non_string_tool_argument_names_before_execution(
+    tmp_path: Path,
+) -> None:
+    bad_key = object()
+    arguments = {bad_key: "x"}
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                tool_name="record",
+                arguments=arguments,
+                call_id="call-1",
+            ),
+            FinalAction(text="recovered"),
+        ],
+        logger,
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "block"
+    assert observation.result.success is False
+    assert observation.result.payload == {
+        "tool_name": "record",
+        "arguments": arguments,
+        "validation_errors": ["Tool argument names must be strings"],
+    }
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_rejects_invalid_union_type_tool_argument(tmp_path: Path) -> None:
     state = AgentLoop(
         config=RunConfig(workspace=tmp_path),
