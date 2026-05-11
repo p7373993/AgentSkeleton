@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from agentskeleton.config import RunConfig
 from agentskeleton.core.actions import FinalAction, ToolCallAction, ToolCallBatchAction
 from agentskeleton.core.loop import AgentLoop
@@ -199,6 +201,52 @@ def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:
         "tool_name": "missing",
         "arguments": {"value": "x"},
     }
+
+
+@pytest.mark.parametrize(
+    ("arguments", "validation_errors"),
+    [
+        ({}, ["Missing required argument: value"]),
+        ({"value": 123}, ["Argument value must be string"]),
+        (
+            {"value": "x", "extra": "y"},
+            ["Unexpected argument: extra"],
+        ),
+    ],
+)
+def test_loop_rejects_invalid_tool_arguments_before_execution(
+    tmp_path: Path,
+    arguments: dict[str, object],
+    validation_errors: list[str],
+) -> None:
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                tool_name="record",
+                arguments=arguments,
+                call_id="call-1",
+            ),
+            FinalAction(text="recovered"),
+        ],
+        logger,
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "block"
+    assert observation.result.success is False
+    assert observation.result.summary == "Invalid tool arguments"
+    assert observation.result.error == "Invalid arguments"
+    assert observation.result.payload == {
+        "tool_name": "record",
+        "arguments": arguments,
+        "validation_errors": validation_errors,
+    }
+    assert not any(event[0] == "tool_started" for event in logger.events)
 
 
 def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:

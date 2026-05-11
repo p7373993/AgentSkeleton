@@ -180,6 +180,24 @@ class AgentLoop:
             state.final_reason = result.summary
             return
 
+        validation_errors = _validate_tool_arguments(tool.args_schema, action.arguments)
+        if validation_errors:
+            result = ToolResult(
+                success=False,
+                payload={
+                    "tool_name": tool.name,
+                    "arguments": action.arguments,
+                    "validation_errors": validation_errors,
+                },
+                summary="Invalid tool arguments",
+                error="Invalid arguments",
+            )
+            state.observations.append(
+                ToolObservation(action.call_id, tool.name, "block", result)
+            )
+            self._log_tool_finished(state, tool.name, result)
+            return
+
         decision = self.policy.decide(tool.name, action.arguments, tool.risk)
         self.logger.log(
             "policy_decision",
@@ -338,3 +356,56 @@ def _action_fingerprint(action: ToolCallAction) -> str:
         default=str,
     )
     return f"{action.tool_name}:{arguments}"
+
+
+def _validate_tool_arguments(
+    schema: dict[str, object],
+    arguments: dict[str, object],
+) -> list[str]:
+    if schema.get("type") != "object":
+        return []
+
+    properties = schema.get("properties", {})
+    if not isinstance(properties, dict):
+        properties = {}
+
+    errors: list[str] = []
+    required = schema.get("required", [])
+    if isinstance(required, list):
+        for name in required:
+            if isinstance(name, str) and name not in arguments:
+                errors.append(f"Missing required argument: {name}")
+
+    if schema.get("additionalProperties") is False:
+        for name in arguments:
+            if name not in properties:
+                errors.append(f"Unexpected argument: {name}")
+
+    for name, value in arguments.items():
+        property_schema = properties.get(name)
+        if not isinstance(property_schema, dict):
+            continue
+        expected_type = property_schema.get("type")
+        if isinstance(expected_type, str) and not _matches_json_type(
+            value,
+            expected_type,
+        ):
+            errors.append(f"Argument {name} must be {expected_type}")
+
+    return errors
+
+
+def _matches_json_type(value: object, expected_type: str) -> bool:
+    if expected_type == "string":
+        return isinstance(value, str)
+    if expected_type == "boolean":
+        return isinstance(value, bool)
+    if expected_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == "number":
+        return isinstance(value, int | float) and not isinstance(value, bool)
+    if expected_type == "object":
+        return isinstance(value, dict)
+    if expected_type == "array":
+        return isinstance(value, list)
+    return True
