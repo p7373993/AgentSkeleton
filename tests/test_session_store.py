@@ -71,6 +71,30 @@ def test_session_store_serializes_non_json_metadata_values(tmp_path: Path) -> No
     assert session.transcript[0].metadata["42"] == "numeric key"
 
 
+def test_session_store_bounds_large_transcript_metadata_values(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+    large_metadata = "x" * 20_000
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata={"blob": large_metadata, "attempt": 1},
+    )
+
+    session = store.load("default")
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    blob = session.transcript[0].metadata["blob"]
+    assert isinstance(blob, dict)
+    assert blob["truncated"] is True
+    assert blob["bytes"] == 20_000
+    assert str(blob["preview"]).startswith("xxxxxxxxxxxxxxxx")
+    assert session.transcript[0].metadata["attempt"] == 1
+    assert large_metadata not in transcript_path.read_text(encoding="utf-8")
+
+
 def test_session_store_serializes_recursive_metadata_values(tmp_path: Path) -> None:
     store = SessionStore(tmp_path)
     metadata = {}

@@ -10,6 +10,8 @@ from agentskeleton.core.state import ConversationMessage
 _MAX_SESSION_DIR_NAME_LENGTH = 120
 _MAX_SESSION_FILE_BYTES = 2_097_152
 _MAX_TRANSCRIPT_CONTENT_CHARS = 4_096
+_MAX_TRANSCRIPT_METADATA_VALUE_CHARS = 4_096
+_MAX_TRANSCRIPT_METADATA_PREVIEW_CHARS = 200
 _WINDOWS_RESERVED_SESSION_BASENAMES = {
     "CON",
     "PRN",
@@ -353,6 +355,19 @@ def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
             return [_json_safe(item, seen) for item in value]
         finally:
             seen.remove(marker)
-    if value is None or isinstance(value, int | float | bool | str):
+    if isinstance(value, str):
+        return _bounded_metadata_string(value)
+    if value is None or isinstance(value, int | float | bool):
         return value
-    return str(value)
+    return _bounded_metadata_string(str(value))
+
+
+def _bounded_metadata_string(value: str) -> str | dict[str, object]:
+    encoded = value.encode("utf-8", errors="replace")
+    if len(value) <= _MAX_TRANSCRIPT_METADATA_VALUE_CHARS:
+        return value
+    return {
+        "truncated": True,
+        "bytes": len(encoded),
+        "preview": f"{value[:_MAX_TRANSCRIPT_METADATA_PREVIEW_CHARS]}...",
+    }
