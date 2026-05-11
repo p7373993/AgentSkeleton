@@ -54,6 +54,15 @@ def _ensure_file_size_or_error(path: Path, label: str) -> None:
         raise ValueError(f"{label} exceeds {MAX_CONFIG_FILE_BYTES} bytes: {path}")
 
 
+def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
+    for name in value:
+        if not name.strip():
+            raise ValueError(f"{field_name} cannot contain empty names")
+        if any(character.isspace() for character in name):
+            raise ValueError(f"{field_name} cannot contain whitespace")
+    return value
+
+
 class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_default=True)
 
@@ -100,18 +109,12 @@ class RunConfig(BaseModel):
     def reject_empty_tool_names(cls, value: list[str] | None) -> list[str] | None:
         if value is None:
             return None
-        for name in value:
-            if not name.strip():
-                raise ValueError("enabled_tools cannot contain empty names")
-        return value
+        return _reject_invalid_name_list(value, "enabled_tools")
 
     @field_validator("tool_modules")
     @classmethod
     def reject_empty_tool_modules(cls, value: list[str]) -> list[str]:
-        for name in value:
-            if not name.strip():
-                raise ValueError("tool_modules cannot contain empty names")
-        return value
+        return _reject_invalid_name_list(value, "tool_modules")
 
 
 def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:

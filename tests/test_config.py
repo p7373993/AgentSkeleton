@@ -306,6 +306,22 @@ def test_config_rejects_blank_model_settings(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, text_verbosity="   ")
 
 
+def test_config_rejects_whitespace_in_enabled_tools(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="enabled_tools cannot contain whitespace"):
+        RunConfig(workspace=tmp_path, enabled_tools=[" read_file"])
+
+    with pytest.raises(ValueError, match="enabled_tools cannot contain whitespace"):
+        RunConfig(workspace=tmp_path, enabled_tools=["read file"])
+
+
+def test_config_rejects_whitespace_in_tool_modules(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="tool_modules cannot contain whitespace"):
+        RunConfig(workspace=tmp_path, tool_modules=[" custom_tools"])
+
+    with pytest.raises(ValueError, match="tool_modules cannot contain whitespace"):
+        RunConfig(workspace=tmp_path, tool_modules=["custom tools"])
+
+
 def test_config_rejects_workspace_file(tmp_path: Path) -> None:
     workspace_file = tmp_path / "workspace"
     workspace_file.write_text("not a directory", encoding="utf-8")
