@@ -22,12 +22,14 @@ expect:
   answer: batch read ok
   observations: 2
   observations_detail:
-    - tool: read_file
+    - call_id: read-one
+      tool: read_file
       success: true
       payload:
         path: data/one.txt
         content: one
-    - tool: read_file
+    - call_id: read-two
+      tool: read_file
       success: true
       payload:
         path: data/two.txt

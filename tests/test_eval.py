@@ -859,6 +859,48 @@ def test_run_scenario_reports_observation_detail_mismatch(tmp_path: Path) -> Non
     assert result.failures == ["observation 1 success expected True but got False"]
 
 
+def test_run_scenario_reports_observation_call_id_mismatch(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "call-id-mismatch.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: call-id-mismatch",
+                "goal: read a note",
+                "files:",
+                "  note.txt: hello",
+                "actions:",
+                "  - type: tool",
+                "    tool: read_file",
+                "    call_id: actual-call",
+                "    arguments:",
+                "      path: note.txt",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+                "  answer: done",
+                "  observations: 1",
+                "  observations_detail:",
+                "    - call_id: expected-call",
+                "      tool: read_file",
+                "      success: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == [
+        "observation 1 call_id expected 'expected-call' but got 'actual-call'",
+    ]
+
+
 def test_run_scenario_checks_expected_log_events(tmp_path: Path) -> None:
     scenario_path = tmp_path / "events.yaml"
     scenario_path.write_text(

@@ -778,6 +778,13 @@ def _expect_observations(
         _expect_observation_field(
             failures,
             number,
+            "call_id",
+            raw_expected,
+            observation.call_id,
+        )
+        _expect_observation_field(
+            failures,
+            number,
             "tool",
             raw_expected,
             observation.tool_name,
