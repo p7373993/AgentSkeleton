@@ -101,6 +101,17 @@ def test_load_config_reads_dotenv_without_overriding_real_environment(
     assert "AZURE_EXISTING_AIPROJECT_ENDPOINT" not in os.environ
 
 
+def test_load_config_reports_invalid_utf8_dotenv(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_bytes(b"\xff\xfe\x00broken")
+
+    with pytest.raises(ValueError, match=r"Dotenv file could not be read as UTF-8"):
+        load_config()
+
+
 def test_config_rejects_non_positive_limits(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         RunConfig(workspace=tmp_path, max_steps=0)

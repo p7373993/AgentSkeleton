@@ -54,7 +54,12 @@ def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:
         return {}
 
     values: dict[str, str] = {}
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"Dotenv file could not be read as UTF-8: {path}") from exc
+
+    for raw_line in lines:
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
