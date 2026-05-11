@@ -13,6 +13,29 @@ FETCH_COMMANDS = {
 }
 EXPRESSION_EXECUTOR_COMMANDS = {"iex", "invoke-expression"}
 GIT_NETWORK_SUBCOMMANDS = {"clone", "fetch", "ls-remote", "pull", "push"}
+GH_NETWORK_SUBCOMMANDS = {
+    "api",
+    "attestation",
+    "auth",
+    "cache",
+    "codespace",
+    "extension",
+    "gist",
+    "issue",
+    "label",
+    "pr",
+    "project",
+    "release",
+    "repo",
+    "ruleset",
+    "run",
+    "search",
+    "secret",
+    "ssh-key",
+    "status",
+    "variable",
+    "workflow",
+}
 POWERSHELL_COMMANDS = {"powershell", "pwsh"}
 SHELL_EVAL_COMMANDS = {
     "bash",
@@ -133,6 +156,7 @@ class PermissionPolicy:
         has_network_access = (
             _contains_fetch_command(normalized)
             or _contains_git_network_command(normalized)
+            or _contains_gh_network_command(normalized)
         ) or any(
             net in normalized for net in network_library_patterns
         )
@@ -266,6 +290,13 @@ def _contains_git_network_command(command: str) -> bool:
     )
 
 
+def _contains_gh_network_command(command: str) -> bool:
+    return any(
+        _segment_has_gh_network_command(segment)
+        for segment in _split_shell_segments(command)
+    )
+
+
 def _segment_has_fetch_command(segment: str) -> bool:
     return any(
         _normalize_executable_token(token) in FETCH_COMMANDS
@@ -279,6 +310,16 @@ def _segment_has_git_network_command(segment: str) -> bool:
         return False
     return any(
         _normalize_option_token(token) in GIT_NETWORK_SUBCOMMANDS
+        for token in tokens[1:]
+    )
+
+
+def _segment_has_gh_network_command(segment: str) -> bool:
+    tokens = segment.split()
+    if _first_executable_token(tokens) != "gh":
+        return False
+    return any(
+        _normalize_option_token(token) in GH_NETWORK_SUBCOMMANDS
         for token in tokens[1:]
     )
 

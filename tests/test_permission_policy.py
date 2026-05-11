@@ -440,6 +440,9 @@ def test_policy_confirms_package_install_shell_commands(command: str) -> None:
         "git clone https://example.test/repo.git",
         "git fetch origin",
         "git pull --rebase",
+        "gh pr view 123",
+        "gh api /user",
+        "gh repo clone owner/repo",
     ],
 )
 def test_policy_confirms_network_shell_commands(command: str) -> None:
