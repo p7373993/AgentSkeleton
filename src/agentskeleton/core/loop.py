@@ -82,7 +82,7 @@ class AgentLoop:
         conversation: list[ConversationMessage | dict[str, object]] | None = None,
         trace_context: object | None = None,
     ) -> RunState:
-        normalized_goal = str(goal)
+        normalized_goal = _safe_text(goal)
         state = RunState(
             run_id=self.run_id or str(uuid4()),
             workspace=self.config.workspace,
@@ -267,7 +267,7 @@ class AgentLoop:
                 continue
             if not isinstance(turn, Mapping):
                 normalized.append(
-                    ConversationMessage(role="user", content=str(turn)),
+                    ConversationMessage(role="user", content=_safe_text(turn)),
                 )
                 continue
             normalized.append(
@@ -749,6 +749,13 @@ def _exception_text(exc: BaseException) -> str:
         return type(exc).__name__
 
 
+def _safe_text(value: object) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return UNINSPECTABLE_VALUE
+
+
 def _bounded_stored_tool_result(result: ToolResult) -> ToolResult:
     payload = _bounded_stored_tool_payload(result.payload)
     summary = _bounded_stored_tool_text(result.summary)
@@ -960,8 +967,8 @@ def _conversation_message(
     metadata: object,
 ) -> ConversationMessage:
     return ConversationMessage(
-        role=str(role),
-        content=str(content),
+        role=_safe_text(role),
+        content=_safe_text(content),
         metadata=metadata if isinstance(metadata, dict) else {},
     )
 

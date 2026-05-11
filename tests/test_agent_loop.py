@@ -427,6 +427,37 @@ def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:
     ) in logger.events
 
 
+def test_loop_normalizes_unstringable_goal(tmp_path: Path) -> None:
+    class UnstringableGoal:
+        def __str__(self) -> str:
+            raise RuntimeError("goal unavailable")
+
+    logger = MemoryLogger()
+    seen_goals: list[str] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_goals.append(state.goal)
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run(UnstringableGoal())  # type: ignore[arg-type]
+
+    assert state.final_status == "completed"
+    assert state.goal == "<uninspectable>"
+    assert seen_goals == ["<uninspectable>"]
+    assert logger.events[0][2]["goal"] == "<uninspectable>"
+    assert (
+        "model_requested",
+        1,
+        {"goal": "<uninspectable>"},
+    ) in logger.events
+
+
 def test_loop_bounds_logged_goal_without_changing_model_input(tmp_path: Path) -> None:
     logger = MemoryLogger()
     trace = MemoryTraceSink()
@@ -2286,6 +2317,42 @@ def test_loop_treats_scalar_conversation_as_single_user_turn(
     assert logger.events[0][2]["conversation_turns"] == 1
 
 
+def test_loop_normalizes_unstringable_scalar_conversation_entry(
+    tmp_path: Path,
+) -> None:
+    class UnstringableEntry:
+        def __str__(self) -> str:
+            raise RuntimeError("entry unavailable")
+
+    logger = MemoryLogger()
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in state.conversation
+                ]
+            )
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run(
+        "continue",
+        conversation=UnstringableEntry(),  # type: ignore[arg-type]
+    )
+
+    assert state.final_status == "completed"
+    assert seen_conversation == [[("user", "<uninspectable>", {})]]
+    assert logger.events[0][2]["resumed"] is True
+    assert logger.events[0][2]["conversation_turns"] == 1
+
+
 def test_loop_normalizes_non_mapping_conversation_entries(tmp_path: Path) -> None:
     logger = MemoryLogger()
     seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
@@ -2358,3 +2425,42 @@ def test_loop_sanitizes_conversation_message_entries(tmp_path: Path) -> None:
 
     assert state.final_status == "completed"
     assert seen_conversation == [[("123", "None", {})]]
+
+
+def test_loop_sanitizes_unstringable_conversation_message_fields(
+    tmp_path: Path,
+) -> None:
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("field unavailable")
+
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in state.conversation
+                ]
+            )
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+    ).run(
+        "continue",
+        conversation=[
+            {
+                "role": UnstringableValue(),
+                "content": UnstringableValue(),
+                "metadata": ["bad"],
+            }
+        ],
+    )
+
+    assert state.final_status == "completed"
+    assert seen_conversation == [[("<uninspectable>", "<uninspectable>", {})]]
