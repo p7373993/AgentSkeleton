@@ -25,6 +25,7 @@ MAX_TOOL_RESULT_OUTPUT_BYTES = 1_048_576
 MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
 MAX_RESPONSE_OUTPUT_ITEMS = 100
 MAX_FUNCTION_CALL_ARGUMENT_BYTES = 2_097_152
+MAX_CONVERSATION_CONTENT_CHARS = 4_096
 
 
 class MissingAPIKeyError(RuntimeError):
@@ -222,7 +223,7 @@ class LLMClient:
             if turn.metadata.get("sticky_context") is not True
         ][-self.config.session_context_turns :]
         return [
-            {"role": turn.role, "content": turn.content}
+            {"role": turn.role, "content": _bounded_conversation_content(turn.content)}
             for turn in [*sticky_context, *conversation, _current_user_turn(state.goal)]
         ]
 
@@ -302,6 +303,16 @@ class LLMClient:
 
 def _current_user_turn(goal: str) -> ConversationMessage:
     return ConversationMessage(role="user", content=goal)
+
+
+def _bounded_conversation_content(content: str) -> str:
+    if len(content) <= MAX_CONVERSATION_CONTENT_CHARS:
+        return content
+    omitted = len(content) - MAX_CONVERSATION_CONTENT_CHARS
+    return (
+        f"{content[:MAX_CONVERSATION_CONTENT_CHARS]}"
+        f"\n[truncated {omitted} characters]"
+    )
 
 
 def _is_context_item(item: object) -> bool:

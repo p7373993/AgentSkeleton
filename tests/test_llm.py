@@ -750,6 +750,31 @@ def test_llm_client_limits_transcript_context_to_recent_turns(tmp_path) -> None:
     ]
 
 
+def test_llm_client_bounds_large_transcript_turn_content(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-1", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    large_content = "x" * 20_000
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="current",
+        conversation=[
+            ConversationMessage(role="user", content=large_content),
+        ],
+    )
+
+    LLMClient(RunConfig(workspace=tmp_path), client=fake_client).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    content = fake_client.responses.calls[0]["input"][0]["content"]
+    assert len(content) < 5_000
+    assert content.startswith("xxxxxxxxxxxxxxxx")
+    assert "[truncated" in content
+    assert large_content not in json.dumps(fake_client.responses.calls[0]["input"])
+
+
 def test_llm_client_keeps_sticky_summary_when_limiting_transcript_context(
     tmp_path,
 ) -> None:
