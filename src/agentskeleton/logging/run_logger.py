@@ -28,7 +28,7 @@ SECRET_KEYS = {
 def redact(value: Any) -> Any:
     if isinstance(value, dict):
         return {
-            key: "[REDACTED]" if _is_secret_key(key) else redact(item)
+            str(key): "[REDACTED]" if _is_secret_key(key) else redact(item)
             for key, item in value.items()
         }
     if isinstance(value, list):
@@ -41,7 +41,9 @@ def redact(value: Any) -> Any:
             else:
                 redacted = pattern.sub("[REDACTED]", redacted)
         return redacted
-    return value
+    if value is None or isinstance(value, int | float | bool):
+        return value
+    return str(value)
 
 
 def _is_secret_key(key: object) -> bool:

@@ -77,3 +77,23 @@ def test_run_logger_redacts_secret_mapping_values(tmp_path: Path) -> None:
     assert "hunter2" not in raw
     assert "token123" not in raw
     assert raw.count("[REDACTED]") == 3
+
+
+def test_run_logger_serializes_non_json_payload_values(tmp_path: Path) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+    marker = object()
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={
+            "workspace": tmp_path,
+            "raw": marker,
+            42: "numeric key",
+        },
+    )
+
+    event = json.loads(logger.path.read_text(encoding="utf-8").splitlines()[0])
+    assert event["payload"]["workspace"] == str(tmp_path)
+    assert event["payload"]["raw"] == str(marker)
+    assert event["payload"]["42"] == "numeric key"
