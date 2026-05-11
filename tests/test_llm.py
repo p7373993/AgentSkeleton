@@ -430,6 +430,38 @@ def test_llm_client_rejects_function_call_without_call_id(tmp_path) -> None:
         ).next_action(state, ToolRegistry([DummyTool()]))
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("name", "a" * 513, "Function call name exceeds 512 bytes"),
+        ("call_id", "a" * 513, "Function call call_id exceeds 512 bytes"),
+    ],
+)
+def test_llm_client_rejects_oversized_function_call_metadata(
+    tmp_path,
+    field: str,
+    value: str,
+    message: str,
+) -> None:
+    item = {
+        "type": "function_call",
+        "name": "read_file",
+        "arguments": "{}",
+        "call_id": "call-1",
+    }
+    item[field] = value
+    response = SimpleNamespace(id="resp-1", output_text="", output=[item])
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(LLMResponseError, match=message):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_rejects_invalid_function_call_arguments_json(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",

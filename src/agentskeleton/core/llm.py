@@ -28,6 +28,7 @@ MAX_FUNCTION_CALL_ARGUMENT_BYTES = 2_097_152
 MAX_CONVERSATION_CONTENT_CHARS = 4_096
 MAX_CONVERSATION_ROLE_CHARS = 64
 ALLOWED_CONVERSATION_ROLES = {"assistant", "developer", "system", "user"}
+MAX_FUNCTION_CALL_METADATA_BYTES = 512
 MAX_JSON_SAFE_DEPTH = 64
 MAX_JSON_SAFE_ITEMS = 200
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
@@ -314,10 +315,19 @@ class LLMClient:
         name = _read_attr(item, "name")
         if not isinstance(name, str) or not name.strip():
             raise LLMResponseError("Function call missing name")
+        if len(name.encode("utf-8")) > MAX_FUNCTION_CALL_METADATA_BYTES:
+            raise LLMResponseError(
+                f"Function call name exceeds {MAX_FUNCTION_CALL_METADATA_BYTES} bytes"
+            )
 
         call_id = _read_attr(item, "call_id")
         if not isinstance(call_id, str) or not call_id.strip():
             raise LLMResponseError("Function call missing call_id")
+        if len(call_id.encode("utf-8")) > MAX_FUNCTION_CALL_METADATA_BYTES:
+            raise LLMResponseError(
+                "Function call call_id exceeds "
+                f"{MAX_FUNCTION_CALL_METADATA_BYTES} bytes"
+            )
 
         return ToolCallAction(
             tool_name=name,
