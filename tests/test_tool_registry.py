@@ -754,6 +754,16 @@ def test_load_tools_from_module_rejects_non_string_module_name() -> None:
         load_tools_from_modules([123])
 
 
+def test_load_tools_from_modules_rejects_too_many_module_names() -> None:
+    with pytest.raises(ValueError, match="Cannot load more than 128 tool modules"):
+        load_tools_from_modules([f"module_{index}" for index in range(129)])
+
+
+def test_load_tools_from_module_rejects_oversized_module_name() -> None:
+    with pytest.raises(ValueError, match="Tool module name exceeds 512 bytes"):
+        load_tools_from_modules(["a" * 513])
+
+
 def test_load_tools_from_module_rejects_blank_module_name() -> None:
     with pytest.raises(ValueError, match="Tool module name cannot be blank"):
         load_tools_from_modules(["   "])

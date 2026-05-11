@@ -5,11 +5,16 @@ from agentskeleton.tools.base import Tool
 from agentskeleton.tools.registry import ToolRegistry
 
 _PROTECTED_PARENT_MODULES = ("agentskeleton",)
+MAX_TOOL_MODULES = 128
+MAX_TOOL_MODULE_NAME_BYTES = 512
 
 
 def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     tools: list[Tool] = []
-    for module_name in module_names or []:
+    names = module_names or []
+    if len(names) > MAX_TOOL_MODULES:
+        raise ValueError(f"Cannot load more than {MAX_TOOL_MODULES} tool modules")
+    for module_name in names:
         _validate_module_name(module_name)
         try:
             _evict_tool_module_cache(module_name)
@@ -67,6 +72,8 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
 def _validate_module_name(module_name: object) -> None:
     if not isinstance(module_name, str):
         raise ValueError("Tool module name must be a string")
+    if len(module_name.encode("utf-8")) > MAX_TOOL_MODULE_NAME_BYTES:
+        raise ValueError(f"Tool module name exceeds {MAX_TOOL_MODULE_NAME_BYTES} bytes")
     if not module_name.strip():
         raise ValueError("Tool module name cannot be blank")
     if any(ord(character) < 32 for character in module_name):
