@@ -916,6 +916,12 @@ def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]
         except json.JSONDecodeError as exc:
             failures.append(f"log line {line_number} could not be decoded: {exc.msg}")
             continue
+        except RecursionError:
+            failures.append(
+                f"log line {line_number} could not be decoded: "
+                "maximum nesting depth"
+            )
+            continue
         if isinstance(event, dict):
             events.append(event)
         else:

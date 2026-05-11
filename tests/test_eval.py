@@ -910,6 +910,27 @@ def test_eval_log_reader_reports_invalid_utf8_lines(tmp_path: Path) -> None:
     assert failures == ["log line 2 could not be decoded as UTF-8"]
 
 
+def test_eval_log_reader_reports_too_deep_json_lines(tmp_path: Path) -> None:
+    log_path = tmp_path / "run.jsonl"
+    too_deep = '{"child":' * 20_000 + "null" + "}" * 20_000
+    log_path.write_text(
+        "\n".join(
+            [
+                '{"type": "run_started", "payload": {"goal": "finish"}}',
+                too_deep,
+                '{"type": "run_finished", "payload": {"status": "completed"}}',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    failures: list[str] = []
+
+    events = _read_log_events(log_path, failures)
+
+    assert [event["type"] for event in events] == ["run_started", "run_finished"]
+    assert failures == ["log line 2 could not be decoded: maximum nesting depth"]
+
+
 def test_eval_log_reader_reports_log_path_directory(tmp_path: Path) -> None:
     log_path = tmp_path / "run.jsonl"
     log_path.mkdir()

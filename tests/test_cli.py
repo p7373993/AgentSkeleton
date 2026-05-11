@@ -1919,6 +1919,46 @@ def test_show_run_ignores_invalid_utf8_log_lines(monkeypatch, tmp_path) -> None:
     assert payload["steps"] == 3
 
 
+def test_show_run_ignores_too_deep_jsonl_lines(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    too_deep = '{"child":' * 20_000 + "null" + "}" * 20_000
+    log_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-1",
+                        "step": 0,
+                        "payload": {"goal": "finish"},
+                    }
+                ),
+                too_deep,
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 3,
+                        "payload": {"status": "completed", "answer": "done"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "completed"
+    assert payload["goal"] == "finish"
+
+
 def test_show_run_rejects_oversized_log_before_reading(
     monkeypatch,
     tmp_path,
@@ -2065,6 +2105,37 @@ def test_list_runs_ignores_malformed_jsonl_lines(monkeypatch, tmp_path) -> None:
         "\n".join(
             [
                 '{"type": "partial"',
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {"status": "completed"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["runs"][0]["run_id"] == "run-1"
+    assert payload["runs"][0]["status"] == "completed"
+
+
+def test_list_runs_ignores_too_deep_jsonl_lines(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    too_deep = '{"child":' * 20_000 + "null" + "}" * 20_000
+    (log_dir / "run-1.jsonl").write_text(
+        "\n".join(
+            [
+                too_deep,
                 json.dumps(
                     {
                         "type": "run_finished",

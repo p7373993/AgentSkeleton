@@ -905,7 +905,7 @@ def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
         if line.strip():
             try:
                 event = json.loads(line)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, RecursionError):
                 continue
             if isinstance(event, dict):
                 events.append(event)
