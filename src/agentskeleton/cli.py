@@ -821,8 +821,8 @@ def _summarize_run_log(
         last_failed = failed_tool_payloads[-1]
         last_tool_error = {
             "tool_name": last_failed.get("tool_name"),
-            "summary": last_failed.get("summary"),
-            "error": last_failed.get("error"),
+            "summary": _run_log_text_value(last_failed.get("summary")),
+            "error": _run_log_text_value(last_failed.get("error")),
         }
     resolved_run_id = run_id
     if resolved_run_id is None and final_event and final_event.get("run_id"):
@@ -866,8 +866,8 @@ def _run_log_text_value(value: object) -> object:
             return value
         byte_count = value.get("bytes")
         if isinstance(byte_count, int):
-            return f"{preview} [truncated, {byte_count} bytes]"
-        return f"{preview} [truncated]"
+            return f"{preview} (truncated, {byte_count} bytes)"
+        return f"{preview} (truncated)"
     return value
 
 

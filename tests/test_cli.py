@@ -1597,6 +1597,58 @@ def test_show_run_summarizes_tool_results_as_json(monkeypatch, tmp_path) -> None
     }
 
 
+def test_show_run_summarizes_bounded_tool_error_text_as_json(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "tool_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "tool_name": "custom",
+                "success": False,
+                "summary": {
+                    "truncated": True,
+                    "bytes": 5_000,
+                    "preview": "large summary...",
+                },
+                "error": {
+                    "truncated": True,
+                    "bytes": 6_000,
+                    "preview": "large error...",
+                },
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "tool_error"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["last_tool_error"] == {
+        "tool_name": "custom",
+        "summary": "large summary... (truncated, 5000 bytes)",
+        "error": "large error... (truncated, 6000 bytes)",
+    }
+
+
 def test_show_run_can_include_events_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
@@ -2324,8 +2376,8 @@ def test_restore_run_imports_bounded_log_text_previews(
     assert result.exit_code == 0
     session = SessionStore(tmp_path / "runs").load("default")
     assert [turn.content for turn in session.transcript] == [
-        "summarize very long input... [truncated, 5000 bytes]",
-        "very long answer... [truncated, 7000 bytes]",
+        "summarize very long input... (truncated, 5000 bytes)",
+        "very long answer... (truncated, 7000 bytes)",
     ]
 
 
