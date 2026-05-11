@@ -24,6 +24,7 @@ AGENT_INSTRUCTIONS = (
 MAX_TOOL_RESULT_OUTPUT_BYTES = 1_048_576
 MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
 MAX_RESPONSE_OUTPUT_ITEMS = 100
+MAX_FUNCTION_CALL_ARGUMENT_BYTES = 2_097_152
 
 
 class MissingAPIKeyError(RuntimeError):
@@ -276,7 +277,18 @@ class LLMClient:
 
     def _parse_arguments(self, raw_arguments: str | dict[str, Any]) -> dict[str, Any]:
         if isinstance(raw_arguments, dict):
+            if _json_size(raw_arguments) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
+                raise LLMResponseError(
+                    "Function call arguments are too large "
+                    f"(max {MAX_FUNCTION_CALL_ARGUMENT_BYTES} bytes)"
+                )
             return raw_arguments
+        if isinstance(raw_arguments, str):
+            if len(raw_arguments.encode("utf-8")) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
+                raise LLMResponseError(
+                    "Function call arguments are too large "
+                    f"(max {MAX_FUNCTION_CALL_ARGUMENT_BYTES} bytes)"
+                )
         try:
             parsed = json.loads(raw_arguments)
         except (TypeError, json.JSONDecodeError) as exc:
@@ -338,6 +350,10 @@ def _serialize_tool_result(result: Any) -> str:
         },
         separators=(",", ":"),
     )
+
+
+def _json_size(value: Any) -> int:
+    return len(json.dumps(_json_safe(value), default=str).encode("utf-8"))
 
 
 def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
