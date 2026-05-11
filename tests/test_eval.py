@@ -329,6 +329,39 @@ def test_run_scenario_uses_scripted_user_answers(tmp_path: Path) -> None:
     assert result.failures == []
 
 
+def test_run_scenario_executes_scripted_model_error_and_checks_reason(
+    tmp_path: Path,
+) -> None:
+    scenario_path = tmp_path / "model-error.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: model-error",
+                "goal: handle a model outage",
+                "actions:",
+                "  - type: error",
+                "    message: model unavailable",
+                "expect:",
+                "  status: model_error",
+                "  reason: 'Model call failed: RuntimeError'",
+                "  observations: 0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.reason == "Model call failed: RuntimeError"
+    assert result.to_dict()["reason"] == "Model call failed: RuntimeError"
+    assert result.failures == []
+
+
 def test_run_scenario_applies_config_overrides(tmp_path: Path) -> None:
     scenario_path = tmp_path / "trusted-write.yaml"
     scenario_path.write_text(

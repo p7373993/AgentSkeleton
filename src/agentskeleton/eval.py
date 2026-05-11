@@ -32,11 +32,19 @@ class ScenarioSuiteConfig:
 
 
 @dataclass(frozen=True)
+class ScriptedModelError:
+    message: str
+
+
+ScenarioAction = AgentAction | ScriptedModelError
+
+
+@dataclass(frozen=True)
 class Scenario:
     name: str
     domain: str
     goal: str
-    actions: list[AgentAction]
+    actions: list[ScenarioAction]
     expect: dict[str, object] = field(default_factory=dict)
     files: dict[str, str] = field(default_factory=dict)
     config_overrides: dict[str, object] = field(default_factory=dict)
@@ -50,6 +58,7 @@ class ScenarioResult:
     passed: bool
     status: str | None
     answer: str | None
+    reason: str | None
     observations: int
     failures: list[str]
     log_path: Path
@@ -62,6 +71,7 @@ class ScenarioResult:
             "passed": self.passed,
             "status": self.status,
             "answer": self.answer,
+            "reason": self.reason,
             "observations": self.observations,
             "failures": self.failures,
             "log": str(self.log_path),
@@ -131,13 +141,16 @@ class ScenarioSuiteResult:
 
 
 class ScriptedScenarioLLM:
-    def __init__(self, actions: list[AgentAction]) -> None:
+    def __init__(self, actions: list[ScenarioAction]) -> None:
         self._actions = list(actions)
 
     def next_action(self, state: RunState, registry: ToolRegistry) -> AgentAction:
         if not self._actions:
             raise RuntimeError("Scenario actions exhausted")
-        return self._actions.pop(0)
+        action = self._actions.pop(0)
+        if isinstance(action, ScriptedModelError):
+            raise RuntimeError(action.message)
+        return action
 
 
 def load_scenario(path: Path) -> Scenario:
@@ -235,6 +248,7 @@ def run_scenario(
         passed=not failures,
         status=state.final_status,
         answer=state.final_answer,
+        reason=state.final_reason,
         observations=len(state.observations),
         failures=failures,
         log_path=Path(logger.path).resolve(),
@@ -378,7 +392,7 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
     return workspace
 
 
-def _parse_action(raw: object, index: int) -> AgentAction:
+def _parse_action(raw: object, index: int) -> ScenarioAction:
     if not isinstance(raw, dict):
         raise ValueError(f"Scenario action {index + 1} must be a mapping")
 
@@ -408,6 +422,9 @@ def _parse_action(raw: object, index: int) -> AgentAction:
                 for call_index, call in enumerate(raw_calls)
             ],
         )
+
+    if action_type == "error":
+        return ScriptedModelError(message=str(raw.get("message", "")))
 
     raise ValueError(f"Unknown scenario action type: {action_type}")
 
@@ -448,6 +465,7 @@ def _compare_expectations(
     failures: list[str] = []
     _expect_equal(failures, "status", expect, state.final_status)
     _expect_equal(failures, "answer", expect, state.final_answer)
+    _expect_equal(failures, "reason", expect, state.final_reason)
     if "observations" in expect and expect["observations"] != len(state.observations):
         failures.append(
             "observations expected "
