@@ -41,13 +41,19 @@ class ListDirTool(Tool):
                 f"Directory listing failed: {requested}",
                 "Directory listing failed",
             )
-        entries = [
-            {
-                "name": child.name,
-                "type": "directory" if child.is_dir() else "file",
-            }
-            for child in children
-        ]
+        try:
+            entries = [
+                {
+                    "name": child.name,
+                    "type": "directory" if child.is_dir() else "file",
+                }
+                for child in children
+            ]
+        except OSError:
+            return _error(
+                f"Directory listing failed: {requested}",
+                "Directory listing failed",
+            )
         return ToolResult(
             success=True,
             payload={"path": requested, "entries": entries},

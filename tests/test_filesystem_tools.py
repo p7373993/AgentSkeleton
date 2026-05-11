@@ -58,6 +58,28 @@ def test_list_dir_returns_error_when_listing_fails(
     assert result.error == "Directory listing failed"
 
 
+def test_list_dir_returns_error_when_entry_type_check_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = tmp_path / "a.txt"
+    target.write_text("a", encoding="utf-8")
+    original_is_dir = Path.is_dir
+
+    def fail_is_dir(path: Path) -> bool:
+        if path == target:
+            raise OSError("permission denied")
+        return original_is_dir(path)
+
+    monkeypatch.setattr(Path, "is_dir", fail_is_dir)
+
+    result = ListDirTool().execute({"path": "."}, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.summary == "Directory listing failed: ."
+    assert result.error == "Directory listing failed"
+
+
 def test_read_file_reads_utf8_text(tmp_path: Path) -> None:
     (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
 
