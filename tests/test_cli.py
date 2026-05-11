@@ -171,6 +171,39 @@ def test_eval_command_runs_scenario_as_json(monkeypatch, tmp_path) -> None:
     assert payload["log"].endswith(".jsonl")
 
 
+def test_eval_suite_command_runs_directory_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    for name in ("alpha", "beta"):
+        (suite_dir / f"{name}.yaml").write_text(
+            "\n".join(
+                [
+                    f"name: {name}",
+                    f"goal: {name}",
+                    "actions:",
+                    "  - type: final",
+                    f"    text: {name} done",
+                    "expect:",
+                    "  status: completed",
+                    f"  answer: {name} done",
+                ]
+            ),
+            encoding="utf-8",
+        )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval-suite", str(suite_dir), "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["passed"] is True
+    assert payload["total"] == 2
+    assert payload["passed_count"] == 2
+    assert payload["failed_count"] == 0
+    assert [item["scenario"] for item in payload["results"]] == ["alpha", "beta"]
+
+
 @pytest.mark.parametrize(
     ("command", "user_input"),
     [

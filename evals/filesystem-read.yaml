@@ -1,0 +1,14 @@
+name: filesystem-read
+goal: Read the example agent configuration.
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-config
+    arguments:
+      path: agent.yaml.example
+  - type: final
+    text: filesystem read ok
+expect:
+  status: completed
+  answer: filesystem read ok
+  observations: 1

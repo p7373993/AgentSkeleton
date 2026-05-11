@@ -46,6 +46,36 @@ class ScenarioResult:
         }
 
 
+@dataclass(frozen=True)
+class ScenarioSuiteResult:
+    results: list[ScenarioResult]
+
+    @property
+    def total(self) -> int:
+        return len(self.results)
+
+    @property
+    def passed_count(self) -> int:
+        return sum(1 for result in self.results if result.passed)
+
+    @property
+    def failed_count(self) -> int:
+        return self.total - self.passed_count
+
+    @property
+    def passed(self) -> bool:
+        return self.failed_count == 0
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "passed": self.passed,
+            "total": self.total,
+            "passed_count": self.passed_count,
+            "failed_count": self.failed_count,
+            "results": [result.to_dict() for result in self.results],
+        }
+
+
 class ScriptedScenarioLLM:
     def __init__(self, actions: list[AgentAction]) -> None:
         self._actions = list(actions)
@@ -86,6 +116,13 @@ def load_scenario(path: Path) -> Scenario:
     )
 
 
+def load_scenario_suite(path: Path) -> list[Scenario]:
+    scenario_paths = _scenario_paths(path)
+    if not scenario_paths:
+        raise ValueError(f"No scenario files found: {path}")
+    return [load_scenario(scenario_path) for scenario_path in scenario_paths]
+
+
 def run_scenario(
     scenario: Scenario,
     config: RunConfig,
@@ -112,6 +149,31 @@ def run_scenario(
         observations=len(state.observations),
         failures=failures,
         log_path=Path(logger.path).resolve(),
+    )
+
+
+def run_scenario_suite(
+    scenarios: list[Scenario],
+    config: RunConfig,
+    registry: ToolRegistry,
+) -> ScenarioSuiteResult:
+    return ScenarioSuiteResult(
+        [run_scenario(scenario, config, registry) for scenario in scenarios]
+    )
+
+
+def _scenario_paths(path: Path) -> list[Path]:
+    if not path.exists():
+        raise ValueError(f"Scenario path not found: {path}")
+    if path.is_file():
+        return [path]
+    return sorted(
+        [
+            scenario_path
+            for pattern in ("*.yaml", "*.yml")
+            for scenario_path in path.rglob(pattern)
+        ],
+        key=lambda item: item.as_posix(),
     )
 
 

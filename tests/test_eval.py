@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from agentskeleton.config import RunConfig
-from agentskeleton.eval import load_scenario, run_scenario
+from agentskeleton.eval import (
+    load_scenario,
+    load_scenario_suite,
+    run_scenario,
+    run_scenario_suite,
+)
 from agentskeleton.tools.filesystem import ReadFileTool
 from agentskeleton.tools.registry import ToolRegistry
 
@@ -107,3 +112,86 @@ def test_load_scenario_requires_expectations(tmp_path: Path) -> None:
         assert str(exc) == "Scenario must define expectations"
     else:
         raise AssertionError("Expected unchecked scenario to fail")
+
+
+def test_load_scenario_suite_discovers_yaml_files_in_order(tmp_path: Path) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "b.yaml").write_text(
+        "\n".join(
+            [
+                "goal: b",
+                "actions:",
+                "  - type: final",
+                "    text: b",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (suite_dir / "a.yml").write_text(
+        "\n".join(
+            [
+                "goal: a",
+                "actions:",
+                "  - type: final",
+                "    text: a",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (suite_dir / "ignored.txt").write_text("ignore", encoding="utf-8")
+
+    scenarios = load_scenario_suite(suite_dir)
+
+    assert [scenario.name for scenario in scenarios] == ["a", "b"]
+
+
+def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> None:
+    passing = load_scenario(_write_final_scenario(tmp_path, "passing", "ok", "ok"))
+    failing = load_scenario(
+        _write_final_scenario(tmp_path, "failing", "actual", "expected")
+    )
+
+    suite = run_scenario_suite(
+        [passing, failing],
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert suite.passed is False
+    assert suite.total == 2
+    assert suite.passed_count == 1
+    assert suite.failed_count == 1
+    assert [result.scenario for result in suite.results] == ["passing", "failing"]
+    assert suite.results[1].failures == [
+        "answer expected 'expected' but got 'actual'"
+    ]
+
+
+def _write_final_scenario(
+    tmp_path: Path,
+    name: str,
+    final_text: str,
+    expected_answer: str,
+) -> Path:
+    scenario_path = tmp_path / f"{name}.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                f"name: {name}",
+                f"goal: {name}",
+                "actions:",
+                "  - type: final",
+                f"    text: {final_text}",
+                "expect:",
+                "  status: completed",
+                f"  answer: {expected_answer}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return scenario_path

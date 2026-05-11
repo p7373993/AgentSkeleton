@@ -1,0 +1,21 @@
+name: repeated-action-stop
+goal: Stop a repeated unproductive action.
+actions:
+  - type: tool
+    tool: list_dir
+    call_id: list-1
+    arguments:
+      path: .
+  - type: tool
+    tool: list_dir
+    call_id: list-2
+    arguments:
+      path: .
+  - type: tool
+    tool: list_dir
+    call_id: list-3
+    arguments:
+      path: .
+expect:
+  status: repeated_action
+  observations: 3

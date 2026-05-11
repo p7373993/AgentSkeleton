@@ -1,0 +1,12 @@
+name: write-denied
+goal: Deny an unconfirmed workspace write.
+actions:
+  - type: tool
+    tool: write_file
+    call_id: write-1
+    arguments:
+      path: generated.txt
+      content: blocked
+expect:
+  status: denied
+  observations: 1

@@ -1,0 +1,13 @@
+name: invalid-arguments-recovery
+goal: Recover after a malformed tool call.
+actions:
+  - type: tool
+    tool: read_file
+    call_id: invalid-read
+    arguments: {}
+  - type: final
+    text: recovered after invalid args
+expect:
+  status: completed
+  answer: recovered after invalid args
+  observations: 1
