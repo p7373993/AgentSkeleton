@@ -38,6 +38,27 @@ def test_list_dir_lists_direct_children(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("args", "summary"),
+    [
+        ({}, "Path invalid: path must be a string"),
+        ({"path": 123}, "Path invalid: path must be a string"),
+        ({"path": "   "}, "Path invalid: path cannot be blank"),
+    ],
+)
+def test_list_dir_rejects_invalid_path(
+    tmp_path: Path,
+    args: dict[str, object],
+    summary: str,
+) -> None:
+    result = ListDirTool().execute(args, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Path invalid"
+    assert result.summary == summary
+    assert result.payload == {}
+
+
 def test_list_dir_returns_error_when_listing_fails(
     tmp_path: Path,
     monkeypatch,
@@ -133,6 +154,27 @@ def test_read_file_reads_utf8_text(tmp_path: Path) -> None:
     assert result.summary == "Read 5 characters from note.txt"
 
 
+@pytest.mark.parametrize(
+    ("args", "summary"),
+    [
+        ({}, "Path invalid: path must be a string"),
+        ({"path": 123}, "Path invalid: path must be a string"),
+        ({"path": "   "}, "Path invalid: path cannot be blank"),
+    ],
+)
+def test_read_file_rejects_invalid_path(
+    tmp_path: Path,
+    args: dict[str, object],
+    summary: str,
+) -> None:
+    result = ReadFileTool().execute(args, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Path invalid"
+    assert result.summary == summary
+    assert result.payload == {}
+
+
 def test_read_file_rejects_binary_content(tmp_path: Path) -> None:
     (tmp_path / "data.bin").write_bytes(b"\x00\x01\x02")
 
@@ -226,6 +268,67 @@ def test_write_file_writes_text_and_reports_bytes(tmp_path: Path) -> None:
     assert result.success is True
     assert (tmp_path / "nested" / "out.txt").read_text(encoding="utf-8") == "hello"
     assert result.payload["bytes_written"] == 5
+
+
+@pytest.mark.parametrize(
+    ("args", "summary"),
+    [
+        ({"content": "hello"}, "Path invalid: path must be a string"),
+        ({"path": 123, "content": "hello"}, "Path invalid: path must be a string"),
+        ({"path": "   ", "content": "hello"}, "Path invalid: path cannot be blank"),
+    ],
+)
+def test_write_file_rejects_invalid_path(
+    tmp_path: Path,
+    args: dict[str, object],
+    summary: str,
+) -> None:
+    result = WriteFileTool().execute(args, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Path invalid"
+    assert result.summary == summary
+    assert result.payload == {}
+
+
+@pytest.mark.parametrize(
+    ("args", "summary"),
+    [
+        ({"path": "out.txt"}, "Content invalid: content must be a string"),
+        (
+            {"path": "out.txt", "content": 123},
+            "Content invalid: content must be a string",
+        ),
+    ],
+)
+def test_write_file_rejects_invalid_content(
+    tmp_path: Path,
+    args: dict[str, object],
+    summary: str,
+) -> None:
+    result = WriteFileTool().execute(args, ToolContext(workspace=tmp_path))
+
+    assert result.success is False
+    assert result.error == "Content invalid"
+    assert result.summary == summary
+    assert result.payload == {}
+    assert not (tmp_path / "out.txt").exists()
+
+
+def test_write_file_rejects_non_bool_create_parent_dirs(tmp_path: Path) -> None:
+    result = WriteFileTool().execute(
+        {"path": "nested/out.txt", "content": "hello", "create_parent_dirs": "true"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Create parent dirs invalid"
+    assert (
+        result.summary
+        == "Create parent dirs invalid: create_parent_dirs must be a boolean"
+    )
+    assert result.payload == {}
+    assert not (tmp_path / "nested").exists()
 
 
 def test_write_file_does_not_clobber_existing_temp_sibling(tmp_path: Path) -> None:

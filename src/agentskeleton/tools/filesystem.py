@@ -9,6 +9,42 @@ def _error(summary: str, error: str) -> ToolResult:
     return ToolResult(success=False, summary=summary, error=error)
 
 
+def _string_arg(
+    args: dict[str, Any],
+    name: str,
+    label: str,
+    *,
+    allow_blank: bool = False,
+) -> str | ToolResult:
+    value = args.get(name)
+    if not isinstance(value, str):
+        return _error(
+            f"{label} invalid: {name} must be a string",
+            f"{label} invalid",
+        )
+    if not allow_blank and not value.strip():
+        return _error(
+            f"{label} invalid: {name} cannot be blank",
+            f"{label} invalid",
+        )
+    return value
+
+
+def _bool_arg(
+    args: dict[str, Any],
+    name: str,
+    default: bool,
+    label: str,
+) -> bool | ToolResult:
+    value = args.get(name, default)
+    if not isinstance(value, bool):
+        return _error(
+            f"{label} invalid: {name} must be a boolean",
+            f"{label} invalid",
+        )
+    return value
+
+
 def _path_exists(path) -> bool:
     return path.exists()
 
@@ -35,7 +71,9 @@ class ListDirTool(Tool):
     }
 
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
-        requested = str(args["path"])
+        requested = _string_arg(args, "path", "Path")
+        if isinstance(requested, ToolResult):
+            return requested
         try:
             path = resolve_workspace_path(context.workspace, requested)
         except PathSecurityError as exc:
@@ -99,7 +137,9 @@ class ReadFileTool(Tool):
     }
 
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
-        requested = str(args["path"])
+        requested = _string_arg(args, "path", "Path")
+        if isinstance(requested, ToolResult):
+            return requested
         try:
             path = resolve_workspace_path(context.workspace, requested)
         except PathSecurityError as exc:
@@ -156,9 +196,20 @@ class WriteFileTool(Tool):
     }
 
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
-        requested = str(args["path"])
-        content = str(args["content"])
-        create_parent_dirs = bool(args.get("create_parent_dirs", False))
+        requested = _string_arg(args, "path", "Path")
+        if isinstance(requested, ToolResult):
+            return requested
+        content = _string_arg(args, "content", "Content", allow_blank=True)
+        if isinstance(content, ToolResult):
+            return content
+        create_parent_dirs = _bool_arg(
+            args,
+            "create_parent_dirs",
+            False,
+            "Create parent dirs",
+        )
+        if isinstance(create_parent_dirs, ToolResult):
+            return create_parent_dirs
         try:
             path = resolve_workspace_path(context.workspace, requested)
         except PathSecurityError as exc:
