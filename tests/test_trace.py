@@ -162,6 +162,42 @@ def test_console_trace_sink_prints_repeated_instructions_once() -> None:
     assert output.count("[llm ->]") == 2
 
 
+def test_console_trace_sink_bounds_large_llm_tool_list() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    tool_names = [f"tool_{index}_{'t' * 100}" for index in range(128)]
+
+    trace.emit(
+        "llm_request",
+        {
+            "instructions_preview": "Use only registered tools.",
+            "input_preview": "hello",
+            "tool_names": tool_names,
+        },
+    )
+
+    output = console.export_text()
+    assert len(output) < 5_000
+    assert "tool_0_" in output
+    assert "..." in output
+
+
+def test_console_trace_sink_bounds_large_llm_tool_call_list() -> None:
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+    calls = [
+        {"name": f"tool_{index}_{'t' * 100}", "call_id": f"call_{index}"}
+        for index in range(128)
+    ]
+
+    trace.emit("llm_response", {"function_calls": calls, "final_preview": None})
+
+    output = console.export_text()
+    assert len(output) < 5_000
+    assert "tool_0_" in output
+    assert "..." in output
+
+
 def test_console_trace_sink_serializes_recursive_payloads() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)

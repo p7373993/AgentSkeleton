@@ -65,13 +65,13 @@ class ConsoleTraceSink:
             lines.append(
                 "[llm ->] "
                 f"input={payload.get('input_preview')!r} "
-                f"tools={payload.get('tool_names')}"
+                f"tools={_compact_json(payload.get('tool_names', []))}"
             )
             return "\n".join(lines)
         if name == "llm_response":
             calls = payload.get("function_calls") or []
             if calls:
-                return f"[llm <-] tool_calls={calls}"
+                return f"[llm <-] tool_calls={_compact_json(calls)}"
             return (
                 "[llm <-] "
                 f"final={payload.get('final_preview')!r}"
