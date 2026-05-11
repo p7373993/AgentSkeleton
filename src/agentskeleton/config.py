@@ -58,7 +58,7 @@ class RunConfig(BaseModel):
     confirm_risky_actions: bool = True
     logs_dir: Path = Path("runs")
     shell_timeout_seconds: int = Field(default=30, gt=0)
-    shell_max_output_bytes: int = Field(default=20000, gt=0)
+    shell_max_output_bytes: int = Field(default=20000, gt=0, le=1_048_576)
     tool_modules: list[str] = Field(default_factory=list)
     enabled_tools: list[str] | None = None
 
