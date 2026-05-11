@@ -578,6 +578,21 @@ def test_cli_reports_missing_config_file(monkeypatch, tmp_path) -> None:
     )
 
 
+def test_cli_reports_config_directory(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.mkdir()
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["tools", "--config", str(config_path)])
+
+    assert result.exit_code == 1
+    assert f"Configuration error: Config file must be a file: {config_path}" in (
+        result.stdout
+    )
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
 def test_cli_reports_logs_dir_file_config_error(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "runs").write_text("not a directory", encoding="utf-8")

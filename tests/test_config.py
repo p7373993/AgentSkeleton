@@ -68,6 +68,14 @@ def test_load_config_rejects_explicit_missing_file(tmp_path: Path) -> None:
         load_config(tmp_path / "missing.yaml")
 
 
+def test_load_config_rejects_config_directory(tmp_path: Path) -> None:
+    config_path = tmp_path / "agent.yaml"
+    config_path.mkdir()
+
+    with pytest.raises(ValueError, match="Config file must be a file"):
+        load_config(config_path)
+
+
 def test_load_config_reports_malformed_yaml(tmp_path: Path) -> None:
     config_path = tmp_path / "agent.yaml"
     config_path.write_text("model: [unterminated\n", encoding="utf-8")
@@ -125,6 +133,17 @@ def test_load_config_reports_invalid_utf8_dotenv(
     (tmp_path / ".env").write_bytes(b"\xff\xfe\x00broken")
 
     with pytest.raises(ValueError, match=r"Dotenv file could not be read as UTF-8"):
+        load_config()
+
+
+def test_load_config_rejects_dotenv_directory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").mkdir()
+
+    with pytest.raises(ValueError, match=r"Dotenv file must be a file"):
         load_config()
 
 

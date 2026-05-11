@@ -64,12 +64,16 @@ class RunConfig(BaseModel):
 def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:
     if not path.exists():
         return {}
+    if not path.is_file():
+        raise ValueError(f"Dotenv file must be a file: {path}")
 
     values: dict[str, str] = {}
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except UnicodeDecodeError as exc:
         raise ValueError(f"Dotenv file could not be read as UTF-8: {path}") from exc
+    except OSError as exc:
+        raise ValueError(f"Dotenv file could not be read: {path}") from exc
 
     for raw_line in lines:
         line = raw_line.strip()
@@ -115,12 +119,16 @@ def load_config(
     if config_path is not None:
         if not config_path.exists():
             raise ValueError(f"Config file not found: {config_path}")
+        if not config_path.is_file():
+            raise ValueError(f"Config file must be a file: {config_path}")
         try:
             config_text = config_path.read_text(encoding="utf-8")
         except UnicodeDecodeError as exc:
             raise ValueError(
                 f"Config file could not be read as UTF-8: {config_path}"
             ) from exc
+        except OSError as exc:
+            raise ValueError(f"Config file could not be read: {config_path}") from exc
         try:
             loaded = yaml.safe_load(config_text) or {}
         except yaml.YAMLError as exc:
