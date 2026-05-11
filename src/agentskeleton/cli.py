@@ -627,5 +627,8 @@ def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     for line in log_path.read_text(encoding="utf-8").splitlines():
         if line.strip():
-            events.append(json.loads(line))
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
     return events
