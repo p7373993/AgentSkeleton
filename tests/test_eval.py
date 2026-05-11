@@ -1072,6 +1072,29 @@ def test_load_scenario_suite_discovers_yaml_files_in_order(tmp_path: Path) -> No
     assert [scenario.name for scenario in scenarios] == ["a", "b"]
 
 
+def test_load_scenario_suite_reports_directory_read_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    original_rglob = Path.rglob
+
+    def fail_rglob(path: Path, pattern: str):
+        if path == suite_dir:
+            raise OSError("permission denied")
+        return original_rglob(path, pattern)
+
+    monkeypatch.setattr(Path, "rglob", fail_rglob)
+
+    try:
+        load_scenario_suite(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario path could not be read: {suite_dir}"
+    else:
+        raise AssertionError("Expected unreadable scenario suite to fail")
+
+
 def test_load_scenario_suite_config_reads_manifest_required_domains(
     tmp_path: Path,
 ) -> None:

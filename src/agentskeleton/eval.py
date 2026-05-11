@@ -328,15 +328,16 @@ def _scenario_paths(path: Path) -> list[Path]:
         if path.name in SUITE_MANIFEST_NAMES:
             return []
         return [path]
-    return sorted(
-        [
+    try:
+        scenario_paths = [
             scenario_path
             for pattern in ("*.yaml", "*.yml")
             for scenario_path in path.rglob(pattern)
             if scenario_path.name not in SUITE_MANIFEST_NAMES
-        ],
-        key=lambda item: item.as_posix(),
-    )
+        ]
+    except OSError as exc:
+        raise ValueError(f"Scenario path could not be read: {path}") from exc
+    return sorted(scenario_paths, key=lambda item: item.as_posix())
 
 
 def _suite_manifest_path(path: Path) -> Path | None:
