@@ -122,6 +122,49 @@ def test_run_logger_reports_date_directory_file(tmp_path: Path) -> None:
         RunLogger(logs_dir=tmp_path, run_id="run-1")
 
 
+def test_run_logger_reports_directory_exists_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    date_path = tmp_path / today
+    original_exists = Path.exists
+
+    def fail_date_exists(path: Path) -> bool:
+        if path == date_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_date_exists)
+
+    with pytest.raises(ValueError) as exc_info:
+        RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    assert str(exc_info.value) == f"Run log directory could not be checked: {date_path}"
+
+
+def test_run_logger_reports_directory_type_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    date_path = tmp_path / today
+    date_path.mkdir()
+    original_is_dir = Path.is_dir
+
+    def fail_date_is_dir(path: Path) -> bool:
+        if path == date_path:
+            raise OSError("permission denied")
+        return original_is_dir(path)
+
+    monkeypatch.setattr(Path, "is_dir", fail_date_is_dir)
+
+    with pytest.raises(ValueError) as exc_info:
+        RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    assert str(exc_info.value) == f"Run log directory could not be checked: {date_path}"
+
+
 def test_run_logger_reports_log_path_directory(tmp_path: Path) -> None:
     today = datetime.now(tz=UTC).strftime("%Y%m%d")
     log_path = tmp_path / today / "run-1.jsonl"
@@ -130,3 +173,44 @@ def test_run_logger_reports_log_path_directory(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Run log path is not a file"):
         logger.log("run_started", step=0, payload={"goal": "test"})
+
+
+def test_run_logger_reports_log_path_exists_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+    original_exists = Path.exists
+
+    def fail_log_exists(path: Path) -> bool:
+        if path == logger.path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_log_exists)
+
+    with pytest.raises(ValueError) as exc_info:
+        logger.log("run_started", step=0, payload={"goal": "test"})
+
+    assert str(exc_info.value) == f"Run log path could not be checked: {logger.path}"
+
+
+def test_run_logger_reports_log_path_type_stat_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+    logger.path.write_text("", encoding="utf-8")
+    original_is_file = Path.is_file
+
+    def fail_log_is_file(path: Path) -> bool:
+        if path == logger.path:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_log_is_file)
+
+    with pytest.raises(ValueError) as exc_info:
+        logger.log("run_started", step=0, payload={"goal": "test"})
+
+    assert str(exc_info.value) == f"Run log path could not be checked: {logger.path}"

@@ -81,8 +81,19 @@ class RunLogger:
             "step": step,
             "payload": redact(payload),
         }
-        if self.path.exists() and not self.path.is_file():
-            raise ValueError(f"Run log path is not a file: {self.path}")
+        try:
+            log_exists = self.path.exists()
+        except OSError as exc:
+            raise ValueError(f"Run log path could not be checked: {self.path}") from exc
+        if log_exists:
+            try:
+                log_is_file = self.path.is_file()
+            except OSError as exc:
+                raise ValueError(
+                    f"Run log path could not be checked: {self.path}"
+                ) from exc
+            if not log_is_file:
+                raise ValueError(f"Run log path is not a file: {self.path}")
         try:
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(event, ensure_ascii=False) + "\n")
@@ -91,10 +102,24 @@ class RunLogger:
 
     def _ensure_log_directory(self) -> None:
         for candidate in (self.path.parent, *self.path.parent.parents):
-            if not candidate.exists():
+            try:
+                candidate_exists = candidate.exists()
+            except OSError as exc:
+                raise ValueError(
+                    f"Run log directory could not be checked: {candidate}"
+                ) from exc
+            if not candidate_exists:
                 continue
-            if not candidate.is_dir():
-                raise ValueError(f"Run log directory is not a directory: {candidate}")
+            try:
+                candidate_is_directory = candidate.is_dir()
+            except OSError as exc:
+                raise ValueError(
+                    f"Run log directory could not be checked: {candidate}"
+                ) from exc
+            if not candidate_is_directory:
+                raise ValueError(
+                    f"Run log directory is not a directory: {candidate}"
+                )
             break
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
