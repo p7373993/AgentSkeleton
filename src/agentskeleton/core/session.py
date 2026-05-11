@@ -88,15 +88,25 @@ class SessionStore:
         content: str,
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        session_dir = self._dir_for(name)
-        session_dir.mkdir(parents=True, exist_ok=True)
+        self._ensure_session_dir(name)
         row = {
             "role": role,
             "content": content,
             "metadata": _json_safe(metadata or {}),
         }
-        with self._transcript_path_for(name).open("a", encoding="utf-8") as file:
-            file.write(json.dumps(row, ensure_ascii=False) + "\n")
+        transcript_path = self._transcript_path_for(name)
+        safe_name = self._safe_name(name)
+        if transcript_path.exists() and not transcript_path.is_file():
+            raise ValueError(
+                f"Session transcript path is not a file: {safe_name}"
+            )
+        try:
+            with transcript_path.open("a", encoding="utf-8") as file:
+                file.write(json.dumps(row, ensure_ascii=False) + "\n")
+        except OSError as exc:
+            raise ValueError(
+                f"Session transcript could not be written: {safe_name}"
+            ) from exc
 
     def refresh_summary(
         self,
@@ -113,9 +123,17 @@ class SessionStore:
         older_turns = transcript[:-keep_turns] if keep_turns else transcript
         summary_turns_source = older_turns[-summary_turns:]
         summary = _summarize_transcript(summary_turns_source)
-        session_dir = self._dir_for(name)
-        session_dir.mkdir(parents=True, exist_ok=True)
-        self._summary_path_for(name).write_text(summary, encoding="utf-8")
+        self._ensure_session_dir(name)
+        summary_path = self._summary_path_for(name)
+        safe_name = self._safe_name(name)
+        if summary_path.exists() and not summary_path.is_file():
+            raise ValueError(f"Session summary path is not a file: {safe_name}")
+        try:
+            summary_path.write_text(summary, encoding="utf-8")
+        except OSError as exc:
+            raise ValueError(
+                f"Session summary could not be written: {safe_name}"
+            ) from exc
 
     def _load_transcript(self, name: str) -> list[ConversationMessage]:
         path = self._transcript_path_for(name)
@@ -164,6 +182,21 @@ class SessionStore:
 
     def _summary_path_for(self, name: str) -> Path:
         return self._dir_for(name) / "summary.md"
+
+    def _ensure_session_dir(self, name: str) -> Path:
+        session_dir = self._dir_for(name)
+        safe_name = self._safe_name(name)
+        for candidate in (session_dir, *session_dir.parents):
+            if not candidate.exists():
+                continue
+            if not candidate.is_dir():
+                raise ValueError(f"Session path is not a directory: {safe_name}")
+            break
+        try:
+            session_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValueError(f"Session path could not be created: {safe_name}") from exc
+        return session_dir
 
     def _safe_name(self, name: str) -> str:
         safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")

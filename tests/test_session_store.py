@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from agentskeleton.core.session import SessionStore
 
 
@@ -133,6 +135,24 @@ def test_session_store_treats_sessions_root_file_as_empty(tmp_path) -> None:
     sessions_root.write_text("not a directory", encoding="utf-8")
 
     assert SessionStore(tmp_path).list_sessions() == []
+
+
+def test_session_store_append_reports_session_path_file(tmp_path) -> None:
+    session_dir = tmp_path / "sessions" / "default"
+    session_dir.parent.mkdir()
+    session_dir.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Session path is not a directory: default"):
+        SessionStore(tmp_path).append_transcript("default", "user", "hello")
+
+
+def test_session_store_refresh_reports_session_path_file(tmp_path) -> None:
+    session_dir = tmp_path / "sessions" / "default"
+    session_dir.parent.mkdir()
+    session_dir.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Session path is not a directory: default"):
+        SessionStore(tmp_path).refresh_summary("default", keep_turns=1)
 
 
 def test_session_store_ignores_malformed_transcript_lines(tmp_path) -> None:

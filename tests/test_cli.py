@@ -664,6 +664,20 @@ def test_run_reports_missing_api_key(tmp_path, monkeypatch) -> None:
     assert "OPENAI_API_KEY or AZURE_OPENAI_API_KEY is required" in result.stdout
 
 
+def test_run_reports_session_store_errors(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    session_dir = tmp_path / "runs" / "sessions" / "default"
+    session_dir.parent.mkdir(parents=True)
+    session_dir.write_text("not a directory", encoding="utf-8")
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "finish"])
+
+    assert result.exit_code == 1
+    assert "Session error: Session path is not a directory: default" in result.stdout
+    assert result.exception is None or not isinstance(result.exception, OSError)
+
+
 def test_run_reuses_default_session_transcript(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")

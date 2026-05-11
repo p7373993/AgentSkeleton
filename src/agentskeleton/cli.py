@@ -90,6 +90,11 @@ def _build_registry_or_exit(
         raise typer.Exit(1) from exc
 
 
+def _exit_session_error(exc: ValueError) -> None:
+    console.print(f"Session error: {exc}", soft_wrap=True)
+    raise typer.Exit(1) from exc
+
+
 def _registry_from_config(config) -> ToolRegistry:
     return build_default_registry(config.enabled_tools, config.tool_modules)
 
@@ -317,12 +322,15 @@ def run(
     session_store = SessionStore(loaded.logs_dir)
     conversation = []
     if not no_session:
-        session_store.refresh_summary(
-            session,
-            loaded.session_context_turns,
-            loaded.session_summary_turns,
-        )
-        session_state = session_store.load(session)
+        try:
+            session_store.refresh_summary(
+                session,
+                loaded.session_context_turns,
+                loaded.session_summary_turns,
+            )
+            session_state = session_store.load(session)
+        except ValueError as exc:
+            _exit_session_error(exc)
         conversation = session_state.context_messages()
 
     try:
@@ -348,12 +356,15 @@ def run(
         trace=trace,
     )
     if not no_session:
-        session_store.append_transcript(
-            session,
-            "user",
-            goal,
-            {"run_id": run_id},
-        )
+        try:
+            session_store.append_transcript(
+                session,
+                "user",
+                goal,
+                {"run_id": run_id},
+            )
+        except ValueError as exc:
+            _exit_session_error(exc)
     state = loop.run(
         goal,
         conversation=conversation,
@@ -361,12 +372,15 @@ def run(
     )
     assistant_content = _assistant_transcript_content(state)
     if not no_session and assistant_content:
-        session_store.append_transcript(
-            session,
-            "assistant",
-            assistant_content,
-            _assistant_transcript_metadata(run_id, state),
-        )
+        try:
+            session_store.append_transcript(
+                session,
+                "assistant",
+                assistant_content,
+                _assistant_transcript_metadata(run_id, state),
+            )
+        except ValueError as exc:
+            _exit_session_error(exc)
     console.print(f"Run id: {run_id}")
     console.print(f"Status: {state.final_status}")
     if getattr(state, "final_reason", None):
@@ -434,18 +448,21 @@ def chat(
         logger = RunLogger(loaded.logs_dir, run_id)
         conversation = []
         if not no_session:
-            session_store.refresh_summary(
-                session,
-                loaded.session_context_turns,
-                loaded.session_summary_turns,
-            )
-            conversation = session_store.load(session).context_messages()
-            session_store.append_transcript(
-                session,
-                "user",
-                goal,
-                {"run_id": run_id},
-            )
+            try:
+                session_store.refresh_summary(
+                    session,
+                    loaded.session_context_turns,
+                    loaded.session_summary_turns,
+                )
+                conversation = session_store.load(session).context_messages()
+                session_store.append_transcript(
+                    session,
+                    "user",
+                    goal,
+                    {"run_id": run_id},
+                )
+            except ValueError as exc:
+                _exit_session_error(exc)
 
         loop = AgentLoop(
             config=loaded,
@@ -464,12 +481,15 @@ def chat(
         )
         assistant_content = _assistant_transcript_content(state)
         if not no_session and assistant_content:
-            session_store.append_transcript(
-                session,
-                "assistant",
-                assistant_content,
-                _assistant_transcript_metadata(run_id, state),
-            )
+            try:
+                session_store.append_transcript(
+                    session,
+                    "assistant",
+                    assistant_content,
+                    _assistant_transcript_metadata(run_id, state),
+                )
+            except ValueError as exc:
+                _exit_session_error(exc)
 
         if state.final_answer:
             console.print(f"assistant> {state.final_answer}")
@@ -655,22 +675,25 @@ def restore_run(
         console.print(f"Run {run_id} is already restored in session {session}")
         return
 
-    store.append_transcript(
-        session,
-        "user",
-        goal,
-        {"run_id": run_id, "source": "run_log"},
-    )
-    assistant_content = _summary_transcript_content(summary)
-    if assistant_content:
-        metadata = {
-            "run_id": run_id,
-            "source": "run_log",
-            "status": summary["status"],
-        }
-        if summary["reason"]:
-            metadata["reason"] = summary["reason"]
-        store.append_transcript(session, "assistant", assistant_content, metadata)
+    try:
+        store.append_transcript(
+            session,
+            "user",
+            goal,
+            {"run_id": run_id, "source": "run_log"},
+        )
+        assistant_content = _summary_transcript_content(summary)
+        if assistant_content:
+            metadata = {
+                "run_id": run_id,
+                "source": "run_log",
+                "status": summary["status"],
+            }
+            if summary["reason"]:
+                metadata["reason"] = summary["reason"]
+            store.append_transcript(session, "assistant", assistant_content, metadata)
+    except ValueError as exc:
+        _exit_session_error(exc)
 
     console.print(f"Restored run {run_id} into session {session}")
 
