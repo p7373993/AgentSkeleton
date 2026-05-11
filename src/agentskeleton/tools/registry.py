@@ -20,6 +20,7 @@ SUPPORTED_JSON_SCHEMA_TYPES = (
 MAX_TOOL_SCHEMA_DEPTH = 64
 MAX_TOOL_SCHEMA_BYTES = 2_097_152
 MAX_TOOL_DESCRIPTION_BYTES = 65_536
+MAX_TOOL_NAME_BYTES = 512
 MAX_REGISTERED_TOOLS = 128
 
 
@@ -41,6 +42,8 @@ class ToolRegistry:
             raise ValueError("Tool name cannot contain whitespace")
         if TOOL_NAME_PATTERN.fullmatch(name) is None:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
+        if len(name.encode("utf-8")) > MAX_TOOL_NAME_BYTES:
+            raise ValueError("Tool name exceeds maximum size")
         if not isinstance(tool.description, str):
             raise ValueError(f"Tool {name} description must be a string")
         if not tool.description.strip():
