@@ -996,6 +996,46 @@ def test_run_output_includes_run_id_and_final_reason(monkeypatch, tmp_path) -> N
     assert "Run log:" in result.stdout
 
 
+def test_run_bounds_large_final_reason_output(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    large_reason = "r" * 20_000
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "model_error",
+                    "final_answer": None,
+                    "final_reason": large_reason,
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "continue"])
+
+    assert result.exit_code == 0
+    assert "r" * 40 in result.stdout
+    assert "[truncated" in result.stdout
+    assert large_reason not in result.stdout
+
+
 def test_run_persists_status_reason_when_no_final_answer(
     monkeypatch,
     tmp_path,
@@ -1331,6 +1371,46 @@ def test_chat_prints_final_reason_when_no_answer(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert "Status: invalid_action" in result.stdout
     assert "Reason: Model returned unsupported action: dict" in result.stdout
+
+
+def test_chat_bounds_large_final_reason_output(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    large_reason = "r" * 20_000
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "model_error",
+                    "final_answer": None,
+                    "final_reason": large_reason,
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="first\n/exit\n")
+
+    assert result.exit_code == 0
+    assert "r" * 40 in result.stdout
+    assert "[truncated" in result.stdout
+    assert large_reason not in result.stdout
 
 
 def test_chat_persists_status_reason_for_next_turn(monkeypatch, tmp_path) -> None:

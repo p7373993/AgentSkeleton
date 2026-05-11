@@ -425,7 +425,8 @@ def run(
     console.print(f"Run id: {run_id}")
     console.print(f"Status: {state.final_status}")
     if getattr(state, "final_reason", None):
-        console.print(f"Reason: {state.final_reason}")
+        reason = _bounded_display_text(str(state.final_reason))
+        console.print(f"Reason: {reason}")
     if state.final_answer:
         console.print(_bounded_display_text(state.final_answer))
     console.print(f"Run log: {logger.path}")
@@ -537,7 +538,8 @@ def chat(
         else:
             console.print(f"Status: {state.final_status}")
             if getattr(state, "final_reason", None):
-                console.print(f"Reason: {state.final_reason}")
+                reason = _bounded_display_text(str(state.final_reason))
+                console.print(f"Reason: {reason}")
         if trace:
             console.print(f"Run log: {logger.path}")
 
