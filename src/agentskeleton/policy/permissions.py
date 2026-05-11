@@ -44,7 +44,12 @@ class PermissionPolicy:
             return PermissionDecision("allow", "file writes allowed by configuration")
 
         if tool_name == "shell" or risk == "shell":
-            return self._decide_shell(str(args.get("command", "")))
+            if not isinstance(args, dict):
+                return PermissionDecision("block", "Shell command invalid")
+            command = args.get("command")
+            if not isinstance(command, str) or not command.strip():
+                return PermissionDecision("block", "Shell command invalid")
+            return self._decide_shell(command)
 
         return PermissionDecision("confirm", f"Unknown risk level: {risk}")
 

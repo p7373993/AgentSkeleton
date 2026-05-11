@@ -52,6 +52,26 @@ def test_read_only_profile_blocks_shell_tools() -> None:
     assert "read-only profile" in decision.reason
 
 
+@pytest.mark.parametrize(
+    "args",
+    [
+        {},
+        {"command": 123},
+        {"command": "   "},
+        [],
+    ],
+)
+def test_policy_blocks_invalid_shell_command_arguments(args: object) -> None:
+    decision = PermissionPolicy(profile="trusted").decide(
+        "shell",
+        args,  # type: ignore[arg-type]
+        "shell",
+    )
+
+    assert decision.outcome == "block"
+    assert decision.reason == "Shell command invalid"
+
+
 def test_trusted_profile_allows_risky_write_without_confirmation() -> None:
     decision = PermissionPolicy(profile="trusted").decide(
         "write_file",
