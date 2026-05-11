@@ -39,6 +39,7 @@ MAX_LOGGED_TEXT_BYTES = 4_096
 MAX_LOGGED_TEXT_PREVIEW_CHARS = 200
 MAX_LOGGED_VALUE_DEPTH = 64
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+MAX_TOOL_ACTION_METADATA_BYTES = 512
 
 
 class AgentLoop:
@@ -725,8 +726,12 @@ def _json_log_safe(
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
     if not isinstance(action.tool_name, str) or not action.tool_name.strip():
         return "tool_name must be a non-empty string"
+    if len(action.tool_name.encode("utf-8")) > MAX_TOOL_ACTION_METADATA_BYTES:
+        return f"tool_name exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
     if not isinstance(action.call_id, str) or not action.call_id.strip():
         return "call_id must be a non-empty string"
+    if len(action.call_id.encode("utf-8")) > MAX_TOOL_ACTION_METADATA_BYTES:
+        return f"call_id exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
     return None
 
 

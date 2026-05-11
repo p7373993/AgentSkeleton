@@ -630,6 +630,22 @@ def test_loop_rejects_malformed_final_action_metadata(
             ),
             "Model returned invalid tool call: call_id must be a non-empty string",
         ),
+        (
+            ToolCallAction(
+                tool_name="a" * 513,
+                arguments={"value": "x"},
+                call_id="call-1",
+            ),
+            "Model returned invalid tool call: tool_name exceeds 512 bytes",
+        ),
+        (
+            ToolCallAction(
+                tool_name="record",
+                arguments={"value": "x"},
+                call_id="a" * 513,
+            ),
+            "Model returned invalid tool call: call_id exceeds 512 bytes",
+        ),
     ],
 )
 def test_loop_rejects_malformed_tool_call_metadata(
