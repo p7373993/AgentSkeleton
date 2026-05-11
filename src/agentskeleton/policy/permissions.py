@@ -11,6 +11,8 @@ FETCH_COMMANDS = {
     "iwr",
     "irm",
 }
+EXPRESSION_EXECUTOR_COMMANDS = {"iex", "invoke-expression"}
+SHELL_EVAL_COMMANDS = {"bash", "sh", "zsh", "powershell", "pwsh", "python", "python3"}
 
 
 @dataclass(frozen=True)
@@ -196,6 +198,8 @@ def _looks_like_remote_execution(command: str) -> bool:
         "node",
     )
     segments = _split_shell_segments(command)
+    if any(_same_segment_executes_fetched_content(segment) for segment in segments):
+        return True
     for index, segment in enumerate(segments[:-1]):
         if not _segment_has_fetch_command(segment):
             continue
@@ -208,6 +212,18 @@ def _looks_like_remote_execution(command: str) -> bool:
             ):
                 return True
     return False
+
+
+def _same_segment_executes_fetched_content(segment: str) -> bool:
+    if not _segment_has_fetch_command(segment):
+        return False
+    tokens = [_normalize_executable_token(token) for token in segment.split()]
+    if any(token in EXPRESSION_EXECUTOR_COMMANDS for token in tokens):
+        return True
+    executable = _first_executable_token(segment.split())
+    return executable in SHELL_EVAL_COMMANDS and (
+        "$(" in segment or "`" in segment
+    )
 
 
 def _contains_fetch_command(command: str) -> bool:
@@ -241,7 +257,14 @@ def _looks_like_env_assignment(token: str) -> bool:
 
 
 def _normalize_executable_token(token: str) -> str:
-    executable = token.strip("\"'").rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    executable = (
+        token.strip("\"'`")
+        .lstrip("$")
+        .strip("(){}[];,")
+        .lstrip("&.")
+        .rsplit("/", 1)[-1]
+        .rsplit("\\", 1)[-1]
+    )
     if executable.endswith(".exe"):
         executable = executable[:-4]
     return executable
