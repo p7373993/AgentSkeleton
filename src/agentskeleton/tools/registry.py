@@ -87,10 +87,31 @@ def _validate_args_schema(tool: Tool) -> None:
         raise ValueError(f"Tool {tool.name} schema must be a mapping")
     if schema.get("type") != "object":
         raise ValueError(f"Tool {tool.name} schema type must be object")
-    _validate_schema_node(tool.name, schema, "schema")
+    _validate_schema_node(tool.name, schema, "schema", set())
 
 
-def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
+def _validate_schema_node(
+    tool_name: str,
+    schema: Mapping,
+    label: str,
+    seen: set[int],
+) -> None:
+    marker = id(schema)
+    if marker in seen:
+        raise ValueError(f"Tool {tool_name} {label} cannot be recursive")
+    seen.add(marker)
+    try:
+        _validate_schema_node_content(tool_name, schema, label, seen)
+    finally:
+        seen.remove(marker)
+
+
+def _validate_schema_node_content(
+    tool_name: str,
+    schema: Mapping,
+    label: str,
+    seen: set[int],
+) -> None:
     description = schema.get("description")
     if description is not None:
         if not isinstance(description, str):
@@ -155,6 +176,7 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
                 tool_name,
                 property_schema,
                 f"{label} property {property_name}",
+                seen,
             )
     required = schema.get("required")
     if required is not None:
@@ -191,7 +213,7 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
             raise ValueError(f"Tool {tool_name} {label} items require array type")
         if not isinstance(items, Mapping):
             raise ValueError(f"Tool {tool_name} {label} items must be a mapping")
-        _validate_schema_node(tool_name, items, f"{label} items")
+        _validate_schema_node(tool_name, items, f"{label} items", seen)
 
 
 def _schema_type_includes(raw_type: object, expected_type: str) -> bool:

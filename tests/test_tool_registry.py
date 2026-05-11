@@ -218,6 +218,21 @@ def test_registry_rejects_invalid_args_schema_members(
         registry.register(InvalidSchemaTool())
 
 
+def test_registry_rejects_recursive_args_schema() -> None:
+    schema: dict[str, object] = {"type": "object", "properties": {}}
+    properties = schema["properties"]
+    assert isinstance(properties, dict)
+    properties["self"] = schema
+
+    class RecursiveSchemaTool(EchoTool):
+        args_schema = schema
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="schema property self cannot be recursive"):
+        registry.register(RecursiveSchemaTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [
