@@ -9,6 +9,11 @@ from typing import Any
 SECRET_PATTERNS = [
     re.compile(r"(OPENAI_API_KEY\s*=\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"(Authorization:\s*Bearer\s+)[^\s]+", re.IGNORECASE),
+    re.compile(
+        r"((?:x-)?api[-_]?key\s*[:=]\s*)[^\s]+",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(password\s*[:=]\s*)[^\s]+", re.IGNORECASE),
     re.compile(r"\bsk-[A-Za-z0-9_-]+"),
 ]
 
