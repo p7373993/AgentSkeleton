@@ -634,6 +634,28 @@ def test_registry_snapshots_tool_schema_on_register() -> None:
     assert tool.args_schema == exported
 
 
+def test_registry_keeps_schema_snapshot_when_registered_tool_mutates() -> None:
+    original_schema = {
+        "type": "object",
+        "properties": {"text": {"type": "string"}},
+        "required": ["text"],
+        "additionalProperties": False,
+    }
+    mutated_schema = {
+        "type": "object",
+        "properties": {"text": {"type": "integer"}},
+        "required": ["text"],
+        "additionalProperties": False,
+    }
+
+    tool = EchoTool()
+    registry = ToolRegistry([tool])
+    tool.args_schema = mutated_schema
+
+    assert registry.to_openai_tools()[0]["parameters"] == original_schema
+    assert registry.get("echo").args_schema == original_schema
+
+
 def test_registry_raises_for_unknown_tool() -> None:
     registry = ToolRegistry()
 

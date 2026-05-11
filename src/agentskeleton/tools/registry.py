@@ -27,6 +27,7 @@ MAX_REGISTERED_TOOLS = 128
 class ToolRegistry:
     def __init__(self, tools: Iterable[Tool] | None = None) -> None:
         self._tools: dict[str, Tool] = {}
+        self._schemas: dict[str, dict[str, Any]] = {}
         for tool in tools or ():
             self.register(tool)
 
@@ -70,17 +71,18 @@ class ToolRegistry:
             raise ValueError(f"Tool already registered: {name}")
         if len(self._tools) >= MAX_REGISTERED_TOOLS:
             raise ValueError(f"Too many tools registered (max {MAX_REGISTERED_TOOLS})")
-        tool.args_schema = schema_snapshot
+        self._schemas[name] = schema_snapshot
+        tool.args_schema = deepcopy(schema_snapshot)
         self._tools[name] = tool
 
     def get(self, name: str) -> Tool:
         try:
-            return self._tools[name]
+            return self._tool_with_schema_snapshot(name)
         except KeyError as exc:
             raise KeyError(f"Unknown tool: {name}") from exc
 
     def all(self) -> list[Tool]:
-        return list(self._tools.values())
+        return [self._tool_with_schema_snapshot(name) for name in self._tools]
 
     def to_openai_tools(self) -> list[dict[str, Any]]:
         return [
@@ -88,10 +90,15 @@ class ToolRegistry:
                 "type": "function",
                 "name": tool.name,
                 "description": tool.description,
-                "parameters": deepcopy(tool.args_schema),
+                "parameters": deepcopy(self._schemas[tool.name]),
             }
             for tool in self.all()
         ]
+
+    def _tool_with_schema_snapshot(self, name: str) -> Tool:
+        tool = self._tools[name]
+        tool.args_schema = deepcopy(self._schemas[name])
+        return tool
 
 
 def _validate_args_schema(tool: Tool) -> dict[str, Any]:
