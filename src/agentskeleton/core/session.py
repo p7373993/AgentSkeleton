@@ -62,9 +62,17 @@ class SessionStore:
     def list_sessions(self) -> list[SessionSummary]:
         if not self.sessions_dir.is_dir():
             return []
+        try:
+            session_dirs = [
+                item for item in self.sessions_dir.iterdir() if item.is_dir()
+            ]
+        except OSError as exc:
+            raise ValueError(
+                f"Session list could not be read: {self.sessions_dir}"
+            ) from exc
         summaries = []
         for session_dir in sorted(
-            (item for item in self.sessions_dir.iterdir() if item.is_dir()),
+            session_dirs,
             key=lambda item: item.name.lower(),
         ):
             name = session_dir.name

@@ -148,6 +148,25 @@ def test_session_store_treats_sessions_root_file_as_empty(tmp_path) -> None:
     assert SessionStore(tmp_path).list_sessions() == []
 
 
+def test_session_store_reports_session_list_read_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    sessions_root = tmp_path / "sessions"
+    sessions_root.mkdir()
+    original_iterdir = Path.iterdir
+
+    def fail_iterdir(path: Path):
+        if path == sessions_root:
+            raise OSError("permission denied")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_iterdir)
+
+    with pytest.raises(ValueError, match="Session list could not be read"):
+        SessionStore(tmp_path).list_sessions()
+
+
 def test_session_store_append_reports_session_path_file(tmp_path) -> None:
     session_dir = tmp_path / "sessions" / "default"
     session_dir.parent.mkdir()
