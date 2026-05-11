@@ -49,6 +49,27 @@ def test_session_store_serializes_non_string_transcript_fields_on_append(
     assert session.transcript[0].content == "None"
 
 
+def test_session_store_serializes_unstringable_transcript_fields_on_append(
+    tmp_path: Path,
+) -> None:
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("value unavailable")
+
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(
+        "default",
+        UnstringableValue(),  # type: ignore[arg-type]
+        UnstringableValue(),  # type: ignore[arg-type]
+    )
+
+    session = store.load("default")
+
+    assert session.transcript[0].role == "<uninspectable>"
+    assert session.transcript[0].content == "<uninspectable>"
+
+
 def test_session_store_bounds_large_transcript_content_on_append(
     tmp_path: Path,
 ) -> None:
@@ -176,6 +197,46 @@ def test_session_store_serializes_uninspectable_transcript_metadata_values(
     raw = transcript_path.read_text(encoding="utf-8")
     assert session.transcript[0].metadata["payload"] == "<uninspectable>"
     assert "sk-secret123" not in raw
+
+
+def test_session_store_serializes_unstringable_metadata_values(
+    tmp_path: Path,
+) -> None:
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("metadata unavailable")
+
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata={"payload": UnstringableValue()},
+    )
+
+    session = store.load("default")
+    assert session.transcript[0].metadata["payload"] == "<uninspectable>"
+
+
+def test_session_store_serializes_unstringable_metadata_keys(
+    tmp_path: Path,
+) -> None:
+    class UnstringableKey:
+        def __str__(self) -> str:
+            raise RuntimeError("metadata key unavailable")
+
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata={UnstringableKey(): "value"},
+    )
+
+    session = store.load("default")
+    assert session.transcript[0].metadata["<uninspectable>"] == "value"
 
 
 def test_session_store_bounds_large_persisted_transcript_fields_on_load(

@@ -124,8 +124,8 @@ class SessionStore:
     ) -> None:
         self._ensure_session_dir(name)
         row = {
-            "role": str(role),
-            "content": _bounded_transcript_content(str(content)),
+            "role": _safe_text(role),
+            "content": _bounded_transcript_content(_safe_text(content)),
             "metadata": _json_safe(metadata or {}),
         }
         transcript_path = self._transcript_path_for(name)
@@ -359,6 +359,13 @@ def _bounded_transcript_content(content: str) -> str:
     )
 
 
+def _safe_text(value: object) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return _UNINSPECTABLE_VALUE
+
+
 def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
     if depth > _MAX_TRANSCRIPT_METADATA_DEPTH:
         return _MAX_DEPTH_EXCEEDED
@@ -385,7 +392,7 @@ def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
         return _bounded_metadata_string(value)
     if value is None or isinstance(value, int | float | bool):
         return value
-    return _bounded_metadata_string(str(value))
+    return _bounded_metadata_string(_safe_text(value))
 
 
 def _json_safe_mapping(
@@ -404,7 +411,7 @@ def _json_safe_mapping(
         for index, (key, item) in enumerate(raw_items):
             if index >= item_limit:
                 continue
-            safe_items[str(key)] = _json_safe(item, seen, depth + 1)
+            safe_items[_safe_text(key)] = _json_safe(item, seen, depth + 1)
     except Exception:
         return _UNINSPECTABLE_VALUE
     omitted = total_items - item_limit
