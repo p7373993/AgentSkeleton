@@ -126,6 +126,34 @@ def test_session_store_ignores_malformed_transcript_lines(tmp_path) -> None:
     assert store.list_sessions()[0].transcript_turns == 2
 
 
+def test_session_store_ignores_invalid_utf8_transcript_lines(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_bytes(
+        b'{"role": "user", "content": "first"}\n'
+        b"\xff\xfe\x00broken\n"
+        b'{"role": "assistant", "content": "second"}\n'
+    )
+
+    session = store.load("default")
+
+    assert [turn.content for turn in session.transcript] == ["first", "second"]
+    assert store.list_sessions()[0].transcript_turns == 2
+
+
+def test_session_store_ignores_invalid_utf8_summary(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_bytes(b"\xff\xfe\x00broken")
+
+    session = store.load("default")
+
+    assert session.summary is None
+    assert store.list_sessions() == []
+
+
 def test_session_store_refresh_summary_ignores_malformed_transcript_lines(
     tmp_path,
 ) -> None:

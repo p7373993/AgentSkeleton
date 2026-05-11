@@ -123,7 +123,11 @@ class SessionStore:
             return []
 
         transcript: list[ConversationMessage] = []
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for raw_line in path.read_bytes().splitlines():
+            try:
+                line = raw_line.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
             if not line.strip():
                 continue
             try:
@@ -146,7 +150,10 @@ class SessionStore:
         path = self._summary_path_for(name)
         if not path.exists():
             return None
-        summary = path.read_text(encoding="utf-8").strip()
+        try:
+            summary = path.read_text(encoding="utf-8").strip()
+        except UnicodeDecodeError:
+            return None
         return summary or None
 
     def _dir_for(self, name: str) -> Path:
