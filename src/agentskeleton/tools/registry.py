@@ -6,6 +6,15 @@ from typing import Any
 from agentskeleton.tools.base import Tool
 
 TOOL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
+SUPPORTED_JSON_SCHEMA_TYPES = (
+    "array",
+    "boolean",
+    "integer",
+    "null",
+    "number",
+    "object",
+    "string",
+)
 
 
 class ToolRegistry:
@@ -77,9 +86,19 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
                 raise ValueError(
                     f"Tool {tool_name} {label} type entries must be strings"
                 )
+            if any(item not in SUPPORTED_JSON_SCHEMA_TYPES for item in schema_type):
+                raise ValueError(
+                    f"Tool {tool_name} {label} type must be one of: "
+                    f"{', '.join(SUPPORTED_JSON_SCHEMA_TYPES)}"
+                )
         elif not isinstance(schema_type, str):
             raise ValueError(
                 f"Tool {tool_name} {label} type must be a string or list of strings"
+            )
+        elif schema_type not in SUPPORTED_JSON_SCHEMA_TYPES:
+            raise ValueError(
+                f"Tool {tool_name} {label} type must be one of: "
+                f"{', '.join(SUPPORTED_JSON_SCHEMA_TYPES)}"
             )
 
     properties = schema.get("properties")

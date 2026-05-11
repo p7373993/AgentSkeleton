@@ -196,6 +196,30 @@ def test_registry_rejects_invalid_args_schema_members(
                 "type": "object",
                 "properties": {
                     "text": {
+                        "type": "strng",
+                    }
+                },
+            },
+            "schema property text type must be one of: "
+            "array, boolean, integer, null, number, object, string",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": ["string", "strng"],
+                    }
+                },
+            },
+            "schema property text type must be one of: "
+            "array, boolean, integer, null, number, object, string",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "text": {
                         "type": ["string", 123],
                     }
                 },
