@@ -756,6 +756,81 @@ def test_llm_client_bounds_large_tool_observation_outputs(tmp_path) -> None:
     ]
 
 
+def test_llm_client_bounds_large_tool_observation_summary(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    summary = "x" * 1_100_000
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult(
+                    success=True,
+                    payload={"content": "small"},
+                    summary=summary,
+                ),
+            )
+        ],
+    )
+
+    LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    output = fake_client.responses.calls[0]["input"][1]["output"]
+    observation_output = json.loads(output)
+    assert len(output.encode("utf-8")) < 2_000
+    assert observation_output["summary"].startswith("x" * 40)
+    assert observation_output["summary"].endswith("...")
+    assert len(observation_output["summary"]) < 600
+    assert observation_output["payload"]["truncated"] is True
+    assert summary not in output
+
+
+def test_llm_client_bounds_large_tool_observation_error(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    error = "x" * 1_100_000
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult(
+                    success=False,
+                    payload={"content": "small"},
+                    summary="failed",
+                    error=error,
+                ),
+            )
+        ],
+    )
+
+    LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    output = fake_client.responses.calls[0]["input"][1]["output"]
+    observation_output = json.loads(output)
+    assert len(output.encode("utf-8")) < 2_000
+    assert observation_output["error"].startswith("x" * 40)
+    assert observation_output["error"].endswith("...")
+    assert len(observation_output["error"]) < 600
+    assert observation_output["payload"]["truncated"] is True
+    assert error not in output
+
+
 def test_llm_client_sends_transcript_context(
     tmp_path,
 ) -> None:

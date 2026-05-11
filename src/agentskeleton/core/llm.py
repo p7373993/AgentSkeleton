@@ -366,11 +366,21 @@ def _serialize_tool_result(result: Any) -> str:
                 "bytes": len(serialized_bytes),
                 "preview": f"{serialized[:MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS]}...",
             },
-            "summary": result.summary,
-            "error": result.error,
+            "summary": _bounded_tool_result_text(result.summary),
+            "error": (
+                _bounded_tool_result_text(result.error)
+                if result.error is not None
+                else None
+            ),
         },
         separators=(",", ":"),
     )
+
+
+def _bounded_tool_result_text(value: str) -> str:
+    if len(value) <= MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS:
+        return value
+    return f"{value[:MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS]}..."
 
 
 def _json_size(value: Any) -> int:
