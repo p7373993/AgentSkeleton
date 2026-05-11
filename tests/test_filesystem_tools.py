@@ -337,6 +337,18 @@ def test_write_file_rejects_invalid_content(
     assert not (tmp_path / "out.txt").exists()
 
 
+def test_write_file_rejects_large_content(tmp_path: Path) -> None:
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": "a" * 1_048_577},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Content too large"
+    assert result.summary == "Content too large: out.txt"
+    assert not (tmp_path / "out.txt").exists()
+
+
 def test_write_file_rejects_non_bool_create_parent_dirs(tmp_path: Path) -> None:
     result = WriteFileTool().execute(
         {"path": "nested/out.txt", "content": "hello", "create_parent_dirs": "true"},

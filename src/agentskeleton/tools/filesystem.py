@@ -5,6 +5,7 @@ from agentskeleton.policy.paths import PathSecurityError, resolve_workspace_path
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
 MAX_READ_FILE_BYTES = 1_048_576
+MAX_WRITE_FILE_BYTES = 1_048_576
 
 
 def _error(summary: str, error: str) -> ToolResult:
@@ -265,6 +266,9 @@ class WriteFileTool(Tool):
                 return _error(f"Not a file: {requested}", "Not a file")
 
         encoded = content.encode("utf-8")
+        if len(encoded) > MAX_WRITE_FILE_BYTES:
+            return _error(f"Content too large: {requested}", "Content too large")
+
         temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
         try:
             temp_path.write_bytes(encoded)
