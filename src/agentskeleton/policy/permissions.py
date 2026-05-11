@@ -245,6 +245,9 @@ def _normalize_executable_token(token: str) -> str:
 def _split_shell_segments(command: str) -> list[str]:
     return [
         segment.strip()
-        for segment in command.replace("&&", "|").replace(";", "|").split("|")
+        for segment in command.replace("&&", "|")
+        .replace("&", "|")
+        .replace(";", "|")
+        .split("|")
         if segment.strip()
     ]
