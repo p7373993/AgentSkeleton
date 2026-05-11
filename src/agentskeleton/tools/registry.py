@@ -21,6 +21,8 @@ class ToolRegistry:
             raise ValueError("Tool name cannot contain whitespace")
         if TOOL_NAME_PATTERN.fullmatch(name) is None:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
+        if not isinstance(tool.description, str):
+            raise ValueError(f"Tool {name} description must be a string")
         _validate_args_schema(tool)
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")

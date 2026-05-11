@@ -73,6 +73,16 @@ def test_registry_rejects_tool_names_with_invalid_characters() -> None:
         registry.register(InvalidNameTool())
 
 
+def test_registry_rejects_non_string_tool_descriptions() -> None:
+    class InvalidDescriptionTool(EchoTool):
+        description = 123
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool echo description must be a string"):
+        registry.register(InvalidDescriptionTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [
