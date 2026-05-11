@@ -547,6 +547,45 @@ def test_loop_executes_tool_and_feeds_observation(tmp_path: Path) -> None:
     assert any(event[0] == "tool_finished" for event in logger.events)
 
 
+def test_loop_bounds_logged_tool_arguments_without_changing_execution(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+    large_value = "x" * 5_000
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="record",
+                    arguments={"value": large_value},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        trace=trace,
+    ).run("record")
+
+    model_action = next(event for event in logger.events if event[0] == "model_action")
+    trace_arguments = next(
+        event.payload["arguments"]
+        for event in trace.events
+        if event.name == "tool_started"
+    )
+    assert state.final_status == "completed"
+    assert state.observations[0].result.payload["value"] == large_value
+    assert model_action[2]["arguments"] == {
+        "truncated": True,
+        "bytes": 5012,
+        "preview": '{"value":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...',
+    }
+    assert trace_arguments == model_action[2]["arguments"]
+
+
 def test_loop_executes_all_tool_calls_in_batch(tmp_path: Path) -> None:
     state = make_loop(
         tmp_path,

@@ -32,6 +32,8 @@ class LoggerLike(Protocol):
 Confirmer = Callable[[PermissionDecision, ToolCallAction], bool]
 REPEATED_ACTION_THRESHOLD = 3
 MAX_TOOL_CALL_BATCH_SIZE = 20
+MAX_LOGGED_ARGUMENT_BYTES = 4_096
+MAX_LOGGED_ARGUMENT_PREVIEW_CHARS = 49
 
 
 class AgentLoop:
@@ -253,13 +255,14 @@ class AgentLoop:
             )
             return
 
+        logged_arguments = _logged_arguments(action.arguments)
         self._log_event(
             "model_action",
             state.step_count,
             {
                 "type": "tool_call",
                 "tool_name": action.tool_name,
-                "arguments": action.arguments,
+                "arguments": logged_arguments,
                 "call_id": action.call_id,
             },
         )
@@ -267,7 +270,7 @@ class AgentLoop:
             "model_action",
             {
                 "tool_name": action.tool_name,
-                "arguments": action.arguments,
+                "arguments": logged_arguments,
                 "call_id": action.call_id,
             },
         )
@@ -389,7 +392,7 @@ class AgentLoop:
         self._log_event("tool_started", state.step_count, {"tool_name": tool.name})
         self._emit_trace(
             "tool_started",
-            {"tool_name": tool.name, "arguments": action.arguments},
+            {"tool_name": tool.name, "arguments": logged_arguments},
         )
         try:
             result = tool.execute(
@@ -580,6 +583,29 @@ def _action_fingerprint(action: ToolCallAction) -> str:
     except (TypeError, ValueError):
         arguments = repr(action.arguments)
     return f"{action.tool_name}:{arguments}"
+
+
+def _logged_arguments(arguments: object) -> object:
+    try:
+        encoded = json.dumps(
+            arguments,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        encoded = repr(arguments).encode("utf-8", errors="replace")
+
+    if len(encoded) <= MAX_LOGGED_ARGUMENT_BYTES:
+        return arguments
+    preview = encoded.decode("utf-8", errors="ignore")[
+        :MAX_LOGGED_ARGUMENT_PREVIEW_CHARS
+    ]
+    return {
+        "truncated": True,
+        "bytes": len(encoded),
+        "preview": f"{preview}...",
+    }
 
 
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
