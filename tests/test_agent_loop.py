@@ -291,6 +291,50 @@ def test_loop_handles_unsupported_model_action_as_state(tmp_path: Path) -> None:
     ("action", "reason"),
     [
         (
+            FinalAction(text=None),  # type: ignore[arg-type]
+            "Model returned invalid final action: text must be a string",
+        ),
+        (
+            FinalAction(text="done", status=[]),  # type: ignore[arg-type]
+            "Model returned invalid final action: status must be a non-empty string",
+        ),
+    ],
+)
+def test_loop_rejects_malformed_final_action_metadata(
+    tmp_path: Path,
+    action: FinalAction,
+    reason: str,
+) -> None:
+    logger = MemoryLogger()
+    state = make_loop(tmp_path, [action], logger).run("finish")
+
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_final_action",
+            "error": reason,
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": reason,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("action", "reason"),
+    [
+        (
             ToolCallAction(
                 tool_name=[],
                 arguments={"value": "x"},

@@ -121,6 +121,16 @@ class AgentLoop:
                 return state
 
             if isinstance(action, FinalAction):
+                metadata_error = _validate_final_action_metadata(action)
+                if metadata_error is not None:
+                    self._record_invalid_action(
+                        state,
+                        action,
+                        reason=f"Model returned invalid final action: {metadata_error}",
+                        error_type="invalid_final_action",
+                    )
+                    self._log_run_finished(state)
+                    return state
                 state.final_status = action.status
                 state.final_answer = action.text
                 self._emit_trace(
@@ -519,6 +529,14 @@ def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
         return "tool_name must be a non-empty string"
     if not isinstance(action.call_id, str) or not action.call_id.strip():
         return "call_id must be a non-empty string"
+    return None
+
+
+def _validate_final_action_metadata(action: FinalAction) -> str | None:
+    if not isinstance(action.text, str):
+        return "text must be a string"
+    if not isinstance(action.status, str) or not action.status.strip():
+        return "status must be a non-empty string"
     return None
 
 
