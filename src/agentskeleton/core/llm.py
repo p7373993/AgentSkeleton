@@ -24,6 +24,7 @@ AGENT_INSTRUCTIONS = (
 MAX_TOOL_RESULT_OUTPUT_BYTES = 1_048_576
 MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
 MAX_RESPONSE_OUTPUT_ITEMS = 100
+MAX_MESSAGE_CONTENT_PARTS = 200
 MAX_FUNCTION_CALL_ARGUMENT_BYTES = 2_097_152
 MAX_CONVERSATION_CONTENT_CHARS = 4_096
 MAX_CONVERSATION_ROLE_CHARS = 64
@@ -128,11 +129,16 @@ def _message_content_text_parts(content: Any) -> list[str]:
     if isinstance(content, str):
         return [content]
     if isinstance(content, list | tuple):
-        return [
+        item_limit = _message_content_part_limit(len(content))
+        text_parts = [
             text
-            for part in content
+            for part in content[:item_limit]
             if (text := _message_content_part_text(part)) is not None
         ]
+        omitted = len(content) - item_limit
+        if omitted > 0:
+            text_parts.append(f"[truncated {omitted} content parts]")
+        return text_parts
     text = _message_content_part_text(content)
     return [] if text is None else [text]
 
@@ -150,6 +156,12 @@ def _message_content_part_text(part: Any) -> str | None:
     if part_type in (None, "output_text", "text"):
         return text
     return None
+
+
+def _message_content_part_limit(total_items: int) -> int:
+    if total_items <= MAX_MESSAGE_CONTENT_PARTS:
+        return total_items
+    return MAX_MESSAGE_CONTENT_PARTS - 1
 
 
 class LLMClient:
