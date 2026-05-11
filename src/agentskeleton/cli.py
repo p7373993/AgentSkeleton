@@ -201,6 +201,10 @@ def eval_suite(
     path: Path,
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
+    require_domain: Annotated[
+        list[str] | None,
+        typer.Option("--require-domain"),
+    ] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config, {"enabled_tools": tool})
@@ -209,6 +213,7 @@ def eval_suite(
             load_scenario_suite(path),
             loaded,
             registry_factory=_registry_from_config,
+            required_domains=require_domain,
         )
     except ValueError as exc:
         console.print(f"Scenario error: {exc}", soft_wrap=True)
@@ -223,6 +228,8 @@ def eval_suite(
         for item in payload["results"]:
             marker = "PASS" if item["passed"] else "FAIL"
             console.print(f"{marker}: {item['scenario']}")
+        for failure in payload["coverage_failures"]:
+            console.print(f"Coverage failure: {failure}")
 
     if not result.passed:
         raise typer.Exit(1)

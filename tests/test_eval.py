@@ -564,6 +564,55 @@ def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> No
     ]
 
 
+def test_run_scenario_suite_fails_when_required_domain_is_missing(
+    tmp_path: Path,
+) -> None:
+    scenario = load_scenario(
+        _write_final_scenario(
+            tmp_path,
+            "passing",
+            "ok",
+            "ok",
+            domain="finance",
+        )
+    )
+
+    suite = run_scenario_suite(
+        [scenario],
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+        required_domains=["finance", "writing"],
+    )
+
+    assert suite.passed is False
+    assert suite.coverage_failures == ["required domain writing has no scenarios"]
+    assert suite.to_dict()["coverage_failures"] == suite.coverage_failures
+
+
+def test_run_scenario_suite_fails_when_required_domain_has_failures(
+    tmp_path: Path,
+) -> None:
+    scenario = load_scenario(
+        _write_final_scenario(
+            tmp_path,
+            "failing",
+            "actual",
+            "expected",
+            domain="finance",
+        )
+    )
+
+    suite = run_scenario_suite(
+        [scenario],
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+        required_domains=["finance"],
+    )
+
+    assert suite.passed is False
+    assert suite.coverage_failures == ["required domain finance has failing scenarios"]
+
+
 def _write_final_scenario(
     tmp_path: Path,
     name: str,

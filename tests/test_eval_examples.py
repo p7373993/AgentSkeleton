@@ -15,6 +15,12 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
             config.enabled_tools,
             config.tool_modules,
         ),
+        required_domains=[
+            "artifacts",
+            "filesystem",
+            "reliability",
+            "tool_packs",
+        ],
     )
 
     assert result.passed is True

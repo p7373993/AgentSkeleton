@@ -60,6 +60,7 @@ class ScenarioResult:
 @dataclass(frozen=True)
 class ScenarioSuiteResult:
     results: list[ScenarioResult]
+    required_domains: list[str] = field(default_factory=list)
 
     @property
     def total(self) -> int:
@@ -75,7 +76,7 @@ class ScenarioSuiteResult:
 
     @property
     def passed(self) -> bool:
-        return self.failed_count == 0
+        return self.failed_count == 0 and not self.coverage_failures
 
     @property
     def domains(self) -> dict[str, dict[str, int]]:
@@ -92,6 +93,18 @@ class ScenarioSuiteResult:
                 domain["failed"] += 1
         return dict(sorted(summary.items()))
 
+    @property
+    def coverage_failures(self) -> list[str]:
+        failures: list[str] = []
+        domains = self.domains
+        for domain in self.required_domains:
+            stats = domains.get(domain)
+            if stats is None:
+                failures.append(f"required domain {domain} has no scenarios")
+            elif stats["failed"] > 0:
+                failures.append(f"required domain {domain} has failing scenarios")
+        return failures
+
     def to_dict(self) -> dict[str, object]:
         return {
             "passed": self.passed,
@@ -99,6 +112,8 @@ class ScenarioSuiteResult:
             "passed_count": self.passed_count,
             "failed_count": self.failed_count,
             "domains": self.domains,
+            "required_domains": self.required_domains,
+            "coverage_failures": self.coverage_failures,
             "results": [result.to_dict() for result in self.results],
         }
 
@@ -200,9 +215,10 @@ def run_scenario_suite(
     config: RunConfig,
     registry: ToolRegistry | None = None,
     registry_factory: RegistryFactory | None = None,
+    required_domains: list[str] | None = None,
 ) -> ScenarioSuiteResult:
     return ScenarioSuiteResult(
-        [
+        results=[
             run_scenario(
                 scenario,
                 config,
@@ -210,7 +226,8 @@ def run_scenario_suite(
                 registry_factory=registry_factory,
             )
             for scenario in scenarios
-        ]
+        ],
+        required_domains=required_domains or [],
     )
 
 
