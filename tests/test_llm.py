@@ -603,6 +603,43 @@ def test_llm_client_serializes_recursive_tool_observation_payloads(tmp_path) -> 
     assert observation_output["payload"] == {"self": "<recursive>"}
 
 
+def test_llm_client_bounds_large_tool_observation_outputs(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult(
+                    success=True,
+                    payload={"content": "x" * 1_100_000},
+                    summary="huge output",
+                ),
+            )
+        ],
+    )
+
+    LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    output = fake_client.responses.calls[0]["input"][1]["output"]
+    observation_output = json.loads(output)
+    assert len(output.encode("utf-8")) < 2_000
+    assert observation_output["payload"]["truncated"] is True
+    assert observation_output["payload"]["bytes"] > 1_048_576
+    assert observation_output["payload"]["preview"].startswith('{"success": true')
+    assert "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" in observation_output["payload"][
+        "preview"
+    ]
+
+
 def test_llm_client_sends_transcript_context(
     tmp_path,
 ) -> None:

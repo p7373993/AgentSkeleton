@@ -21,6 +21,8 @@ AGENT_INSTRUCTIONS = (
     "summarize operational steps, tool calls, observations, assumptions, and "
     "final decisions."
 )
+MAX_TOOL_RESULT_OUTPUT_BYTES = 1_048_576
+MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
 
 
 class MissingAPIKeyError(RuntimeError):
@@ -311,7 +313,24 @@ def _serialize_tool_result(result: Any) -> str:
         "summary": result.summary,
         "error": result.error,
     }
-    return json.dumps(_json_safe(payload))
+    serialized = json.dumps(_json_safe(payload))
+    serialized_bytes = serialized.encode("utf-8")
+    if len(serialized_bytes) <= MAX_TOOL_RESULT_OUTPUT_BYTES:
+        return serialized
+
+    return json.dumps(
+        {
+            "success": result.success,
+            "payload": {
+                "truncated": True,
+                "bytes": len(serialized_bytes),
+                "preview": f"{serialized[:MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS]}...",
+            },
+            "summary": result.summary,
+            "error": result.error,
+        },
+        separators=(",", ":"),
+    )
 
 
 def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
