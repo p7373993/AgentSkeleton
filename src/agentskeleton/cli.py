@@ -202,6 +202,8 @@ def eval_scenario(
         console.print(f"Scenario: {payload['scenario']}")
         console.print(f"Passed: {payload['passed']}")
         console.print(f"Status: {payload['status']}")
+        if payload["reason"]:
+            console.print(f"Reason: {payload['reason']}")
         if payload["failures"]:
             for failure in payload["failures"]:
                 console.print(f"Failure: {failure}")

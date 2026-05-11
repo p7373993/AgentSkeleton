@@ -171,6 +171,34 @@ def test_eval_command_runs_scenario_as_json(monkeypatch, tmp_path) -> None:
     assert payload["log"].endswith(".jsonl")
 
 
+def test_eval_command_prints_final_reason(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    scenario_path = tmp_path / "invalid-action.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: invalid-action",
+                "goal: handle invalid action",
+                "actions:",
+                "  - type: invalid",
+                "expect:",
+                "  status: invalid_action",
+                "  reason: 'Model returned unsupported action: dict'",
+                "  observations: 0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval", str(scenario_path)])
+
+    assert result.exit_code == 0
+    assert "Scenario: invalid-action" in result.stdout
+    assert "Status: invalid_action" in result.stdout
+    assert "Reason: Model returned unsupported action: dict" in result.stdout
+
+
 def test_eval_suite_command_runs_directory_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     suite_dir = tmp_path / "evals"
