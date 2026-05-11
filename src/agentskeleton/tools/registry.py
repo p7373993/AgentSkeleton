@@ -1,5 +1,5 @@
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from agentskeleton.tools.base import Tool
@@ -21,6 +21,7 @@ class ToolRegistry:
             raise ValueError("Tool name cannot contain whitespace")
         if TOOL_NAME_PATTERN.fullmatch(name) is None:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
+        _validate_args_schema(tool)
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")
         self._tools[name] = tool
@@ -44,3 +45,14 @@ class ToolRegistry:
             }
             for tool in self.all()
         ]
+
+
+def _validate_args_schema(tool: Tool) -> None:
+    schema = tool.args_schema
+    if not isinstance(schema, Mapping):
+        raise ValueError(f"Tool {tool.name} schema must be a mapping")
+    if schema.get("type") != "object":
+        raise ValueError(f"Tool {tool.name} schema type must be object")
+    properties = schema.get("properties")
+    if properties is not None and not isinstance(properties, Mapping):
+        raise ValueError(f"Tool {tool.name} schema properties must be a mapping")
