@@ -1,0 +1,41 @@
+name: writing-brief-artifact
+domain: writing
+goal: Draft a short memo artifact from a scenario brief.
+config:
+  permission_profile: trusted
+files:
+  briefs/client.txt: |
+    Audience: operations
+    Need: concise rollout note
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-writing-brief
+    arguments:
+      path: briefs/client.txt
+  - type: tool
+    tool: write_file
+    call_id: write-rollout-note
+    arguments:
+      path: drafts/rollout-note.txt
+      content: |
+        Operations rollout note:
+        Keep the update concise and action oriented.
+      create_parent_dirs: true
+  - type: final
+    text: writing workflow ok
+expect:
+  status: completed
+  answer: writing workflow ok
+  observations: 2
+  observations_detail:
+    - tool: read_file
+      success: true
+    - tool: write_file
+      success: true
+      payload:
+        path: drafts/rollout-note.txt
+  files:
+    drafts/rollout-note.txt: |
+      Operations rollout note:
+      Keep the update concise and action oriented.

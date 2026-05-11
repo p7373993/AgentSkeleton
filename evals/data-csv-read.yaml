@@ -1,0 +1,30 @@
+name: data-csv-read
+domain: data
+goal: Inspect a CSV fixture before answering a data question.
+files:
+  data/sales.csv: |
+    product,revenue
+    alpha,10
+    beta,32
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-sales-csv
+    arguments:
+      path: data/sales.csv
+  - type: final
+    text: data summary ok
+expect:
+  status: completed
+  answer: data summary ok
+  observations: 1
+  observations_detail:
+    - tool: read_file
+      success: true
+      summary: Read 33 characters from data/sales.csv
+      payload:
+        path: data/sales.csv
+        content: |
+          product,revenue
+          alpha,10
+          beta,32

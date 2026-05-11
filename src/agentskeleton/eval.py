@@ -293,7 +293,7 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
         except PathSecurityError as exc:
             raise ValueError(str(exc)) from exc
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+        target.write_bytes(content.encode("utf-8"))
     return workspace
 
 

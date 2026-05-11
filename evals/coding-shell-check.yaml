@@ -1,0 +1,23 @@
+name: coding-shell-check
+domain: coding
+goal: Run a deterministic shell check for a coding workflow.
+actions:
+  - type: tool
+    tool: shell
+    call_id: coding-shell-check
+    arguments:
+      command: echo agent-loop-coding-ok
+  - type: final
+    text: coding shell ok
+expect:
+  status: completed
+  answer: coding shell ok
+  observations: 1
+  observations_detail:
+    - tool: shell
+      success: true
+      summary: Command exited with 0
+      payload:
+        exit_code: 0
+        timed_out: false
+        stdout: "agent-loop-coding-ok\n"
