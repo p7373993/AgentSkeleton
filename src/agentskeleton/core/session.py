@@ -216,11 +216,26 @@ def _summarize_transcript(
     return "\n".join(lines)
 
 
-def _json_safe(value: Any) -> Any:
+def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
+    seen = seen or set()
     if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_json_safe(item) for item in value]
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return {str(key): _json_safe(item, seen) for key, item in value.items()}
+        finally:
+            seen.remove(marker)
+    if isinstance(value, list | tuple):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [_json_safe(item, seen) for item in value]
+        finally:
+            seen.remove(marker)
     if value is None or isinstance(value, int | float | bool | str):
         return value
     return str(value)

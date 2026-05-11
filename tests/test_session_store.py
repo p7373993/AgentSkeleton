@@ -54,6 +54,17 @@ def test_session_store_serializes_non_json_metadata_values(tmp_path: Path) -> No
     assert session.transcript[0].metadata["42"] == "numeric key"
 
 
+def test_session_store_serializes_recursive_metadata_values(tmp_path: Path) -> None:
+    store = SessionStore(tmp_path)
+    metadata = {}
+    metadata["self"] = metadata
+
+    store.append_transcript("default", "assistant", "answer", metadata=metadata)
+
+    session = store.load("default")
+    assert session.transcript[0].metadata == {"self": "<recursive>"}
+
+
 def test_session_store_refreshes_summary_for_older_transcript_turns(tmp_path) -> None:
     store = SessionStore(tmp_path)
     store.append_transcript("default", "user", "old user")
