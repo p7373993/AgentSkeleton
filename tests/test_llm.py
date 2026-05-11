@@ -61,6 +61,11 @@ class FakeSequenceClient:
         self.responses = FakeResponsesSequence(responses)
 
 
+class FailingTrace:
+    def emit(self, name: str, payload: dict[str, object]) -> None:
+        raise OSError("trace sink unavailable")
+
+
 def test_llm_client_requires_api_key_without_injected_client(
     tmp_path,
     monkeypatch,
@@ -120,6 +125,22 @@ def test_llm_client_sends_tool_schemas_and_parses_final_text(tmp_path) -> None:
     assert call["tools"][0]["name"] == "read_file"
     assert call["reasoning"] == {"effort": "low"}
     assert call["text"] == {"verbosity": "low"}
+
+
+def test_llm_client_continues_when_trace_sink_fails(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-1", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+        trace=FailingTrace(),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "done"
+    assert len(fake_client.responses.calls) == 1
 
 
 def test_llm_client_parses_function_call(tmp_path) -> None:

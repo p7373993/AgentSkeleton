@@ -104,7 +104,7 @@ class LLMClient:
 
     def next_action(self, state: RunState, registry: ToolRegistry):
         request = self._build_request(state, registry)
-        self.trace.emit(
+        self._emit_trace(
             "llm_request",
             {
                 "model": request["model"],
@@ -126,7 +126,7 @@ class LLMClient:
             state.response_context_items.extend(
                 self._serialize_output_item(item) for item in output
             )
-        self.trace.emit(
+        self._emit_trace(
             "llm_response",
             {
                 "function_calls": [
@@ -146,6 +146,12 @@ class LLMClient:
             return FinalAction(text=str(output_text))
 
         raise LLMResponseError("Response did not contain final text or a function call")
+
+    def _emit_trace(self, name: str, payload: dict[str, Any]) -> None:
+        try:
+            self.trace.emit(name, payload)
+        except Exception:
+            return
 
     def _build_request(self, state: RunState, registry: ToolRegistry) -> dict[str, Any]:
         request: dict[str, Any] = {
