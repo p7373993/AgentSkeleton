@@ -129,7 +129,7 @@ class AgentLoop:
                 error_payload = {
                     "status": state.final_status,
                     "error_type": type(exc).__name__,
-                    "error": _logged_text(str(exc)),
+                    "error": _logged_text(_exception_text(exc)),
                 }
                 self._log_event("run_error", state.step_count, error_payload)
                 self._emit_trace("run_error", error_payload)
@@ -470,7 +470,7 @@ class AgentLoop:
                     "arguments": action.arguments,
                 },
                 summary=f"Tool raised an exception: {type(exc).__name__}",
-                error=str(exc),
+                error=_exception_text(exc),
             )
             stored_result = self._record_tool_observation(
                 state,
@@ -739,6 +739,13 @@ def _logged_value(value: object) -> object:
         "bytes": len(encoded),
         "preview": f"{preview}...",
     }
+
+
+def _exception_text(exc: BaseException) -> str:
+    try:
+        return str(exc)
+    except Exception:
+        return type(exc).__name__
 
 
 def _bounded_stored_tool_result(result: ToolResult) -> ToolResult:

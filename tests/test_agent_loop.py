@@ -524,6 +524,36 @@ def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:
     )
 
 
+def test_loop_logs_unstringable_model_error_and_returns_state(tmp_path: Path) -> None:
+    class UnstringableException(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError("message unavailable")
+
+    class UnstringableLLM:
+        def next_action(self, state, registry):
+            raise UnstringableException()
+
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=UnstringableLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("finish")
+
+    assert state.final_status == "model_error"
+    assert state.final_reason == "Model call failed: UnstringableException"
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "model_error",
+            "error_type": "UnstringableException",
+            "error": "UnstringableException",
+        },
+    ) in logger.events
+
+
 def test_loop_bounds_logged_model_error_message(tmp_path: Path) -> None:
     logger = MemoryLogger()
     trace = MemoryTraceSink()
@@ -1717,6 +1747,53 @@ def test_loop_converts_tool_exception_to_observation(tmp_path: Path) -> None:
             "success": False,
             "summary": "Tool raised an exception: RuntimeError",
             "error": "boom",
+        },
+    ) in logger.events
+
+
+def test_loop_converts_unstringable_tool_exception_to_observation(
+    tmp_path: Path,
+) -> None:
+    class UnstringableException(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError("message unavailable")
+
+    class UnstringableErrorTool(RecordTool):
+        name = "unstringable_error"
+
+        def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+            raise UnstringableException()
+
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="unstringable_error",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                )
+            ]
+        ),
+        registry=ToolRegistry([UnstringableErrorTool()]),
+        logger=logger,
+    ).run("record")
+
+    assert state.final_status == "tool_error"
+    observation = state.observations[0]
+    assert observation.result.summary == (
+        "Tool raised an exception: UnstringableException"
+    )
+    assert observation.result.error == "UnstringableException"
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "unstringable_error",
+            "success": False,
+            "summary": "Tool raised an exception: UnstringableException",
+            "error": "UnstringableException",
         },
     ) in logger.events
 
