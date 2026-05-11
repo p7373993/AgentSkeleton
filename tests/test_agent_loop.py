@@ -1109,6 +1109,31 @@ def test_loop_rejects_invalid_tool_arguments_before_execution(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_bounds_deep_tool_arguments_before_validation(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    value: dict[str, object] = {}
+    current = value
+    for _ in range(20_000):
+        child: dict[str, object] = {}
+        current["child"] = child
+        current = child
+
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction("record", {"value": value}, "call-1"),
+            FinalAction(text="recovered"),
+        ],
+        logger,
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert state.observations[0].result.error == "Invalid arguments"
+    model_action = next(event for event in logger.events if event[0] == "model_action")
+    assert "<max-depth-exceeded>" in str(model_action[2]["arguments"])
+
+
 def test_loop_rejects_non_object_tool_arguments_before_execution(
     tmp_path: Path,
 ) -> None:

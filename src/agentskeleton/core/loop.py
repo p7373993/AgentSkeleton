@@ -37,6 +37,8 @@ MAX_LOGGED_ARGUMENT_BYTES = 4_096
 MAX_LOGGED_ARGUMENT_PREVIEW_CHARS = 49
 MAX_LOGGED_TEXT_BYTES = 4_096
 MAX_LOGGED_TEXT_PREVIEW_CHARS = 200
+MAX_LOGGED_VALUE_DEPTH = 64
+MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
 
 
 class AgentLoop:
@@ -569,7 +571,7 @@ class AgentLoop:
 def _action_fingerprint(action: ToolCallAction) -> str:
     try:
         arguments = json.dumps(
-            action.arguments,
+            _json_log_safe(action.arguments),
             sort_keys=True,
             separators=(",", ":"),
             default=str,
@@ -580,9 +582,10 @@ def _action_fingerprint(action: ToolCallAction) -> str:
 
 
 def _logged_arguments(arguments: object) -> object:
+    safe_arguments = _json_log_safe(arguments)
     try:
         encoded = json.dumps(
-            arguments,
+            safe_arguments,
             ensure_ascii=False,
             separators=(",", ":"),
             default=str,
@@ -591,7 +594,7 @@ def _logged_arguments(arguments: object) -> object:
         encoded = repr(arguments).encode("utf-8", errors="replace")
 
     if len(encoded) <= MAX_LOGGED_ARGUMENT_BYTES:
-        return arguments
+        return safe_arguments
     preview = encoded.decode("utf-8", errors="ignore")[
         :MAX_LOGGED_ARGUMENT_PREVIEW_CHARS
     ]
@@ -616,9 +619,10 @@ def _logged_text(value: object) -> object:
 
 
 def _logged_value(value: object) -> object:
+    safe_value = _json_log_safe(value)
     try:
         encoded = json.dumps(
-            value,
+            safe_value,
             ensure_ascii=False,
             separators=(",", ":"),
             default=str,
@@ -627,13 +631,50 @@ def _logged_value(value: object) -> object:
         encoded = repr(value).encode("utf-8", errors="replace")
 
     if len(encoded) <= MAX_LOGGED_TEXT_BYTES:
-        return value
+        return safe_value
     preview = encoded.decode("utf-8", errors="ignore")[:MAX_LOGGED_TEXT_PREVIEW_CHARS]
     return {
         "truncated": True,
         "bytes": len(encoded),
         "preview": f"{preview}...",
     }
+
+
+def _json_log_safe(
+    value: object,
+    seen: set[int] | None = None,
+    depth: int = 0,
+) -> object:
+    if depth > MAX_LOGGED_VALUE_DEPTH:
+        return MAX_DEPTH_EXCEEDED
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+
+    seen = seen or set()
+    if isinstance(value, Mapping):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return {
+                str(key): _json_log_safe(item, seen, depth + 1)
+                for key, item in value.items()
+            }
+        finally:
+            seen.remove(marker)
+
+    if isinstance(value, list | tuple):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [_json_log_safe(item, seen, depth + 1) for item in value]
+        finally:
+            seen.remove(marker)
+
+    return str(value)
 
 
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
