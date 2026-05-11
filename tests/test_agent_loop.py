@@ -84,6 +84,24 @@ class ModeRecordTool(RecordTool):
         return ToolResult(success=True, payload={"mode": args["mode"]}, summary="ok")
 
 
+class TagsRecordTool(RecordTool):
+    name = "tags_record"
+    args_schema = {
+        "type": "object",
+        "properties": {
+            "tags": {
+                "type": "array",
+                "items": {"type": "string"},
+            }
+        },
+        "required": ["tags"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return ToolResult(success=True, payload={"tags": args["tags"]}, summary="ok")
+
+
 class ExplodingTool(RecordTool):
     name = "explode"
 
@@ -540,6 +558,30 @@ def test_loop_rejects_tool_arguments_outside_enum(tmp_path: Path) -> None:
     assert state.observations[0].result.success is False
     assert state.observations[0].result.payload["validation_errors"] == [
         "Argument mode must be one of: fast, safe"
+    ]
+
+
+def test_loop_rejects_invalid_array_item_tool_argument(tmp_path: Path) -> None:
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="tags_record",
+                    arguments={"tags": ["ok", 123]},
+                    call_id="call-1",
+                ),
+                FinalAction(text="recovered"),
+            ]
+        ),
+        registry=ToolRegistry([TagsRecordTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].result.success is False
+    assert state.observations[0].result.payload["validation_errors"] == [
+        "Argument tags[1] must be string"
     ]
 
 

@@ -470,6 +470,7 @@ def _validate_tool_arguments(
             errors.append(
                 f"Argument {name} must be one of: {_format_enum_values(enum_values)}"
             )
+        errors.extend(_validate_array_items(name, value, property_schema))
 
     return errors
 
@@ -488,6 +489,37 @@ def _format_json_types(expected_types: list[str]) -> str:
 
 def _format_enum_values(values: list[object]) -> str:
     return ", ".join(str(value) for value in values)
+
+
+def _validate_array_items(
+    name: str,
+    value: object,
+    property_schema: dict[str, object],
+) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    items_schema = property_schema.get("items")
+    if not isinstance(items_schema, dict):
+        return []
+
+    errors: list[str] = []
+    expected_types = _normalize_json_types(items_schema.get("type"))
+    enum_values = items_schema.get("enum")
+    for index, item in enumerate(value):
+        item_name = f"{name}[{index}]"
+        if expected_types and not any(
+            _matches_json_type(item, expected_type) for expected_type in expected_types
+        ):
+            errors.append(
+                f"Argument {item_name} must be {_format_json_types(expected_types)}"
+            )
+            continue
+        if isinstance(enum_values, list) and item not in enum_values:
+            errors.append(
+                f"Argument {item_name} must be one of: "
+                f"{_format_enum_values(enum_values)}"
+            )
+    return errors
 
 
 def _matches_json_type(value: object, expected_type: str) -> bool:
