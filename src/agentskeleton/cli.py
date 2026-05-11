@@ -830,7 +830,7 @@ def _summarize_run_log(
     if failed_tool_payloads:
         last_failed = failed_tool_payloads[-1]
         last_tool_error = {
-            "tool_name": last_failed.get("tool_name"),
+            "tool_name": _run_log_text_value(last_failed.get("tool_name")),
             "summary": _run_log_text_value(last_failed.get("summary")),
             "error": _run_log_text_value(last_failed.get("error")),
         }

@@ -2125,6 +2125,51 @@ def test_show_run_summarizes_bounded_tool_error_text_as_json(
     }
 
 
+def test_show_run_bounds_large_tool_error_name_as_json(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    large_tool_name = "t" * 20_000
+    events = [
+        {
+            "type": "tool_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "tool_name": large_tool_name,
+                "success": False,
+                "summary": "Command exited with 1",
+                "error": "Command failed",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "tool_error"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    tool_name = payload["last_tool_error"]["tool_name"]
+    assert len(tool_name) < 5_000
+    assert tool_name.startswith("tttttttttttttttt")
+    assert "[truncated" in tool_name
+    assert large_tool_name not in result.stdout
+
+
 def test_show_run_can_include_events_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
