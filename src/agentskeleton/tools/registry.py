@@ -64,25 +64,40 @@ def _validate_args_schema(tool: Tool) -> None:
         raise ValueError(f"Tool {tool.name} schema must be a mapping")
     if schema.get("type") != "object":
         raise ValueError(f"Tool {tool.name} schema type must be object")
+    _validate_schema_node(tool.name, schema, "schema")
+
+
+def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
     properties = schema.get("properties")
     if properties is not None and not isinstance(properties, Mapping):
-        raise ValueError(f"Tool {tool.name} schema properties must be a mapping")
+        raise ValueError(f"Tool {tool_name} {label} properties must be a mapping")
     if isinstance(properties, Mapping):
         for property_name, property_schema in properties.items():
             if not isinstance(property_name, str):
                 raise ValueError(
-                    f"Tool {tool.name} schema property names must be strings"
+                    f"Tool {tool_name} {label} property names must be strings"
                 )
             if not isinstance(property_schema, Mapping):
                 raise ValueError(
-                    f"Tool {tool.name} schema property {property_name} "
+                    f"Tool {tool_name} {label} property {property_name} "
                     "must be a mapping"
                 )
+            _validate_schema_node(
+                tool_name,
+                property_schema,
+                f"{label} property {property_name}",
+            )
     required = schema.get("required")
     if required is not None:
         if not isinstance(required, list):
-            raise ValueError(f"Tool {tool.name} schema required must be a list")
+            raise ValueError(f"Tool {tool_name} {label} required must be a list")
         if not all(isinstance(item, str) for item in required):
             raise ValueError(
-                f"Tool {tool.name} schema required entries must be strings"
+                f"Tool {tool_name} {label} required entries must be strings"
             )
+
+    items = schema.get("items")
+    if items is not None:
+        if not isinstance(items, Mapping):
+            raise ValueError(f"Tool {tool_name} {label} items must be a mapping")
+        _validate_schema_node(tool_name, items, f"{label} items")

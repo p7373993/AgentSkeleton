@@ -176,6 +176,73 @@ def test_registry_rejects_invalid_args_schema_members(
         registry.register(InvalidSchemaTool())
 
 
+@pytest.mark.parametrize(
+    ("schema", "error"),
+    [
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "settings": {
+                        "type": "object",
+                        "properties": [],
+                    }
+                },
+            },
+            "schema property settings properties must be a mapping",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "settings": {
+                        "type": "object",
+                        "properties": {1: {"type": "string"}},
+                    }
+                },
+            },
+            "schema property settings property names must be strings",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "settings": {
+                        "type": "object",
+                        "properties": {},
+                        "required": "enabled",
+                    }
+                },
+            },
+            "schema property settings required must be a list",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "tags": {
+                        "type": "array",
+                        "items": [],
+                    }
+                },
+            },
+            "schema property tags items must be a mapping",
+        ),
+    ],
+)
+def test_registry_rejects_invalid_nested_args_schema_members(
+    schema: object,
+    error: str,
+) -> None:
+    class InvalidSchemaTool(EchoTool):
+        args_schema = schema
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match=error):
+        registry.register(InvalidSchemaTool())
+
+
 def test_registry_exports_openai_function_schemas() -> None:
     registry = ToolRegistry([EchoTool()])
 
