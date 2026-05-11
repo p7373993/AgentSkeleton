@@ -730,6 +730,26 @@ def test_load_tools_from_module_rejects_control_characters_in_module_name() -> N
         load_tools_from_modules(["custom_tools\x00"])
 
 
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "../tools.py",
+        ".custom_tools",
+        "custom_tools.",
+        "custom..tools",
+        "custom-tools",
+    ],
+)
+def test_load_tools_from_module_rejects_malformed_module_names(
+    module_name: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Tool module name must be a dotted Python module path",
+    ):
+        load_tools_from_modules([module_name])
+
+
 def test_load_tools_from_module_reports_import_failures(tmp_path, monkeypatch) -> None:
     module_path = tmp_path / "bad_syntax_tools.py"
     module_path.write_text("def broken(:\n", encoding="utf-8")

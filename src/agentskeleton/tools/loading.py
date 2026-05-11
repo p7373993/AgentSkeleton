@@ -73,6 +73,8 @@ def _validate_module_name(module_name: object) -> None:
         raise ValueError("Tool module name cannot contain control characters")
     if any(character.isspace() for character in module_name):
         raise ValueError("Tool module name cannot contain whitespace")
+    if any(not part.isidentifier() for part in module_name.split(".")):
+        raise ValueError("Tool module name must be a dotted Python module path")
 
 
 def _evict_tool_module_cache(module_name: str) -> None:
