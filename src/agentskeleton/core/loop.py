@@ -457,16 +457,32 @@ def _validate_tool_arguments(
         if not isinstance(property_schema, dict):
             continue
         expected_type = property_schema.get("type")
-        if isinstance(expected_type, str) and not _matches_json_type(
-            value,
-            expected_type,
+        expected_types = _normalize_json_types(expected_type)
+        if expected_types and not any(
+            _matches_json_type(value, item) for item in expected_types
         ):
-            errors.append(f"Argument {name} must be {expected_type}")
+            errors.append(
+                f"Argument {name} must be {_format_json_types(expected_types)}"
+            )
 
     return errors
 
 
+def _normalize_json_types(raw_type: object) -> list[str]:
+    if isinstance(raw_type, str):
+        return [raw_type]
+    if isinstance(raw_type, list):
+        return [item for item in raw_type if isinstance(item, str)]
+    return []
+
+
+def _format_json_types(expected_types: list[str]) -> str:
+    return " or ".join(expected_types)
+
+
 def _matches_json_type(value: object, expected_type: str) -> bool:
+    if expected_type == "null":
+        return value is None
     if expected_type == "string":
         return isinstance(value, str)
     if expected_type == "boolean":
