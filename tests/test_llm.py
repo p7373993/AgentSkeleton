@@ -1416,6 +1416,37 @@ def test_llm_client_limits_transcript_context_to_recent_turns(tmp_path) -> None:
     ]
 
 
+def test_llm_client_bounds_oversized_transcript_context_to_recent_turns(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-2",
+        workspace=tmp_path,
+        goal="current request",
+        conversation=[
+            ConversationMessage(role="user", content=f"turn-{index}")
+            for index in range(300)
+        ],
+    )
+
+    LLMClient(
+        RunConfig(workspace=tmp_path, session_context_turns=300),
+        client=fake_client,
+    ).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    request_input = fake_client.responses.calls[0]["input"]
+    serialized_input = json.dumps(request_input)
+    assert len(request_input) == 200
+    assert request_input[-1] == {"role": "user", "content": "current request"}
+    assert "turn-0" not in serialized_input
+    assert "turn-299" in serialized_input
+
+
 def test_llm_client_bounds_large_transcript_turn_content(tmp_path) -> None:
     response = SimpleNamespace(id="resp-1", output_text="done", output=[])
     fake_client = FakeClient(response)

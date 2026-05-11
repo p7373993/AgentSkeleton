@@ -281,16 +281,36 @@ class LLMClient:
         return state.goal
 
     def _conversation_items(self, state: RunState) -> list[dict[str, str]]:
-        sticky_context = [
+        sticky_candidates = [
             turn
             for turn in state.conversation
             if turn.metadata.get("sticky_context") is True
-        ][-self.config.session_context_turns :]
-        conversation = [
+        ]
+        sticky_limit = min(
+            self.config.session_context_turns,
+            MAX_RESPONSE_CONTEXT_ANCHOR_ITEMS,
+        )
+        sticky_context = (
+            sticky_candidates[-sticky_limit:] if sticky_limit > 0 else []
+        )
+        conversation_budget = max(
+            MAX_RESPONSE_CONTEXT_ITEMS - len(sticky_context) - 1,
+            0,
+        )
+        conversation_limit = min(
+            self.config.session_context_turns,
+            conversation_budget,
+        )
+        conversation_candidates = [
             turn
             for turn in state.conversation
             if turn.metadata.get("sticky_context") is not True
-        ][-self.config.session_context_turns :]
+        ]
+        conversation = (
+            conversation_candidates[-conversation_limit:]
+            if conversation_limit > 0
+            else []
+        )
         return [
             {
                 "role": _safe_conversation_role(turn.role),
