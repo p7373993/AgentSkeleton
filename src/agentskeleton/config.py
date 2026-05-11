@@ -30,6 +30,18 @@ class RunConfig(BaseModel):
     def resolve_workspace(cls, value: Path) -> Path:
         return value.expanduser().resolve()
 
+    @field_validator("logs_dir")
+    @classmethod
+    def reject_file_logs_dir(cls, value: Path) -> Path:
+        expanded = value.expanduser()
+        for candidate in (expanded, *expanded.parents):
+            if not candidate.exists():
+                continue
+            if not candidate.is_dir():
+                raise ValueError(f"logs_dir must be a directory path: {value}")
+            break
+        return value
+
     @field_validator("enabled_tools")
     @classmethod
     def reject_empty_tool_names(cls, value: list[str] | None) -> list[str] | None:

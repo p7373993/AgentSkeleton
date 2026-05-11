@@ -145,3 +145,19 @@ def test_config_rejects_non_positive_limits(tmp_path: Path) -> None:
 def test_config_rejects_unknown_permission_profile(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         RunConfig(workspace=tmp_path, permission_profile="reckless")
+
+
+def test_config_rejects_logs_dir_file(tmp_path: Path) -> None:
+    logs_file = tmp_path / "runs"
+    logs_file.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="logs_dir must be a directory"):
+        RunConfig(workspace=tmp_path, logs_dir=logs_file)
+
+
+def test_config_rejects_logs_dir_with_file_parent(tmp_path: Path) -> None:
+    parent_file = tmp_path / "runs"
+    parent_file.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="logs_dir must be a directory path"):
+        RunConfig(workspace=tmp_path, logs_dir=parent_file / "nested")
