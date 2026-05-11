@@ -175,9 +175,21 @@ def _looks_like_remote_execution(command: str) -> bool:
             continue
         for next_segment in segments[index + 1 :]:
             next_tokens = next_segment.split()
-            if next_tokens and next_tokens[0] in executor_commands:
+            if (
+                next_tokens
+                and _first_executable_token(next_tokens) in executor_commands
+            ):
                 return True
     return False
+
+
+def _first_executable_token(tokens: list[str]) -> str | None:
+    wrappers = {"sudo"}
+    for token in tokens:
+        if token in wrappers:
+            continue
+        return token
+    return None
 
 
 def _split_shell_segments(command: str) -> list[str]:
