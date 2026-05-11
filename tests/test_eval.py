@@ -720,6 +720,17 @@ def test_eval_log_reader_reports_invalid_utf8_lines(tmp_path: Path) -> None:
     assert failures == ["log line 2 could not be decoded as UTF-8"]
 
 
+def test_eval_log_reader_reports_log_path_directory(tmp_path: Path) -> None:
+    log_path = tmp_path / "run.jsonl"
+    log_path.mkdir()
+    failures: list[str] = []
+
+    events = _read_log_events(log_path, failures)
+
+    assert events == []
+    assert failures == [f"log file expected but was not a file: {log_path}"]
+
+
 def test_run_scenario_reports_log_event_mismatch(tmp_path: Path) -> None:
     scenario_path = tmp_path / "event-mismatch.yaml"
     scenario_path.write_text(

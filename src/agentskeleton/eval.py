@@ -749,6 +749,9 @@ def _read_log_events(log_path: Path, failures: list[str]) -> list[dict[str, Any]
     if not log_path.exists():
         failures.append(f"log file expected but was missing: {log_path}")
         return []
+    if not log_path.is_file():
+        failures.append(f"log file expected but was not a file: {log_path}")
+        return []
 
     events: list[dict[str, Any]] = []
     for line_number, raw_line in enumerate(log_path.read_bytes().splitlines(), 1):
