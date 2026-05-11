@@ -683,6 +683,67 @@ def test_llm_client_bounds_large_nested_context_item_content(tmp_path) -> None:
     assert large_text not in str(state.response_context_items)
 
 
+def test_llm_client_serializes_recursive_context_item_content(tmp_path) -> None:
+    content = []
+    content.append(content)
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert state.response_context_items == [
+        {"role": "user", "content": "read"},
+        {
+            "type": "message",
+            "role": "assistant",
+            "content": ["<recursive>"],
+        },
+    ]
+
+
+def test_llm_client_bounds_deep_context_item_content(tmp_path) -> None:
+    content: dict[str, object] = {}
+    current = content
+    for _ in range(1_200):
+        child: dict[str, object] = {}
+        current["child"] = child
+        current = child
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert "<max-depth-exceeded>" in str(state.response_context_items)
+
+
 def test_llm_client_serializes_non_json_tool_observation_payloads(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="done", output=[])
     fake_client = FakeClient(response)

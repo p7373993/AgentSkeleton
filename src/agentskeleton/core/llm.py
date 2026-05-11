@@ -348,18 +348,46 @@ def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
     return _json_safe(item)
 
 
-def _bounded_context_content(value: Any) -> Any:
+def _bounded_context_content(
+    value: Any,
+    seen: set[int] | None = None,
+    depth: int = 0,
+) -> Any:
+    if depth > MAX_JSON_SAFE_DEPTH:
+        return MAX_DEPTH_EXCEEDED
     if isinstance(value, str):
         return _bounded_conversation_content(value)
+    seen = seen or set()
     if isinstance(value, list):
-        return [_bounded_context_content(item) for item in value]
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [_bounded_context_content(item, seen, depth + 1) for item in value]
+        finally:
+            seen.remove(marker)
     if isinstance(value, tuple):
-        return [_bounded_context_content(item) for item in value]
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [_bounded_context_content(item, seen, depth + 1) for item in value]
+        finally:
+            seen.remove(marker)
     if isinstance(value, dict):
-        return {
-            key: _bounded_context_content(item)
-            for key, item in value.items()
-        }
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return {
+                key: _bounded_context_content(item, seen, depth + 1)
+                for key, item in value.items()
+            }
+        finally:
+            seen.remove(marker)
     return value
 
 
