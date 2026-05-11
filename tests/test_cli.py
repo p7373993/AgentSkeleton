@@ -1678,3 +1678,97 @@ def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 1
     assert "Run log not found: missing" in result.stdout
+
+
+def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "finish the report"},
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {
+                "status": "max_steps",
+                "reason": "Reached max_steps limit: 2",
+                "answer": None,
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["restore-run", "run-1", "--session", "work"],
+    )
+
+    assert result.exit_code == 0
+    assert "Restored run run-1 into session work" in result.stdout
+    session = SessionStore(tmp_path / "runs").load("work")
+    assert [turn.role for turn in session.transcript] == ["user", "assistant"]
+    assert [turn.content for turn in session.transcript] == [
+        "finish the report",
+        "Run stopped with status max_steps. Reason: Reached max_steps limit: 2",
+    ]
+    assert session.transcript[0].metadata == {
+        "run_id": "run-1",
+        "source": "run_log",
+    }
+    assert session.transcript[1].metadata == {
+        "run_id": "run-1",
+        "source": "run_log",
+        "status": "max_steps",
+        "reason": "Reached max_steps limit: 2",
+    }
+
+
+def test_restore_run_imports_final_answer(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "summarize"},
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "summary done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1"])
+
+    assert result.exit_code == 0
+    session = SessionStore(tmp_path / "runs").load("default")
+    assert [turn.content for turn in session.transcript] == [
+        "summarize",
+        "summary done",
+    ]
+    assert session.transcript[1].metadata == {
+        "run_id": "run-1",
+        "source": "run_log",
+        "status": "completed",
+    }

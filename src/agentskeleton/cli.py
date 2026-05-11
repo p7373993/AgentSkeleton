@@ -631,6 +631,45 @@ def list_runs(
     console.print(table)
 
 
+@app.command(name="restore-run")
+def restore_run(
+    run_id: str,
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    session: Annotated[str, typer.Option("--session")] = "default",
+) -> None:
+    loaded = _load_config_or_exit(config)
+    log_path = _find_run_log(loaded.logs_dir, run_id)
+    if log_path is None:
+        console.print(f"Run log not found: {run_id}")
+        raise typer.Exit(1)
+
+    summary = _summarize_run_log(log_path, run_id=run_id)
+    goal = summary["goal"]
+    if not isinstance(goal, str) or not goal:
+        console.print(f"Run log has no restorable goal: {run_id}")
+        raise typer.Exit(1)
+
+    store = SessionStore(loaded.logs_dir)
+    store.append_transcript(
+        session,
+        "user",
+        goal,
+        {"run_id": run_id, "source": "run_log"},
+    )
+    assistant_content = _summary_transcript_content(summary)
+    if assistant_content:
+        metadata = {
+            "run_id": run_id,
+            "source": "run_log",
+            "status": summary["status"],
+        }
+        if summary["reason"]:
+            metadata["reason"] = summary["reason"]
+        store.append_transcript(session, "assistant", assistant_content, metadata)
+
+    console.print(f"Restored run {run_id} into session {session}")
+
+
 def main() -> None:
     app()
 
@@ -706,6 +745,22 @@ def _summarize_run_log(
     if include_events:
         summary["events"] = events
     return summary
+
+
+def _summary_transcript_content(summary: dict[str, object]) -> str | None:
+    answer = summary.get("answer")
+    if isinstance(answer, str) and answer:
+        return answer
+
+    status = summary.get("status")
+    if isinstance(status, str) and status:
+        content = f"Run stopped with status {status}."
+        reason = summary.get("reason")
+        if isinstance(reason, str) and reason:
+            content = f"{content} Reason: {reason}"
+        return content
+
+    return None
 
 
 def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
