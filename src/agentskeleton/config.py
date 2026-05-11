@@ -29,6 +29,20 @@ def _ensure_existing_parent_directory(value: Path, field_name: str) -> Path:
     return expanded
 
 
+def _path_exists_or_error(path: Path, label: str) -> bool:
+    try:
+        return path.exists()
+    except OSError as exc:
+        raise ValueError(f"{label} could not be checked: {path}") from exc
+
+
+def _path_is_file_or_error(path: Path, label: str) -> bool:
+    try:
+        return path.is_file()
+    except OSError as exc:
+        raise ValueError(f"{label} could not be checked: {path}") from exc
+
+
 class RunConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_default=True)
 
@@ -90,9 +104,9 @@ class RunConfig(BaseModel):
 
 
 def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:
-    if not path.exists():
+    if not _path_exists_or_error(path, "Dotenv file"):
         return {}
-    if not path.is_file():
+    if not _path_is_file_or_error(path, "Dotenv file"):
         raise ValueError(f"Dotenv file must be a file: {path}")
 
     values: dict[str, str] = {}
@@ -145,9 +159,9 @@ def load_config(
         data["base_url"] = env_base_url
 
     if config_path is not None:
-        if not config_path.exists():
+        if not _path_exists_or_error(config_path, "Config file"):
             raise ValueError(f"Config file not found: {config_path}")
-        if not config_path.is_file():
+        if not _path_is_file_or_error(config_path, "Config file"):
             raise ValueError(f"Config file must be a file: {config_path}")
         try:
             config_text = config_path.read_text(encoding="utf-8")

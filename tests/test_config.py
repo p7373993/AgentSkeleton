@@ -68,11 +68,48 @@ def test_load_config_rejects_explicit_missing_file(tmp_path: Path) -> None:
         load_config(tmp_path / "missing.yaml")
 
 
+def test_load_config_reports_config_exists_stat_failures(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "agent.yaml"
+    original_exists = Path.exists
+
+    def fail_config_exists(path: Path) -> bool:
+        if path == config_path:
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_config_exists)
+
+    with pytest.raises(ValueError, match="Config file could not be checked"):
+        load_config(config_path)
+
+
 def test_load_config_rejects_config_directory(tmp_path: Path) -> None:
     config_path = tmp_path / "agent.yaml"
     config_path.mkdir()
 
     with pytest.raises(ValueError, match="Config file must be a file"):
+        load_config(config_path)
+
+
+def test_load_config_reports_config_file_stat_failures(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("model: gpt-5.4-mini\n", encoding="utf-8")
+    original_is_file = Path.is_file
+
+    def fail_config_is_file(path: Path) -> bool:
+        if path == config_path:
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_config_is_file)
+
+    with pytest.raises(ValueError, match="Config file could not be checked"):
         load_config(config_path)
 
 
@@ -136,6 +173,24 @@ def test_load_config_reports_invalid_utf8_dotenv(
         load_config()
 
 
+def test_load_config_reports_dotenv_exists_stat_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    original_exists = Path.exists
+
+    def fail_dotenv_exists(path: Path) -> bool:
+        if path == Path(".env"):
+            raise OSError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fail_dotenv_exists)
+
+    with pytest.raises(ValueError, match="Dotenv file could not be checked"):
+        load_config()
+
+
 def test_load_config_rejects_dotenv_directory(
     tmp_path: Path,
     monkeypatch,
@@ -144,6 +199,25 @@ def test_load_config_rejects_dotenv_directory(
     (tmp_path / ".env").mkdir()
 
     with pytest.raises(ValueError, match=r"Dotenv file must be a file"):
+        load_config()
+
+
+def test_load_config_reports_dotenv_file_stat_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text("OPENAI_MODEL=gpt-5.4-mini\n", encoding="utf-8")
+    original_is_file = Path.is_file
+
+    def fail_dotenv_is_file(path: Path) -> bool:
+        if path == Path(".env"):
+            raise OSError("permission denied")
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", fail_dotenv_is_file)
+
+    with pytest.raises(ValueError, match="Dotenv file could not be checked"):
         load_config()
 
 
