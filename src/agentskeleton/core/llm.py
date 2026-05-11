@@ -26,6 +26,8 @@ MAX_TOOL_RESULT_OUTPUT_PREVIEW_CHARS = 512
 MAX_RESPONSE_OUTPUT_ITEMS = 100
 MAX_FUNCTION_CALL_ARGUMENT_BYTES = 2_097_152
 MAX_CONVERSATION_CONTENT_CHARS = 4_096
+MAX_CONVERSATION_ROLE_CHARS = 64
+ALLOWED_CONVERSATION_ROLES = {"assistant", "developer", "system", "user"}
 MAX_JSON_SAFE_DEPTH = 64
 MAX_JSON_SAFE_ITEMS = 200
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
@@ -268,7 +270,10 @@ class LLMClient:
             if turn.metadata.get("sticky_context") is not True
         ][-self.config.session_context_turns :]
         return [
-            {"role": turn.role, "content": _bounded_conversation_content(turn.content)}
+            {
+                "role": _safe_conversation_role(turn.role),
+                "content": _bounded_conversation_content(turn.content),
+            }
             for turn in [*sticky_context, *conversation, _current_user_turn(state.goal)]
         ]
 
@@ -366,6 +371,17 @@ def _bounded_conversation_content(content: str) -> str:
         f"{content[:MAX_CONVERSATION_CONTENT_CHARS]}"
         f"\n[truncated {omitted} characters]"
     )
+
+
+def _safe_conversation_role(role: object) -> str:
+    if not isinstance(role, str):
+        return "user"
+    normalized = role.strip().lower()
+    if len(normalized) > MAX_CONVERSATION_ROLE_CHARS:
+        return "user"
+    if normalized not in ALLOWED_CONVERSATION_ROLES:
+        return "user"
+    return normalized
 
 
 def _is_context_item(item: object) -> bool:

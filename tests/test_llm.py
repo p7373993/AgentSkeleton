@@ -1245,6 +1245,29 @@ def test_llm_client_bounds_large_transcript_turn_content(tmp_path) -> None:
     assert large_content not in json.dumps(fake_client.responses.calls[0]["input"])
 
 
+def test_llm_client_normalizes_oversized_transcript_roles(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-1", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    oversized_role = "a" * 10_000
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="current",
+        conversation=[
+            ConversationMessage(role=oversized_role, content="remember alpha"),
+        ],
+    )
+
+    LLMClient(RunConfig(workspace=tmp_path), client=fake_client).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    request_input = fake_client.responses.calls[0]["input"]
+    assert request_input[0]["role"] == "user"
+    assert oversized_role not in json.dumps(request_input)
+
+
 def test_llm_client_keeps_sticky_summary_when_limiting_transcript_context(
     tmp_path,
 ) -> None:
