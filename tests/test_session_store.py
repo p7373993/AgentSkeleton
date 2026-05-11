@@ -128,6 +128,13 @@ def test_session_store_lists_saved_sessions(tmp_path) -> None:
     ]
 
 
+def test_session_store_treats_sessions_root_file_as_empty(tmp_path) -> None:
+    sessions_root = tmp_path / "sessions"
+    sessions_root.write_text("not a directory", encoding="utf-8")
+
+    assert SessionStore(tmp_path).list_sessions() == []
+
+
 def test_session_store_ignores_malformed_transcript_lines(tmp_path) -> None:
     store = SessionStore(tmp_path)
     transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
@@ -147,6 +154,15 @@ def test_session_store_ignores_malformed_transcript_lines(tmp_path) -> None:
 
     assert [turn.content for turn in session.transcript] == ["first", "second"]
     assert store.list_sessions()[0].transcript_turns == 2
+
+
+def test_session_store_ignores_transcript_directory(tmp_path) -> None:
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.mkdir(parents=True)
+
+    session = SessionStore(tmp_path).load("default")
+
+    assert session.transcript == []
 
 
 def test_session_store_ignores_invalid_utf8_transcript_lines(tmp_path) -> None:
@@ -175,6 +191,16 @@ def test_session_store_ignores_invalid_utf8_summary(tmp_path) -> None:
 
     assert session.summary is None
     assert store.list_sessions() == []
+
+
+def test_session_store_ignores_summary_directory(tmp_path) -> None:
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    summary_path.mkdir(parents=True)
+
+    session = SessionStore(tmp_path).load("default")
+
+    assert session.summary is None
+    assert SessionStore(tmp_path).list_sessions() == []
 
 
 def test_session_store_refresh_summary_ignores_malformed_transcript_lines(

@@ -60,7 +60,7 @@ class SessionStore:
         )
 
     def list_sessions(self) -> list[SessionSummary]:
-        if not self.sessions_dir.exists():
+        if not self.sessions_dir.is_dir():
             return []
         summaries = []
         for session_dir in sorted(
@@ -119,7 +119,7 @@ class SessionStore:
 
     def _load_transcript(self, name: str) -> list[ConversationMessage]:
         path = self._transcript_path_for(name)
-        if not path.exists():
+        if not path.is_file():
             return []
 
         transcript: list[ConversationMessage] = []
@@ -148,7 +148,7 @@ class SessionStore:
 
     def _load_summary(self, name: str) -> str | None:
         path = self._summary_path_for(name)
-        if not path.exists():
+        if not path.is_file():
             return None
         try:
             summary = path.read_text(encoding="utf-8").strip()
