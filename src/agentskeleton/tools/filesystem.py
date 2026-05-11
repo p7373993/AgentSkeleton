@@ -296,7 +296,7 @@ class WriteFileTool(Tool):
         if len(encoded) > MAX_WRITE_FILE_BYTES:
             return _error(f"Content too large: {requested}", "Content too large")
 
-        temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+        temp_path = path.parent / f".write-{uuid4().hex}.tmp"
         try:
             temp_path.write_bytes(encoded)
             temp_path.replace(path)

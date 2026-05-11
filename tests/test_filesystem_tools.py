@@ -424,6 +424,29 @@ def test_write_file_does_not_clobber_existing_temp_sibling(tmp_path: Path) -> No
     assert temp_sibling.read_text(encoding="utf-8") == "keep me"
 
 
+def test_write_file_uses_bounded_temp_name_for_long_targets(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target_name = f"{'a' * 70}.txt"
+    original_write_bytes = Path.write_bytes
+
+    def fail_oversized_temp_name(path: Path, data: bytes) -> int:
+        if path.name.startswith(".") and len(path.name) > 80:
+            raise OSError("temp filename too long")
+        return original_write_bytes(path, data)
+
+    monkeypatch.setattr(Path, "write_bytes", fail_oversized_temp_name)
+
+    result = WriteFileTool().execute(
+        {"path": target_name, "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is True
+    assert (tmp_path / target_name).read_text(encoding="utf-8") == "hello"
+
+
 def test_write_file_returns_error_when_write_fails(
     tmp_path: Path,
     monkeypatch,
@@ -431,7 +454,7 @@ def test_write_file_returns_error_when_write_fails(
     original_write_bytes = Path.write_bytes
 
     def fail_write_bytes(path: Path, data: bytes) -> int:
-        if path.name.startswith(".out.txt."):
+        if path.name.startswith(".write-") and path.name.endswith(".tmp"):
             raise OSError("disk full")
         return original_write_bytes(path, data)
 
