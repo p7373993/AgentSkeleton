@@ -343,9 +343,24 @@ def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if item.get("type") == "function_call" and isinstance(item.get("arguments"), dict):
         item["arguments"] = json.dumps(_json_safe(item["arguments"]))
-    if isinstance(item.get("content"), str):
-        item["content"] = _bounded_conversation_content(item["content"])
+    if "content" in item:
+        item["content"] = _bounded_context_content(item["content"])
     return _json_safe(item)
+
+
+def _bounded_context_content(value: Any) -> Any:
+    if isinstance(value, str):
+        return _bounded_conversation_content(value)
+    if isinstance(value, list):
+        return [_bounded_context_content(item) for item in value]
+    if isinstance(value, tuple):
+        return [_bounded_context_content(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _bounded_context_content(item)
+            for key, item in value.items()
+        }
+    return value
 
 
 def _serialize_tool_result(result: Any) -> str:
