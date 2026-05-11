@@ -123,6 +123,8 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
     enum = schema.get("enum")
     if enum is not None and not isinstance(enum, list):
         raise ValueError(f"Tool {tool_name} {label} enum must be a list")
+    if isinstance(enum, list) and not enum:
+        raise ValueError(f"Tool {tool_name} {label} enum cannot be empty")
     if isinstance(enum, list) and not all(
         _matches_schema_type(item, schema_type) for item in enum
     ):

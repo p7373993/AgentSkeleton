@@ -345,6 +345,18 @@ def test_registry_rejects_invalid_args_schema_members(
                 "properties": {
                     "mode": {
                         "type": "string",
+                        "enum": [],
+                    }
+                },
+            },
+            "schema property mode enum cannot be empty",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
                         "enum": ["fast", 1],
                     }
                 },
