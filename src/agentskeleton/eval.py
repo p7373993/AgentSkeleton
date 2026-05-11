@@ -616,7 +616,11 @@ def _expect_files(
         if not target.is_file():
             failures.append(f"file {path_text} expected but was not a file")
             continue
-        actual_content = target.read_text(encoding="utf-8")
+        try:
+            actual_content = target.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            failures.append(f"file {path_text} could not be decoded as UTF-8")
+            continue
         expected_text = str(expected_content)
         if actual_content != expected_text:
             failures.append(

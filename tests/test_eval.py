@@ -785,6 +785,40 @@ def test_run_scenario_reports_expected_file_mismatch(tmp_path: Path) -> None:
     assert result.failures == ["file reports/summary.txt expected but was missing"]
 
 
+def test_run_scenario_reports_invalid_utf8_expected_file(tmp_path: Path) -> None:
+    report_path = tmp_path / "reports" / "summary.txt"
+    report_path.parent.mkdir()
+    report_path.write_bytes(b"\xff\xfe\x00broken")
+    scenario_path = tmp_path / "binary-report.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: binary-report",
+                "goal: inspect report",
+                "actions:",
+                "  - type: final",
+                "    text: checked",
+                "expect:",
+                "  status: completed",
+                "  files:",
+                "    reports/summary.txt: expected text",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == [
+        "file reports/summary.txt could not be decoded as UTF-8"
+    ]
+
+
 def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:
     missing_path = tmp_path / "missing.yaml"
 
