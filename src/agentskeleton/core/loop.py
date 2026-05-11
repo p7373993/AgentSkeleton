@@ -374,6 +374,27 @@ class AgentLoop:
                 state.final_status = "denied"
                 state.final_reason = result.summary
                 return
+            if not isinstance(confirmed, bool):
+                result = ToolResult(
+                    success=False,
+                    summary=(
+                        "Permission confirmation returned invalid result: "
+                        f"{type(confirmed).__name__}"
+                    ),
+                    error="Permission confirmation invalid",
+                )
+                state.observations.append(
+                    ToolObservation(
+                        action.call_id,
+                        tool.name,
+                        decision.outcome,
+                        result,
+                    )
+                )
+                self._log_tool_finished(state, tool.name, result)
+                state.final_status = "denied"
+                state.final_reason = result.summary
+                return
             if not confirmed:
                 result = ToolResult(
                     success=False,

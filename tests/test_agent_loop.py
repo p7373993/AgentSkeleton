@@ -1079,6 +1079,50 @@ def test_loop_denies_tool_when_confirmer_raises(tmp_path: Path) -> None:
     )
 
 
+def test_loop_denies_tool_when_confirmer_returns_non_boolean(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+
+    def invalid_confirmer(decision, action):
+        return "yes"
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="write_record",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="unreachable"),
+            ]
+        ),
+        registry=ToolRegistry([WriteRecordTool()]),
+        logger=logger,
+        confirmer=invalid_confirmer,
+    ).run("record")
+
+    expected_reason = "Permission confirmation returned invalid result: str"
+    assert state.final_status == "denied"
+    assert state.final_reason == expected_reason
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "confirm"
+    assert observation.result.success is False
+    assert observation.result.summary == expected_reason
+    assert observation.result.error == "Permission confirmation invalid"
+    assert not any(event[0] == "tool_started" for event in logger.events)
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "denied",
+            "answer": None,
+            "reason": expected_reason,
+        },
+    )
+
+
 def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(
