@@ -1520,6 +1520,41 @@ def test_loop_recovers_when_tool_argument_inspection_fails(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_recovers_when_logging_tool_arguments_fails(
+    tmp_path: Path,
+) -> None:
+    class ExplodingItemsArguments(dict):
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("argument items unavailable")
+
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                "record",
+                ExplodingItemsArguments({"value": "ok"}),
+                "call-1",
+            ),
+            FinalAction(text="recovered"),
+        ],
+        logger,
+    ).run("record")
+
+    model_action = next(event for event in logger.events if event[0] == "model_action")
+    observation = state.observations[0]
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert model_action[2]["arguments"] == "<uninspectable>"
+    assert observation.result.error == "Invalid arguments"
+    assert observation.result.payload["arguments"] == "<uninspectable>"
+    assert observation.result.payload["validation_errors"] == [
+        "Tool arguments could not be inspected"
+    ]
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_rejects_non_object_tool_arguments_before_execution(
     tmp_path: Path,
 ) -> None:

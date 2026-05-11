@@ -40,6 +40,7 @@ MAX_LOGGED_TEXT_PREVIEW_CHARS = 200
 MAX_LOGGED_VALUE_DEPTH = 64
 MAX_LOGGED_COLLECTION_ITEMS = 200
 MAX_DEPTH_EXCEEDED = "<max-depth-exceeded>"
+UNINSPECTABLE_VALUE = "<uninspectable>"
 TRUNCATED_ITEMS_KEY = "__truncated_items__"
 MAX_TOOL_ACTION_METADATA_BYTES = 512
 MAX_FINAL_ACTION_STATUS_BYTES = 512
@@ -851,6 +852,8 @@ def _json_log_safe(
                     omitted,
                 )
             return safe_items
+        except Exception:
+            return UNINSPECTABLE_VALUE
         finally:
             seen.remove(marker)
 
@@ -874,10 +877,15 @@ def _json_log_safe(
             if omitted:
                 safe_items.append(_truncated_items_marker(len(value), omitted))
             return safe_items
+        except Exception:
+            return UNINSPECTABLE_VALUE
         finally:
             seen.remove(marker)
 
-    return str(value)
+    try:
+        return str(value)
+    except Exception:
+        return UNINSPECTABLE_VALUE
 
 
 def _collection_item_limit(
