@@ -30,5 +30,8 @@ class RunState:
     sent_observation_count: int = 0
     observations: list[ToolObservation] = field(default_factory=list)
     response_context_items: list[dict[str, Any]] = field(default_factory=list)
+    last_action_fingerprint: str | None = None
+    repeated_action_count: int = 0
     final_status: str | None = None
     final_answer: str | None = None
+    final_reason: str | None = None

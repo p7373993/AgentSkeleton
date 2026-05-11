@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 from typing import Protocol
 from uuid import uuid4
@@ -29,6 +30,7 @@ class LoggerLike(Protocol):
 
 
 Confirmer = Callable[[PermissionDecision, ToolCallAction], bool]
+REPEATED_ACTION_THRESHOLD = 3
 
 
 class AgentLoop:
@@ -111,27 +113,11 @@ class AgentLoop:
             else:
                 self._execute_tool_action(state, action)
             if state.final_status is not None:
-                self.trace.emit(
-                    "run_finished",
-                    {"status": state.final_status, "answer": state.final_answer},
-                )
-                self.logger.log(
-                    "run_finished",
-                    state.step_count,
-                    {"status": state.final_status, "answer": state.final_answer},
-                )
+                self._log_run_finished(state)
                 return state
 
         state.final_status = "max_steps"
-        self.trace.emit(
-            "run_finished",
-            {"status": state.final_status, "answer": state.final_answer},
-        )
-        self.logger.log(
-            "run_finished",
-            state.step_count,
-            {"status": state.final_status, "answer": state.final_answer},
-        )
+        self._log_run_finished(state)
         return state
 
     def _normalize_conversation(
@@ -172,18 +158,26 @@ class AgentLoop:
                 "call_id": action.call_id,
             },
         )
+        if self._record_repeated_action(state, action):
+            return
+
         try:
             tool = self.registry.get(action.tool_name)
         except KeyError as exc:
             result = ToolResult(
                 success=False,
+                payload={
+                    "tool_name": action.tool_name,
+                    "arguments": action.arguments,
+                },
                 summary=str(exc),
                 error="Unknown tool",
             )
             state.observations.append(
                 ToolObservation(action.call_id, action.tool_name, "block", result)
             )
-            state.final_status = "error"
+            state.final_status = "unknown_tool"
+            state.final_reason = result.summary
             return
 
         decision = self.policy.decide(tool.name, action.arguments, tool.risk)
@@ -234,23 +228,85 @@ class AgentLoop:
             "tool_started",
             {"tool_name": tool.name, "arguments": action.arguments},
         )
-        result = tool.execute(
-            action.arguments,
-            ToolContext(
-                workspace=state.workspace,
-                shell_timeout_seconds=self.config.shell_timeout_seconds,
-                shell_max_output_bytes=self.config.shell_max_output_bytes,
-                ask_user=self.ask_user,
-            ),
-        )
+        try:
+            result = tool.execute(
+                action.arguments,
+                ToolContext(
+                    workspace=state.workspace,
+                    shell_timeout_seconds=self.config.shell_timeout_seconds,
+                    shell_max_output_bytes=self.config.shell_max_output_bytes,
+                    ask_user=self.ask_user,
+                ),
+            )
+        except Exception as exc:
+            result = ToolResult(
+                success=False,
+                payload={
+                    "tool_name": tool.name,
+                    "arguments": action.arguments,
+                },
+                summary=f"Tool raised an exception: {type(exc).__name__}",
+                error=str(exc),
+            )
+            state.observations.append(
+                ToolObservation(action.call_id, tool.name, decision.outcome, result)
+            )
+            self._log_tool_finished(state, tool.name, result)
+            state.final_status = "tool_error"
+            state.final_reason = result.summary
+            return
+
         state.observations.append(
             ToolObservation(action.call_id, tool.name, decision.outcome, result)
         )
+        self._log_tool_finished(state, tool.name, result)
+
+    def _record_repeated_action(
+        self,
+        state: RunState,
+        action: ToolCallAction,
+    ) -> bool:
+        fingerprint = _action_fingerprint(action)
+        if fingerprint == state.last_action_fingerprint:
+            state.repeated_action_count += 1
+        else:
+            state.last_action_fingerprint = fingerprint
+            state.repeated_action_count = 1
+
+        if state.repeated_action_count < REPEATED_ACTION_THRESHOLD:
+            return False
+
+        result = ToolResult(
+            success=False,
+            payload={
+                "tool_name": action.tool_name,
+                "arguments": action.arguments,
+                "repeat_count": state.repeated_action_count,
+            },
+            summary=(
+                f"Repeated tool action {state.repeated_action_count} times: "
+                f"{action.tool_name}"
+            ),
+            error="Repeated action",
+        )
+        state.observations.append(
+            ToolObservation(action.call_id, action.tool_name, "block", result)
+        )
+        state.final_status = "repeated_action"
+        state.final_reason = result.summary
+        return True
+
+    def _log_tool_finished(
+        self,
+        state: RunState,
+        tool_name: str,
+        result: ToolResult,
+    ) -> None:
         self.logger.log(
             "tool_finished",
             state.step_count,
             {
-                "tool_name": tool.name,
+                "tool_name": tool_name,
                 "success": result.success,
                 "summary": result.summary,
                 "error": result.error,
@@ -259,9 +315,26 @@ class AgentLoop:
         self.trace.emit(
             "tool_finished",
             {
-                "tool_name": tool.name,
+                "tool_name": tool_name,
                 "success": result.success,
                 "summary": result.summary,
                 "error": result.error,
             },
         )
+
+    def _log_run_finished(self, state: RunState) -> None:
+        payload = {"status": state.final_status, "answer": state.final_answer}
+        if state.final_reason:
+            payload["reason"] = state.final_reason
+        self.trace.emit("run_finished", payload)
+        self.logger.log("run_finished", state.step_count, payload)
+
+
+def _action_fingerprint(action: ToolCallAction) -> str:
+    arguments = json.dumps(
+        action.arguments,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return f"{action.tool_name}:{arguments}"
