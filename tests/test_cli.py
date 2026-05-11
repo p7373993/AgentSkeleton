@@ -612,6 +612,43 @@ def test_show_run_prints_summary_from_jsonl_log(monkeypatch, tmp_path) -> None:
     assert f"Log: {log_path}" in result.stdout
 
 
+def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 3,
+            "payload": {
+                "status": "completed",
+                "answer": "done",
+                "reason": "finished cleanly",
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload == {
+        "run_id": "run-1",
+        "status": "completed",
+        "reason": "finished cleanly",
+        "answer": "done",
+        "steps": 3,
+        "log": str(log_path.resolve()),
+    }
+
+
 def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()

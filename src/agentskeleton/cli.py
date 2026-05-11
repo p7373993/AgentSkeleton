@@ -105,7 +105,8 @@ def tools(
                 },
                 ensure_ascii=False,
                 indent=2,
-            )
+            ),
+            soft_wrap=True,
         )
         return
 
@@ -338,6 +339,7 @@ def resume(
 def show_run(
     run_id: str,
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config)
     log_path = _find_run_log(loaded.logs_dir, run_id)
@@ -352,14 +354,29 @@ def show_run(
     )
     payload = final_event.get("payload", {}) if final_event else {}
     step = final_event.get("step") if final_event else None
+    summary = {
+        "run_id": run_id,
+        "status": payload.get("status", "unknown"),
+        "reason": payload.get("reason"),
+        "answer": payload.get("answer"),
+        "steps": step,
+        "log": str(log_path),
+    }
+
+    if as_json:
+        console.print(
+            json.dumps(summary, ensure_ascii=False, indent=2),
+            soft_wrap=True,
+        )
+        return
 
     console.print(f"Run id: {run_id}")
-    console.print(f"Status: {payload.get('status', 'unknown')}")
-    if payload.get("reason"):
-        console.print(f"Reason: {payload['reason']}")
+    console.print(f"Status: {summary['status']}")
+    if summary["reason"]:
+        console.print(f"Reason: {summary['reason']}")
     if step is not None:
         console.print(f"Steps: {step}")
-    console.print(f"Log: {log_path}", soft_wrap=True)
+    console.print(f"Log: {summary['log']}", soft_wrap=True)
 
 
 def main() -> None:
