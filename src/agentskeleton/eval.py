@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,8 @@ from agentskeleton.core.trace import NullTraceSink
 from agentskeleton.logging.run_logger import RunLogger
 from agentskeleton.policy.paths import PathSecurityError, resolve_workspace_path
 from agentskeleton.tools.registry import ToolRegistry
+
+RegistryFactory = Callable[[RunConfig], ToolRegistry]
 
 
 @dataclass(frozen=True)
@@ -135,17 +138,23 @@ def load_scenario_suite(path: Path) -> list[Scenario]:
 def run_scenario(
     scenario: Scenario,
     config: RunConfig,
-    registry: ToolRegistry,
+    registry: ToolRegistry | None = None,
+    registry_factory: RegistryFactory | None = None,
 ) -> ScenarioResult:
     run_id = f"eval-{uuid4()}"
     scenario_config = _apply_config_overrides(config, scenario.config_overrides)
+    scenario_registry = _resolve_registry(
+        scenario_config,
+        registry,
+        registry_factory,
+    )
     workspace = _prepare_workspace(scenario_config, run_id, scenario)
     run_config = scenario_config.model_copy(update={"workspace": workspace})
     logger = RunLogger(run_config.logs_dir, run_id)
     loop = AgentLoop(
         config=run_config,
         llm=ScriptedScenarioLLM(scenario.actions),
-        registry=registry,
+        registry=scenario_registry,
         logger=logger,
         confirmer=lambda _decision, _action: False,
         run_id=run_id,
@@ -168,10 +177,19 @@ def run_scenario(
 def run_scenario_suite(
     scenarios: list[Scenario],
     config: RunConfig,
-    registry: ToolRegistry,
+    registry: ToolRegistry | None = None,
+    registry_factory: RegistryFactory | None = None,
 ) -> ScenarioSuiteResult:
     return ScenarioSuiteResult(
-        [run_scenario(scenario, config, registry) for scenario in scenarios]
+        [
+            run_scenario(
+                scenario,
+                config,
+                registry,
+                registry_factory=registry_factory,
+            )
+            for scenario in scenarios
+        ]
     )
 
 
@@ -211,6 +229,18 @@ def _apply_config_overrides(
     data = config.model_dump()
     data.update(overrides)
     return RunConfig(**data)
+
+
+def _resolve_registry(
+    config: RunConfig,
+    registry: ToolRegistry | None,
+    registry_factory: RegistryFactory | None,
+) -> ToolRegistry:
+    if registry_factory is not None:
+        return registry_factory(config)
+    if registry is None:
+        raise ValueError("Scenario requires a registry or registry factory")
+    return registry
 
 
 def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Path:

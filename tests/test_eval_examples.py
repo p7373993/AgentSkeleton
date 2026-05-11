@@ -1,9 +1,8 @@
 from pathlib import Path
 
+from agentskeleton.cli import build_default_registry
 from agentskeleton.config import RunConfig
 from agentskeleton.eval import load_scenario_suite, run_scenario_suite
-from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
-from agentskeleton.tools.registry import ToolRegistry
 
 
 def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
@@ -12,9 +11,12 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     result = run_scenario_suite(
         scenarios,
         RunConfig(workspace=repo_root, logs_dir=tmp_path / "runs"),
-        ToolRegistry([ListDirTool(), ReadFileTool(), WriteFileTool()]),
+        registry_factory=lambda config: build_default_registry(
+            config.enabled_tools,
+            config.tool_modules,
+        ),
     )
 
     assert result.passed is True
-    assert result.total == 6
+    assert result.total == 7
     assert result.failed_count == 0

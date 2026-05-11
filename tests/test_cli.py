@@ -204,6 +204,66 @@ def test_eval_suite_command_runs_directory_as_json(monkeypatch, tmp_path) -> Non
     assert [item["scenario"] for item in payload["results"]] == ["alpha", "beta"]
 
 
+def test_eval_command_uses_scenario_tool_modules(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    (tmp_path / "custom_tools.py").write_text(
+        "\n".join(
+            [
+                "from agentskeleton.tools.base import Tool, ToolResult",
+                "",
+                "class ClassifyTool(Tool):",
+                "    name = 'classify_domain'",
+                "    description = 'Classify a domain.'",
+                "    risk = 'read'",
+                "    args_schema = {'type': 'object', 'properties': {}}",
+                "    def execute(self, args, context):",
+                "        return ToolResult(success=True, summary='classified')",
+                "",
+                "TOOLS = [ClassifyTool()]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scenario_path = tmp_path / "custom-domain.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: custom-domain",
+                "goal: classify the request domain",
+                "config:",
+                "  tool_modules:",
+                "    - custom_tools",
+                "  enabled_tools:",
+                "    - classify_domain",
+                "actions:",
+                "  - type: tool",
+                "    tool: classify_domain",
+                "    call_id: classify-1",
+                "    arguments: {}",
+                "  - type: final",
+                "    text: classified",
+                "expect:",
+                "  status: completed",
+                "  answer: classified",
+                "  observations: 1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval", str(scenario_path), "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["passed"] is True
+    assert payload["status"] == "completed"
+
+
 @pytest.mark.parametrize(
     ("command", "user_input"),
     [

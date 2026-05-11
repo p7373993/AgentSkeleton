@@ -101,6 +101,28 @@ def test_load_tools_from_module_tools_list(tmp_path, monkeypatch) -> None:
     assert [tool.name for tool in tools] == ["custom_echo"]
 
 
+def test_load_tools_from_module_reimports_current_module_path(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    first_dir = tmp_path / "first"
+    second_dir = tmp_path / "second"
+    first_dir.mkdir()
+    second_dir.mkdir()
+    _write_tool_module(first_dir / "custom_tools.py", "first_tool")
+    _write_tool_module(second_dir / "custom_tools.py", "second_tool")
+
+    monkeypatch.syspath_prepend(str(first_dir))
+    assert [tool.name for tool in load_tools_from_modules(["custom_tools"])] == [
+        "first_tool"
+    ]
+
+    monkeypatch.syspath_prepend(str(second_dir))
+    assert [tool.name for tool in load_tools_from_modules(["custom_tools"])] == [
+        "second_tool"
+    ]
+
+
 def test_load_tools_from_module_register_function(tmp_path, monkeypatch) -> None:
     module_path = tmp_path / "custom_register_tools.py"
     module_path.write_text(
@@ -141,3 +163,24 @@ def test_load_tools_from_module_requires_tool_provider(tmp_path, monkeypatch) ->
 def test_load_tools_from_module_reports_missing_module() -> None:
     with pytest.raises(ValueError, match="Tool module not found: missing_tools"):
         load_tools_from_modules(["missing_tools"])
+
+
+def _write_tool_module(path, tool_name: str) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                "from agentskeleton.tools.base import Tool, ToolResult",
+                "",
+                "class CustomTool(Tool):",
+                f"    name = '{tool_name}'",
+                "    description = 'Custom tool.'",
+                "    risk = 'read'",
+                "    args_schema = {'type': 'object', 'properties': {}}",
+                "    def execute(self, args, context):",
+                "        return ToolResult(success=True, summary='ok')",
+                "",
+                "TOOLS = [CustomTool()]",
+            ]
+        ),
+        encoding="utf-8",
+    )

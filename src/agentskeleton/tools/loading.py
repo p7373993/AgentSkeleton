@@ -1,4 +1,5 @@
 import importlib
+import sys
 
 from agentskeleton.tools.base import Tool
 from agentskeleton.tools.registry import ToolRegistry
@@ -8,6 +9,8 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     tools: list[Tool] = []
     for module_name in module_names or []:
         try:
+            importlib.invalidate_caches()
+            sys.modules.pop(module_name, None)
             module = importlib.import_module(module_name)
         except ModuleNotFoundError as exc:
             missing_name = exc.name or module_name

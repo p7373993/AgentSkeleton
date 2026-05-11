@@ -88,6 +88,10 @@ def _build_registry_or_exit(
         raise typer.Exit(1) from exc
 
 
+def _registry_from_config(config) -> ToolRegistry:
+    return build_default_registry(config.enabled_tools, config.tool_modules)
+
+
 @app.command()
 def tools(
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
@@ -166,9 +170,12 @@ def eval_scenario(
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config, {"enabled_tools": tool})
-    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     try:
-        result = run_scenario(load_scenario(scenario), loaded, registry)
+        result = run_scenario(
+            load_scenario(scenario),
+            loaded,
+            registry_factory=_registry_from_config,
+        )
     except ValueError as exc:
         console.print(f"Scenario error: {exc}", soft_wrap=True)
         raise typer.Exit(1) from exc
@@ -197,9 +204,12 @@ def eval_suite(
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config, {"enabled_tools": tool})
-    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     try:
-        result = run_scenario_suite(load_scenario_suite(path), loaded, registry)
+        result = run_scenario_suite(
+            load_scenario_suite(path),
+            loaded,
+            registry_factory=_registry_from_config,
+        )
     except ValueError as exc:
         console.print(f"Scenario error: {exc}", soft_wrap=True)
         raise typer.Exit(1) from exc

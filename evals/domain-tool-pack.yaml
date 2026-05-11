@@ -1,0 +1,19 @@
+name: domain-tool-pack
+goal: Classify a finance request using a scenario-provided tool pack.
+config:
+  tool_modules:
+    - agentskeleton.domain_tools
+  enabled_tools:
+    - classify_domain
+actions:
+  - type: tool
+    tool: classify_domain
+    call_id: classify-domain
+    arguments:
+      text: reconcile Q4 invoice anomalies
+  - type: final
+    text: domain tool pack ok
+expect:
+  status: completed
+  answer: domain tool pack ok
+  observations: 1
