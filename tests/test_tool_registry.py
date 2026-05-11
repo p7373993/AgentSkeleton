@@ -63,6 +63,16 @@ def test_registry_rejects_tool_names_with_surrounding_whitespace() -> None:
         registry.register(WhitespaceNameTool())
 
 
+def test_registry_rejects_tool_names_with_invalid_characters() -> None:
+    class InvalidNameTool(EchoTool):
+        name = "bad name!"
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool name must match"):
+        registry.register(InvalidNameTool())
+
+
 def test_registry_exports_openai_function_schemas() -> None:
     registry = ToolRegistry([EchoTool()])
 

@@ -1,7 +1,10 @@
+import re
 from collections.abc import Iterable
 from typing import Any
 
 from agentskeleton.tools.base import Tool
+
+TOOL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 class ToolRegistry:
@@ -16,6 +19,8 @@ class ToolRegistry:
             raise ValueError("Tool name cannot be empty")
         if name != tool.name:
             raise ValueError("Tool name cannot contain whitespace")
+        if TOOL_NAME_PATTERN.fullmatch(name) is None:
+            raise ValueError("Tool name must match [A-Za-z0-9_-]+")
         if name in self._tools:
             raise ValueError(f"Tool already registered: {name}")
         self._tools[name] = tool
