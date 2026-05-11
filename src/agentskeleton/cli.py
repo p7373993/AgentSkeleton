@@ -542,6 +542,7 @@ def show_run(
     run_id: str,
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
+    include_events: Annotated[bool, typer.Option("--events")] = False,
 ) -> None:
     loaded = _load_config_or_exit(config)
     log_path = _find_run_log(loaded.logs_dir, run_id)
@@ -549,7 +550,11 @@ def show_run(
         console.print(f"Run log not found: {run_id}")
         raise typer.Exit(1)
 
-    summary = _summarize_run_log(log_path, run_id=run_id)
+    summary = _summarize_run_log(
+        log_path,
+        run_id=run_id,
+        include_events=include_events,
+    )
 
     if as_json:
         console.print(
@@ -640,6 +645,7 @@ def _run_log_paths(logs_dir: Path) -> list[Path]:
 def _summarize_run_log(
     log_path: Path,
     run_id: str | None = None,
+    include_events: bool = False,
 ) -> dict[str, object]:
     events = _read_run_events(log_path)
     start_event = next(
@@ -679,7 +685,7 @@ def _summarize_run_log(
         resolved_run_id = str(start_event["run_id"])
     if resolved_run_id is None:
         resolved_run_id = log_path.stem
-    return {
+    summary = {
         "run_id": resolved_run_id,
         "goal": start_payload.get("goal"),
         "workspace": start_payload.get("workspace"),
@@ -695,6 +701,9 @@ def _summarize_run_log(
         "last_tool_error": last_tool_error,
         "log": str(log_path.resolve()),
     }
+    if include_events:
+        summary["events"] = events
+    return summary
 
 
 def _read_run_events(log_path: Path) -> list[dict[str, Any]]:
