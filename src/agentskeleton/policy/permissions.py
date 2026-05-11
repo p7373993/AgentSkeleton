@@ -211,9 +211,10 @@ def _looks_like_remote_execution(command: str) -> bool:
             continue
         for next_segment in segments[index + 1 :]:
             next_tokens = next_segment.split()
-            if (
-                next_tokens
-                and _first_executable_token(next_tokens) in executor_commands
+            executable = _first_executable_token(next_tokens)
+            if executable and (
+                executable in executor_commands
+                or _looks_like_script_executable(executable)
             ):
                 return True
     return False
@@ -236,10 +237,28 @@ def _looks_like_env_assignment(token: str) -> bool:
 
 
 def _normalize_executable_token(token: str) -> str:
-    executable = token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    executable = token.strip("\"'").rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     if executable.endswith(".exe"):
         executable = executable[:-4]
     return executable
+
+
+def _looks_like_script_executable(executable: str) -> bool:
+    return executable.endswith(
+        (
+            ".bat",
+            ".cmd",
+            ".cjs",
+            ".js",
+            ".mjs",
+            ".pl",
+            ".ps1",
+            ".py",
+            ".rb",
+            ".sh",
+            ".zsh",
+        )
+    )
 
 
 def _split_shell_segments(command: str) -> list[str]:
