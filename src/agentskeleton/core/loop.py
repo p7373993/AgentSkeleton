@@ -31,6 +31,7 @@ class LoggerLike(Protocol):
 
 Confirmer = Callable[[PermissionDecision, ToolCallAction], bool]
 REPEATED_ACTION_THRESHOLD = 3
+MAX_TOOL_CALL_BATCH_SIZE = 20
 
 
 class AgentLoop:
@@ -176,6 +177,20 @@ class AgentLoop:
                         action,
                         reason="Model returned empty tool call batch",
                         error_type="empty_batch",
+                    )
+                    if state.final_status is not None:
+                        self._log_run_finished(state)
+                        return state
+                if len(action.tool_calls) > MAX_TOOL_CALL_BATCH_SIZE:
+                    self._record_invalid_action(
+                        state,
+                        action,
+                        reason=(
+                            "Model returned invalid tool call batch: "
+                            "too many tool calls (max "
+                            f"{MAX_TOOL_CALL_BATCH_SIZE})"
+                        ),
+                        error_type="invalid_tool_batch",
                     )
                     if state.final_status is not None:
                         self._log_run_finished(state)
