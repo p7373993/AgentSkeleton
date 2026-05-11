@@ -12,7 +12,19 @@ FETCH_COMMANDS = {
     "irm",
 }
 EXPRESSION_EXECUTOR_COMMANDS = {"iex", "invoke-expression"}
-SHELL_EVAL_COMMANDS = {"bash", "sh", "zsh", "powershell", "pwsh", "python", "python3"}
+POWERSHELL_COMMANDS = {"powershell", "pwsh"}
+SHELL_EVAL_COMMANDS = {
+    "bash",
+    "node",
+    "perl",
+    "powershell",
+    "pwsh",
+    "python",
+    "python3",
+    "ruby",
+    "sh",
+    "zsh",
+}
 
 
 @dataclass(frozen=True)
@@ -179,9 +191,15 @@ def _is_compact_recursive_flag(token: str) -> bool:
 
 
 def _looks_like_encoded_command(command: str) -> bool:
-    tokens = command.replace(";", " ").replace("|", " ").split()
+    segments = _split_shell_segments(command)
     encoded_flags = {"-encodedcommand", "-encoded", "-enco", "-enc", "-ec", "-e"}
-    return any(token in encoded_flags for token in tokens)
+    for segment in segments:
+        tokens = segment.split()
+        if _first_executable_token(tokens) not in POWERSHELL_COMMANDS:
+            continue
+        if any(_normalize_option_token(token) in encoded_flags for token in tokens):
+            return True
+    return False
 
 
 def _looks_like_remote_execution(command: str) -> bool:
@@ -268,6 +286,10 @@ def _normalize_executable_token(token: str) -> str:
     if executable.endswith(".exe"):
         executable = executable[:-4]
     return executable
+
+
+def _normalize_option_token(token: str) -> str:
+    return token.strip("\"'`").strip("(){}[];,")
 
 
 def _looks_like_script_executable(executable: str) -> bool:
