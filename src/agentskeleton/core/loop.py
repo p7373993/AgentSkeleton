@@ -63,7 +63,7 @@ class AgentLoop:
         self,
         goal: str,
         conversation: list[ConversationMessage | dict[str, object]] | None = None,
-        trace_context: dict[str, object] | None = None,
+        trace_context: object | None = None,
     ) -> RunState:
         normalized_goal = str(goal)
         state = RunState(
@@ -73,7 +73,7 @@ class AgentLoop:
             conversation=self._normalize_conversation(conversation or []),
         )
         start_payload = {
-            **(trace_context or {}),
+            **_trace_context(trace_context),
             "goal": normalized_goal,
             "workspace": str(state.workspace),
             "resumed": bool(state.conversation),
@@ -555,6 +555,12 @@ def _conversation_message(
         content=str(content),
         metadata=metadata if isinstance(metadata, dict) else {},
     )
+
+
+def _trace_context(trace_context: object | None) -> dict[str, object]:
+    if not isinstance(trace_context, Mapping):
+        return {}
+    return {str(key): value for key, value in trace_context.items()}
 
 
 def _validate_tool_arguments(

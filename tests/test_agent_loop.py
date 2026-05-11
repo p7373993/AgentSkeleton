@@ -238,6 +238,32 @@ def test_loop_trace_context_cannot_clobber_run_start_fields(tmp_path: Path) -> N
     assert trace.events[0].payload["session"] == "work"
 
 
+def test_loop_ignores_non_mapping_trace_context(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+
+    try:
+        state = AgentLoop(
+            config=RunConfig(workspace=tmp_path),
+            llm=ScriptedLLM([FinalAction(text="done")]),
+            registry=ToolRegistry([RecordTool()]),
+            logger=logger,
+        ).run("finish", trace_context=["not", "a", "mapping"])  # type: ignore[arg-type]
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of ignoring trace context: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert logger.events[0] == (
+        "run_started",
+        0,
+        {
+            "goal": "finish",
+            "workspace": str(tmp_path),
+            "resumed": False,
+            "conversation_turns": 0,
+        },
+    )
+
+
 def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:
     logger = MemoryLogger()
     seen_goals: list[str] = []
