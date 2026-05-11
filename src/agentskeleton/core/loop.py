@@ -278,19 +278,45 @@ class AgentLoop:
             state.final_reason = result.summary
             return
 
-        if decision.outcome == "confirm" and not self.confirmer(decision, action):
-            result = ToolResult(
-                success=False,
-                summary=decision.reason,
-                error="Permission denied",
-            )
-            state.observations.append(
-                ToolObservation(action.call_id, tool.name, decision.outcome, result)
-            )
-            self._log_tool_finished(state, tool.name, result)
-            state.final_status = "denied"
-            state.final_reason = result.summary
-            return
+        if decision.outcome == "confirm":
+            try:
+                confirmed = self.confirmer(decision, action)
+            except Exception as exc:
+                result = ToolResult(
+                    success=False,
+                    summary=f"Permission confirmation failed: {type(exc).__name__}",
+                    error=str(exc),
+                )
+                state.observations.append(
+                    ToolObservation(
+                        action.call_id,
+                        tool.name,
+                        decision.outcome,
+                        result,
+                    )
+                )
+                self._log_tool_finished(state, tool.name, result)
+                state.final_status = "denied"
+                state.final_reason = result.summary
+                return
+            if not confirmed:
+                result = ToolResult(
+                    success=False,
+                    summary=decision.reason,
+                    error="Permission denied",
+                )
+                state.observations.append(
+                    ToolObservation(
+                        action.call_id,
+                        tool.name,
+                        decision.outcome,
+                        result,
+                    )
+                )
+                self._log_tool_finished(state, tool.name, result)
+                state.final_status = "denied"
+                state.final_reason = result.summary
+                return
 
         self._log_event("tool_started", state.step_count, {"tool_name": tool.name})
         self._emit_trace(
