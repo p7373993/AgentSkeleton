@@ -95,6 +95,39 @@ def test_session_store_bounds_large_transcript_metadata_values(
     assert large_metadata not in transcript_path.read_text(encoding="utf-8")
 
 
+def test_session_store_bounds_large_persisted_transcript_fields_on_load(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+    large_content = "c" * 20_000
+    large_metadata = "m" * 20_000
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text(
+        json.dumps(
+            {
+                "role": "assistant",
+                "content": large_content,
+                "metadata": {"blob": large_metadata, "attempt": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    session = store.load("default")
+
+    stored_content = session.transcript[0].content
+    blob = session.transcript[0].metadata["blob"]
+    assert len(stored_content) < 5_000
+    assert stored_content.startswith("cccccccccccccccc")
+    assert "[truncated" in stored_content
+    assert isinstance(blob, dict)
+    assert blob["truncated"] is True
+    assert blob["bytes"] == 20_000
+    assert str(blob["preview"]).startswith("mmmmmmmmmmmmmmmm")
+    assert session.transcript[0].metadata["attempt"] == 1
+
+
 def test_session_store_serializes_recursive_metadata_values(tmp_path: Path) -> None:
     store = SessionStore(tmp_path)
     metadata = {}

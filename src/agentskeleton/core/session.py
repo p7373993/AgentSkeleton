@@ -230,11 +230,16 @@ class SessionStore:
             if not isinstance(row, dict):
                 continue
             metadata = row.get("metadata") or {}
+            safe_metadata = _json_safe(metadata) if isinstance(metadata, dict) else {}
             transcript.append(
                 ConversationMessage(
                     role=str(row.get("role", "user")),
-                    content=str(row.get("content", "")),
-                    metadata=metadata if isinstance(metadata, dict) else {},
+                    content=_bounded_transcript_content(
+                        str(row.get("content", "")),
+                    ),
+                    metadata=safe_metadata
+                    if isinstance(safe_metadata, dict)
+                    else {},
                 )
             )
         return transcript
