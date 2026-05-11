@@ -1,0 +1,16 @@
+name: fixture-workspace-read
+goal: Read a scenario-provided workspace fixture.
+files:
+  briefs/domain.txt: This fixture belongs to the scenario workspace.
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-fixture
+    arguments:
+      path: briefs/domain.txt
+  - type: final
+    text: fixture workspace read ok
+expect:
+  status: completed
+  answer: fixture workspace read ok
+  observations: 1

@@ -16,5 +16,5 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     )
 
     assert result.passed is True
-    assert result.total == 4
+    assert result.total == 5
     assert result.failed_count == 0

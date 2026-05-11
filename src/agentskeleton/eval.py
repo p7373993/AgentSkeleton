@@ -13,6 +13,7 @@ from agentskeleton.core.loop import AgentLoop
 from agentskeleton.core.state import RunState
 from agentskeleton.core.trace import NullTraceSink
 from agentskeleton.logging.run_logger import RunLogger
+from agentskeleton.policy.paths import PathSecurityError, resolve_workspace_path
 from agentskeleton.tools.registry import ToolRegistry
 
 
@@ -22,6 +23,7 @@ class Scenario:
     goal: str
     actions: list[AgentAction]
     expect: dict[str, object] = field(default_factory=dict)
+    files: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -33,6 +35,7 @@ class ScenarioResult:
     observations: int
     failures: list[str]
     log_path: Path
+    workspace: Path
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -43,6 +46,7 @@ class ScenarioResult:
             "observations": self.observations,
             "failures": self.failures,
             "log": str(self.log_path),
+            "workspace": str(self.workspace),
         }
 
 
@@ -107,12 +111,14 @@ def load_scenario(path: Path) -> Scenario:
     if not expect:
         raise ValueError("Scenario must define expectations")
 
+    files = _parse_files(raw.get("files", {}))
     name = raw.get("name") or path.stem
     return Scenario(
         name=str(name),
         goal=goal,
         actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],
         expect=expect,
+        files=files,
     )
 
 
@@ -129,9 +135,11 @@ def run_scenario(
     registry: ToolRegistry,
 ) -> ScenarioResult:
     run_id = f"eval-{uuid4()}"
-    logger = RunLogger(config.logs_dir, run_id)
+    workspace = _prepare_workspace(config, run_id, scenario)
+    run_config = config.model_copy(update={"workspace": workspace})
+    logger = RunLogger(run_config.logs_dir, run_id)
     loop = AgentLoop(
-        config=config,
+        config=run_config,
         llm=ScriptedScenarioLLM(scenario.actions),
         registry=registry,
         logger=logger,
@@ -149,6 +157,7 @@ def run_scenario(
         observations=len(state.observations),
         failures=failures,
         log_path=Path(logger.path).resolve(),
+        workspace=workspace,
     )
 
 
@@ -175,6 +184,28 @@ def _scenario_paths(path: Path) -> list[Path]:
         ],
         key=lambda item: item.as_posix(),
     )
+
+
+def _parse_files(raw: object) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        raise ValueError("Scenario files must be a mapping")
+    return {str(path): str(content) for path, content in raw.items()}
+
+
+def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Path:
+    if not scenario.files:
+        return config.workspace.resolve()
+
+    workspace = (config.logs_dir / "workspaces" / run_id).expanduser().resolve()
+    workspace.mkdir(parents=True, exist_ok=True)
+    for requested_path, content in scenario.files.items():
+        try:
+            target = resolve_workspace_path(workspace, requested_path)
+        except PathSecurityError as exc:
+            raise ValueError(str(exc)) from exc
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    return workspace
 
 
 def _parse_action(raw: object, index: int) -> AgentAction:

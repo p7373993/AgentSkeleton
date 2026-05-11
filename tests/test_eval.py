@@ -54,6 +54,46 @@ def test_run_scenario_executes_scripted_actions_and_checks_expectations(
     assert result.log_path.exists()
 
 
+def test_run_scenario_applies_declared_workspace_files(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "fixture-read.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-read",
+                "goal: read fixture",
+                "files:",
+                "  data/input.txt: fixture content",
+                "actions:",
+                "  - type: tool",
+                "    tool: read_file",
+                "    call_id: read-1",
+                "    arguments:",
+                "      path: data/input.txt",
+                "  - type: final",
+                "    text: fixture read ok",
+                "expect:",
+                "  status: completed",
+                "  answer: fixture read ok",
+                "  observations: 1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_scenario(
+        load_scenario(scenario_path),
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.workspace != tmp_path.resolve()
+    assert (result.workspace / "data" / "input.txt").read_text(
+        encoding="utf-8"
+    ) == "fixture content"
+    assert not (tmp_path / "data" / "input.txt").exists()
+
+
 def test_run_scenario_reports_failed_expectations(tmp_path: Path) -> None:
     scenario_path = tmp_path / "mismatch.yaml"
     scenario_path.write_text(
