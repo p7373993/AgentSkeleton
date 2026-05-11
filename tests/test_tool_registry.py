@@ -170,6 +170,14 @@ def test_registry_rejects_invalid_args_schema_shape(
             },
             "schema required entry must reference a property: missing",
         ),
+        (
+            {
+                "type": "object",
+                "properties": {"text": {"type": "string"}},
+                "additionalProperties": "false",
+            },
+            "schema additionalProperties must be a boolean",
+        ),
     ],
 )
 def test_registry_rejects_invalid_args_schema_members(
@@ -284,6 +292,19 @@ def test_registry_rejects_invalid_args_schema_members(
             },
             "schema property settings required entry must reference "
             "a property: missing",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "settings": {
+                        "type": "object",
+                        "properties": {"enabled": {"type": "boolean"}},
+                        "additionalProperties": {"type": "string"},
+                    }
+                },
+            },
+            "schema property settings additionalProperties must be a boolean",
         ),
         (
             {

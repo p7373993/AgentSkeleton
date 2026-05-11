@@ -136,6 +136,15 @@ def _validate_schema_node(tool_name: str, schema: Mapping, label: str) -> None:
                     f"a property: {item}"
                 )
 
+    additional_properties = schema.get("additionalProperties")
+    if additional_properties is not None and not isinstance(
+        additional_properties,
+        bool,
+    ):
+        raise ValueError(
+            f"Tool {tool_name} {label} additionalProperties must be a boolean"
+        )
+
     items = schema.get("items")
     if items is not None:
         if not isinstance(items, Mapping):
