@@ -3,6 +3,14 @@ from typing import Any, Literal
 
 PermissionOutcome = Literal["allow", "confirm", "block"]
 PermissionProfile = Literal["standard", "read_only", "trusted"]
+FETCH_COMMANDS = {
+    "curl",
+    "wget",
+    "invoke-webrequest",
+    "invoke-restmethod",
+    "iwr",
+    "irm",
+}
 
 
 @dataclass(frozen=True)
@@ -102,20 +110,15 @@ class PermissionPolicy:
             "secret",
             "token",
         ]
-        network_patterns = [
-            "curl ",
-            "curl.exe",
-            "wget ",
-            "wget.exe",
-            "invoke-webrequest",
-            "invoke-restmethod",
-            "iwr ",
-            "irm ",
+        network_library_patterns = [
             "requests.",
             "urllib.",
             "http.client",
         ]
-        if any(net in normalized for net in network_patterns) and any(
+        has_network_access = _contains_fetch_command(normalized) or any(
+            net in normalized for net in network_library_patterns
+        )
+        if has_network_access and any(
             secret in normalized for secret in secret_patterns
         ):
             return PermissionDecision(
@@ -134,17 +137,6 @@ class PermissionPolicy:
             "pnpm install",
             "yarn add",
             "poetry install",
-            "curl ",
-            "curl.exe",
-            "wget ",
-            "wget.exe",
-            "invoke-webrequest",
-            "invoke-restmethod",
-            "iwr ",
-            "irm ",
-            "requests.",
-            "urllib.",
-            "http.client",
             "git push",
             "start ",
             "start-process",
@@ -156,7 +148,10 @@ class PermissionPolicy:
         if (
             self.confirm_risky_actions
             and self.profile != "trusted"
-            and any(pattern in normalized for pattern in confirm_patterns)
+            and (
+                has_network_access
+                or any(pattern in normalized for pattern in confirm_patterns)
+            )
         ):
             return PermissionDecision(
                 "confirm",
@@ -188,16 +183,6 @@ def _looks_like_encoded_command(command: str) -> bool:
 
 
 def _looks_like_remote_execution(command: str) -> bool:
-    fetch_patterns = (
-        "curl ",
-        "curl.exe",
-        "wget ",
-        "wget.exe",
-        "invoke-webrequest",
-        "invoke-restmethod",
-        "iwr ",
-        "irm ",
-    )
     executor_commands = (
         "bash",
         "sh",
@@ -212,7 +197,7 @@ def _looks_like_remote_execution(command: str) -> bool:
     )
     segments = _split_shell_segments(command)
     for index, segment in enumerate(segments[:-1]):
-        if not any(pattern in segment for pattern in fetch_patterns):
+        if not _segment_has_fetch_command(segment):
             continue
         for next_segment in segments[index + 1 :]:
             next_tokens = next_segment.split()
@@ -223,6 +208,20 @@ def _looks_like_remote_execution(command: str) -> bool:
             ):
                 return True
     return False
+
+
+def _contains_fetch_command(command: str) -> bool:
+    return any(
+        _segment_has_fetch_command(segment)
+        for segment in _split_shell_segments(command)
+    )
+
+
+def _segment_has_fetch_command(segment: str) -> bool:
+    return any(
+        _normalize_executable_token(token) in FETCH_COMMANDS
+        for token in segment.split()
+    )
 
 
 def _first_executable_token(tokens: list[str]) -> str | None:
