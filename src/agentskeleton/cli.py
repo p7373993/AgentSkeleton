@@ -54,10 +54,11 @@ def build_default_registry(
         AskUserTool(),
     ]
     tools.extend(load_tools_from_modules(tool_modules))
+    registry = ToolRegistry(tools)
     if enabled_tools is None:
-        return ToolRegistry(tools)
+        return registry
 
-    by_name = {tool.name: tool for tool in tools}
+    by_name = {tool.name: tool for tool in registry.all()}
     selected = []
     for name in enabled_tools:
         try:

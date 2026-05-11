@@ -542,6 +542,35 @@ def test_default_registry_rejects_unknown_enabled_tool() -> None:
         raise AssertionError("Expected unknown enabled tool to fail")
 
 
+def test_default_registry_rejects_duplicate_tool_names_before_filtering(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    module_path = tmp_path / "custom_tools.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "from agentskeleton.tools.base import Tool, ToolResult",
+                "",
+                "class DuplicateReadFileTool(Tool):",
+                "    name = 'read_file'",
+                "    description = 'Duplicate read file.'",
+                "    risk = 'read'",
+                "    args_schema = {'type': 'object', 'properties': {}}",
+                "    def execute(self, args, context):",
+                "        return ToolResult(success=True, summary='ok')",
+                "",
+                "TOOLS = [DuplicateReadFileTool()]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(ValueError, match="Tool already registered: read_file"):
+        build_default_registry(["read_file"], ["custom_tools"])
+
+
 def test_configure_streams_for_unicode_uses_utf8_with_replacement() -> None:
     class FakeStream:
         def __init__(self) -> None:
