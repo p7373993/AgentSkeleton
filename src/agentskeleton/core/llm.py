@@ -126,7 +126,9 @@ class LLMClient:
             if not state.response_context_items:
                 state.response_context_items = self._conversation_items(state)
             state.response_context_items.extend(
-                self._serialize_output_item(item) for item in output
+                serialized
+                for item in output
+                if (serialized := self._serialize_output_item(item)) is not None
             )
         self._emit_trace(
             "llm_response",
@@ -207,15 +209,19 @@ class LLMClient:
             for turn in [*sticky_context, *conversation, _current_user_turn(state.goal)]
         ]
 
-    def _serialize_output_item(self, item: Any) -> dict[str, Any]:
+    def _serialize_output_item(self, item: Any) -> dict[str, Any] | None:
         if isinstance(item, dict):
-            return dict(item)
+            serialized = dict(item)
+            return serialized if _is_context_item(serialized) else None
 
         model_dump = getattr(item, "model_dump", None)
         if model_dump is not None:
-            return model_dump(exclude_none=True)
+            serialized = model_dump(exclude_none=True)
+            return serialized if _is_context_item(serialized) else None
 
         item_type = _read_attr(item, "type")
+        if not isinstance(item_type, str) or not item_type.strip():
+            return None
         if item_type == "function_call":
             serialized = {
                 "type": "function_call",
@@ -270,3 +276,16 @@ class LLMClient:
 
 def _current_user_turn(goal: str) -> ConversationMessage:
     return ConversationMessage(role="user", content=goal)
+
+
+def _is_context_item(item: object) -> bool:
+    if not isinstance(item, dict):
+        return False
+    item_type = item.get("type")
+    role = item.get("role")
+    return (
+        isinstance(item_type, str)
+        and bool(item_type.strip())
+        or isinstance(role, str)
+        and bool(role.strip())
+    )

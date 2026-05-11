@@ -332,6 +332,55 @@ def test_llm_client_sends_tool_observations_as_stateless_input(tmp_path) -> None
     ]
 
 
+def test_llm_client_skips_output_items_without_context_type(tmp_path) -> None:
+    first_response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(content="provider note"),
+            SimpleNamespace(
+                type="function_call",
+                name="read_file",
+                arguments='{"path": "README.md"}',
+                call_id="call-1",
+            ),
+        ],
+    )
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeSequenceClient([first_response, response])
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+    client = LLMClient(RunConfig(workspace=tmp_path), client=fake_client)
+
+    client.next_action(state, ToolRegistry([DummyTool()]))
+    state.observations.append(
+        ToolObservation(
+            call_id="call-1",
+            tool_name="read_file",
+            policy_decision="allow",
+            result=ToolResult(success=True, payload={}, summary="ok"),
+        )
+    )
+    client.next_action(state, ToolRegistry([DummyTool()]))
+
+    assert fake_client.responses.calls[1]["input"] == [
+        {"role": "user", "content": "read"},
+        {
+            "type": "function_call",
+            "name": "read_file",
+            "arguments": '{"path": "README.md"}',
+            "call_id": "call-1",
+        },
+        {
+            "type": "function_call_output",
+            "call_id": "call-1",
+            "output": (
+                '{"success": true, "payload": {}, '
+                '"summary": "ok", "error": null}'
+            ),
+        },
+    ]
+
+
 def test_llm_client_serializes_non_json_tool_observation_payloads(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="done", output=[])
     fake_client = FakeClient(response)
