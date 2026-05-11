@@ -205,6 +205,8 @@ def _load_yaml_document(path: Path, label: str) -> object:
         raise ValueError(f"{label} could not be read as UTF-8: {path}") from exc
     except OSError as exc:
         raise ValueError(f"{label} could not be read: {path}") from exc
+    if len(text.encode("utf-8")) > MAX_SCENARIO_FILE_BYTES:
+        raise ValueError(f"{label} exceeds {MAX_SCENARIO_FILE_BYTES} bytes: {path}")
     try:
         return yaml.safe_load(text) or {}
     except (yaml.YAMLError, RecursionError) as exc:
