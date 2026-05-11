@@ -131,6 +131,46 @@ def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> 
     }
 
 
+def test_eval_command_runs_scenario_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
+    scenario_path = tmp_path / "read-note.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: read-note",
+                "goal: read note.txt",
+                "actions:",
+                "  - type: tool",
+                "    tool: read_file",
+                "    call_id: read-1",
+                "    arguments:",
+                "      path: note.txt",
+                "  - type: final",
+                "    text: read complete",
+                "expect:",
+                "  status: completed",
+                "  answer: read complete",
+                "  observations: 1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval", str(scenario_path), "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["scenario"] == "read-note"
+    assert payload["passed"] is True
+    assert payload["status"] == "completed"
+    assert payload["answer"] == "read complete"
+    assert payload["observations"] == 1
+    assert payload["failures"] == []
+    assert payload["log"].endswith(".jsonl")
+
+
 @pytest.mark.parametrize(
     ("command", "user_input"),
     [

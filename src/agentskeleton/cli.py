@@ -13,6 +13,7 @@ from agentskeleton.core.llm import LLMClient, MissingAPIKeyError
 from agentskeleton.core.loop import AgentLoop
 from agentskeleton.core.session import SessionStore
 from agentskeleton.core.trace import ConsoleTraceSink, NullTraceSink
+from agentskeleton.eval import load_scenario, run_scenario
 from agentskeleton.logging.run_logger import RunLogger
 from agentskeleton.policy.permissions import PermissionDecision
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
@@ -150,6 +151,37 @@ def doctor(
     console.print(f"Workspace: {payload['workspace']}", soft_wrap=True)
     console.print(f"Logs: {payload['logs_dir']}", soft_wrap=True)
     console.print(f"Tools: {payload['tool_count']}")
+
+
+@app.command(name="eval")
+def eval_scenario(
+    scenario: Path,
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    loaded = _load_config_or_exit(config, {"enabled_tools": tool})
+    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
+    try:
+        result = run_scenario(load_scenario(scenario), loaded, registry)
+    except ValueError as exc:
+        console.print(f"Scenario error: {exc}", soft_wrap=True)
+        raise typer.Exit(1) from exc
+
+    payload = result.to_dict()
+    if as_json:
+        console.print(json.dumps(payload, ensure_ascii=False, indent=2), soft_wrap=True)
+    else:
+        console.print(f"Scenario: {payload['scenario']}")
+        console.print(f"Passed: {payload['passed']}")
+        console.print(f"Status: {payload['status']}")
+        if payload["failures"]:
+            for failure in payload["failures"]:
+                console.print(f"Failure: {failure}")
+        console.print(f"Log: {payload['log']}", soft_wrap=True)
+
+    if not result.passed:
+        raise typer.Exit(1)
 
 
 @app.command()
