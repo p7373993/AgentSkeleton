@@ -187,10 +187,7 @@ class LLMClient:
                     {
                         "type": "function_call_output",
                         "call_id": observation.call_id,
-                        "output": json.dumps(
-                            observation.result.model_dump(),
-                            default=str,
-                        ),
+                        "output": _serialize_tool_result(observation.result),
                     }
                     for observation in unsent
                 )
@@ -302,5 +299,43 @@ def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
     if not _is_context_item(item):
         return None
     if item.get("type") == "function_call" and isinstance(item.get("arguments"), dict):
-        item["arguments"] = json.dumps(item["arguments"], default=str)
+        item["arguments"] = json.dumps(_json_safe(item["arguments"]))
     return item
+
+
+def _serialize_tool_result(result: Any) -> str:
+    payload = {
+        "success": result.success,
+        "payload": result.payload,
+        "summary": result.summary,
+        "error": result.error,
+    }
+    return json.dumps(_json_safe(payload))
+
+
+def _json_safe(value: Any, seen: set[int] | None = None) -> Any:
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+
+    seen = seen or set()
+    if isinstance(value, dict):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return {str(key): _json_safe(item, seen) for key, item in value.items()}
+        finally:
+            seen.remove(marker)
+
+    if isinstance(value, list | tuple):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [_json_safe(item, seen) for item in value]
+        finally:
+            seen.remove(marker)
+
+    return str(value)
