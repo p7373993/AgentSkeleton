@@ -752,6 +752,52 @@ def test_llm_client_bounds_large_nested_context_item_content(tmp_path) -> None:
     assert large_text not in str(state.response_context_items)
 
 
+def test_llm_client_bounds_wide_context_item_content(tmp_path) -> None:
+    content = {
+        "items": list(range(250)),
+        **{f"key_{index}": index for index in range(250)},
+    }
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    stored_content = state.response_context_items[1]["content"]
+    assert isinstance(action, FinalAction)
+    assert isinstance(stored_content, dict)
+    assert stored_content["key_0"] == 0
+    assert stored_content["key_197"] == 197
+    assert "key_198" not in stored_content
+    assert "key_249" not in stored_content
+    assert stored_content["__truncated_items__"] == {
+        "truncated": True,
+        "items": 251,
+        "omitted": 52,
+    }
+    items = stored_content["items"]
+    assert isinstance(items, list)
+    assert items[198] == 198
+    assert items[199] == {
+        "truncated": True,
+        "items": 250,
+        "omitted": 51,
+    }
+    assert "key_249" not in str(state.response_context_items)
+
+
 def test_llm_client_serializes_recursive_context_item_content(tmp_path) -> None:
     content = []
     content.append(content)
@@ -918,6 +964,54 @@ def test_llm_client_bounds_deep_tool_observation_payloads(tmp_path) -> None:
     output = fake_client.responses.calls[0]["input"][1]["output"]
     assert isinstance(action, FinalAction)
     assert "<max-depth-exceeded>" in output
+
+
+def test_llm_client_bounds_wide_tool_observation_payloads(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    payload = {
+        "items": list(range(250)),
+        **{f"key_{index}": index for index in range(250)},
+    }
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult(success=True, payload=payload, summary="ok"),
+            )
+        ],
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    output = fake_client.responses.calls[0]["input"][1]["output"]
+    observation_output = json.loads(output)
+    stored_payload = observation_output["payload"]
+    assert isinstance(action, FinalAction)
+    assert stored_payload["key_0"] == 0
+    assert stored_payload["key_197"] == 197
+    assert "key_198" not in stored_payload
+    assert "key_249" not in stored_payload
+    assert stored_payload["__truncated_items__"] == {
+        "truncated": True,
+        "items": 251,
+        "omitted": 52,
+    }
+    assert stored_payload["items"][198] == 198
+    assert stored_payload["items"][199] == {
+        "truncated": True,
+        "items": 250,
+        "omitted": 51,
+    }
+    assert "key_249" not in output
 
 
 def test_llm_client_bounds_large_tool_observation_outputs(tmp_path) -> None:
