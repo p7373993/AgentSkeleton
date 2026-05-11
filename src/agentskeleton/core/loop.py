@@ -791,6 +791,8 @@ def _validate_tool_arguments(
         return ["Tool arguments must be an object"]
     if not all(isinstance(name, str) for name in arguments):
         return ["Tool argument names must be strings"]
+    if _contains_recursive_json_value(arguments):
+        return ["Tool arguments cannot contain recursive values"]
 
     if schema.get("type") != "object":
         return []
@@ -818,6 +820,30 @@ def _validate_tool_arguments(
         errors.extend(_validate_schema_value(name, value, property_schema))
 
     return errors
+
+
+def _contains_recursive_json_value(
+    value: object,
+) -> bool:
+    active: set[int] = set()
+    stack: list[tuple[object, bool]] = [(value, False)]
+    while stack:
+        item, exiting = stack.pop()
+        if not isinstance(item, Mapping | list | tuple):
+            continue
+        marker = id(item)
+        if exiting:
+            active.discard(marker)
+            continue
+        if marker in active:
+            return True
+        active.add(marker)
+        stack.append((item, True))
+        if isinstance(item, Mapping):
+            stack.extend((child, False) for child in item.values())
+        else:
+            stack.extend((child, False) for child in item)
+    return False
 
 
 def _normalize_json_types(raw_type: object) -> list[str]:

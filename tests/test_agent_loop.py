@@ -145,6 +145,19 @@ class ConfigRecordTool(RecordTool):
         )
 
 
+class ObjectRecordTool(RecordTool):
+    name = "object_record"
+    args_schema = {
+        "type": "object",
+        "properties": {"payload": {"type": "object"}},
+        "required": ["payload"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        raise AssertionError("recursive arguments should not execute")
+
+
 class ExplodingTool(RecordTool):
     name = "explode"
 
@@ -1274,6 +1287,37 @@ def test_loop_bounds_deep_tool_arguments_before_validation(tmp_path: Path) -> No
     assert state.observations[0].result.error == "Invalid arguments"
     model_action = next(event for event in logger.events if event[0] == "model_action")
     assert "<max-depth-exceeded>" in str(model_action[2]["arguments"])
+
+
+def test_loop_rejects_recursive_tool_arguments_before_execution(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    payload: dict[str, object] = {}
+    payload["self"] = payload
+    loop = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction("object_record", {"payload": payload}, "call-1"),
+                FinalAction(text="recovered"),
+            ]
+        ),
+        registry=ToolRegistry([ObjectRecordTool()]),
+        logger=logger,
+    )
+
+    state = loop.run("record object")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.result.error == "Invalid arguments"
+    assert observation.result.payload["validation_errors"] == [
+        "Tool arguments cannot contain recursive values"
+    ]
+    assert not any(event[0] == "tool_started" for event in logger.events)
 
 
 def test_loop_rejects_non_object_tool_arguments_before_execution(
