@@ -91,6 +91,10 @@ def test_normalize_base_url_accepts_full_responses_endpoint() -> None:
     )
 
 
+def test_normalize_base_url_treats_blank_as_unset() -> None:
+    assert normalize_base_url("   ") is None
+
+
 def test_resolve_openai_settings_uses_azure_environment(monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
