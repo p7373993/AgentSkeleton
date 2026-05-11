@@ -71,6 +71,19 @@ class NullableRecordTool(RecordTool):
     }
 
 
+class ModeRecordTool(RecordTool):
+    name = "mode_record"
+    args_schema = {
+        "type": "object",
+        "properties": {"mode": {"type": "string", "enum": ["fast", "safe"]}},
+        "required": ["mode"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        return ToolResult(success=True, payload={"mode": args["mode"]}, summary="ok")
+
+
 class ExplodingTool(RecordTool):
     name = "explode"
 
@@ -503,6 +516,30 @@ def test_loop_rejects_invalid_union_type_tool_argument(tmp_path: Path) -> None:
     assert state.observations[0].result.success is False
     assert state.observations[0].result.payload["validation_errors"] == [
         "Argument value must be string or null"
+    ]
+
+
+def test_loop_rejects_tool_arguments_outside_enum(tmp_path: Path) -> None:
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="mode_record",
+                    arguments={"mode": "turbo"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="recovered"),
+            ]
+        ),
+        registry=ToolRegistry([ModeRecordTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].result.success is False
+    assert state.observations[0].result.payload["validation_errors"] == [
+        "Argument mode must be one of: fast, safe"
     ]
 
 

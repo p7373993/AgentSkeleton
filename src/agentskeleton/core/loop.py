@@ -464,6 +464,12 @@ def _validate_tool_arguments(
             errors.append(
                 f"Argument {name} must be {_format_json_types(expected_types)}"
             )
+            continue
+        enum_values = property_schema.get("enum")
+        if isinstance(enum_values, list) and value not in enum_values:
+            errors.append(
+                f"Argument {name} must be one of: {_format_enum_values(enum_values)}"
+            )
 
     return errors
 
@@ -478,6 +484,10 @@ def _normalize_json_types(raw_type: object) -> list[str]:
 
 def _format_json_types(expected_types: list[str]) -> str:
     return " or ".join(expected_types)
+
+
+def _format_enum_values(values: list[object]) -> str:
+    return ", ".join(str(value) for value in values)
 
 
 def _matches_json_type(value: object, expected_type: str) -> bool:
