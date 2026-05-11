@@ -364,6 +364,28 @@ def test_config_rejects_whitespace_in_tool_modules(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, tool_modules=["custom tools"])
 
 
+def test_config_rejects_too_many_enabled_tools(tmp_path: Path) -> None:
+    with pytest.raises(
+        ValueError,
+        match="enabled_tools cannot contain more than 128 entries",
+    ):
+        RunConfig(
+            workspace=tmp_path,
+            enabled_tools=[f"tool_{index}" for index in range(129)],
+        )
+
+
+def test_config_rejects_too_many_tool_modules(tmp_path: Path) -> None:
+    with pytest.raises(
+        ValueError,
+        match="tool_modules cannot contain more than 128 entries",
+    ):
+        RunConfig(
+            workspace=tmp_path,
+            tool_modules=[f"module_{index}" for index in range(129)],
+        )
+
+
 @pytest.mark.parametrize(
     "module_name",
     [

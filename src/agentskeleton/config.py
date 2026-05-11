@@ -6,6 +6,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_CONFIG_FILE_BYTES = 2_097_152
+MAX_CONFIG_TOOL_LIST_ITEMS = 128
 
 
 def _ensure_existing_parent_directory(value: Path, field_name: str) -> Path:
@@ -55,6 +56,11 @@ def _ensure_file_size_or_error(path: Path, label: str) -> None:
 
 
 def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
+    if len(value) > MAX_CONFIG_TOOL_LIST_ITEMS:
+        raise ValueError(
+            f"{field_name} cannot contain more than "
+            f"{MAX_CONFIG_TOOL_LIST_ITEMS} entries"
+        )
     for name in value:
         if not name.strip():
             raise ValueError(f"{field_name} cannot contain empty names")
