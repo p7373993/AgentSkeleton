@@ -1083,3 +1083,44 @@ def test_loop_starts_with_conversation_history(tmp_path: Path) -> None:
 
     assert state.final_status == "completed"
     assert seen_conversation == [["remember alpha", "alpha stored"]]
+
+
+def test_loop_normalizes_non_mapping_conversation_entries(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in state.conversation
+                ]
+            )
+            return FinalAction(text="done")
+
+    try:
+        state = AgentLoop(
+            config=RunConfig(workspace=tmp_path),
+            llm=InspectingLLM(),
+            registry=ToolRegistry([RecordTool()]),
+            logger=logger,
+        ).run(
+            "continue",
+            conversation=[
+                "loose history entry",
+                {"role": "assistant", "content": "structured entry"},
+            ],
+        )
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of normalizing conversation: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert seen_conversation == [
+        [
+            ("user", "loose history entry", {}),
+            ("assistant", "structured entry", {}),
+        ]
+    ]
+    assert logger.events[0][2]["resumed"] is True
+    assert logger.events[0][2]["conversation_turns"] == 2

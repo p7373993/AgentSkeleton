@@ -1,5 +1,5 @@
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Protocol
 from uuid import uuid4
 
@@ -167,12 +167,17 @@ class AgentLoop:
 
     def _normalize_conversation(
         self,
-        conversation: list[ConversationMessage | dict[str, object]],
+        conversation: list[object],
     ) -> list[ConversationMessage]:
         normalized: list[ConversationMessage] = []
         for turn in conversation:
             if isinstance(turn, ConversationMessage):
                 normalized.append(turn)
+                continue
+            if not isinstance(turn, Mapping):
+                normalized.append(
+                    ConversationMessage(role="user", content=str(turn)),
+                )
                 continue
             metadata = turn.get("metadata") or {}
             normalized.append(
