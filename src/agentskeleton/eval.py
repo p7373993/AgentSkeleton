@@ -749,6 +749,11 @@ def _expect_files(
         except UnicodeDecodeError:
             failures.append(f"file {path_text} could not be decoded as UTF-8")
             continue
+        if len(actual_content.encode("utf-8")) > MAX_SCENARIO_FILE_BYTES:
+            failures.append(
+                f"file {path_text} exceeds {MAX_SCENARIO_FILE_BYTES} bytes"
+            )
+            continue
         expected_text = str(expected_content)
         if actual_content != expected_text:
             failures.append(
