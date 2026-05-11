@@ -338,6 +338,33 @@ def test_loop_ignores_non_mapping_trace_context(tmp_path: Path) -> None:
     )
 
 
+def test_loop_bounds_logged_trace_context_values(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    trace = MemoryTraceSink()
+    session = "x" * 5_000
+
+    AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        trace=trace,
+    ).run("finish", trace_context={"session": session, "attempt": 1})
+
+    logged_payload = next(
+        event[2] for event in logger.events if event[0] == "run_started"
+    )
+    traced_payload = next(
+        event.payload for event in trace.events if event.name == "run_started"
+    )
+    assert isinstance(logged_payload["session"], dict)
+    assert logged_payload["session"]["truncated"] is True
+    assert logged_payload["session"]["bytes"] > 5_000
+    assert logged_payload["attempt"] == 1
+    assert traced_payload["session"] == logged_payload["session"]
+    assert session not in str(logger.events)
+
+
 def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:
     logger = MemoryLogger()
     seen_goals: list[str] = []

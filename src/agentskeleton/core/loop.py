@@ -615,6 +615,27 @@ def _logged_text(value: object) -> object:
     }
 
 
+def _logged_value(value: object) -> object:
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        encoded = repr(value).encode("utf-8", errors="replace")
+
+    if len(encoded) <= MAX_LOGGED_TEXT_BYTES:
+        return value
+    preview = encoded.decode("utf-8", errors="ignore")[:MAX_LOGGED_TEXT_PREVIEW_CHARS]
+    return {
+        "truncated": True,
+        "bytes": len(encoded),
+        "preview": f"{preview}...",
+    }
+
+
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
     if not isinstance(action.tool_name, str) or not action.tool_name.strip():
         return "tool_name must be a non-empty string"
@@ -659,7 +680,7 @@ def _conversation_message(
 def _trace_context(trace_context: object | None) -> dict[str, object]:
     if not isinstance(trace_context, Mapping):
         return {}
-    return {str(key): value for key, value in trace_context.items()}
+    return {str(key): _logged_value(value) for key, value in trace_context.items()}
 
 
 def _validate_tool_arguments(
