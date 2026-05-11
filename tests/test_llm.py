@@ -6,6 +6,7 @@ from agentskeleton.config import RunConfig
 from agentskeleton.core.actions import FinalAction, ToolCallAction, ToolCallBatchAction
 from agentskeleton.core.llm import (
     LLMClient,
+    LLMResponseError,
     MissingAPIKeyError,
     normalize_base_url,
     resolve_openai_settings,
@@ -145,6 +146,73 @@ def test_llm_client_parses_function_call(tmp_path) -> None:
     assert action.tool_name == "read_file"
     assert action.arguments == {"path": "README.md"}
     assert action.call_id == "call-1"
+
+
+def test_llm_client_rejects_function_call_without_name(tmp_path) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                arguments='{"path": "README.md"}',
+                call_id="call-1",
+            )
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(LLMResponseError, match="Function call missing name"):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+
+def test_llm_client_rejects_function_call_without_call_id(tmp_path) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                name="read_file",
+                arguments='{"path": "README.md"}',
+            )
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(LLMResponseError, match="Function call missing call_id"):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+
+def test_llm_client_rejects_invalid_function_call_arguments_json(tmp_path) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                name="read_file",
+                arguments="{bad json",
+                call_id="call-1",
+            )
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Function call arguments must be valid JSON",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
 
 
 def test_llm_client_parses_multiple_function_calls_as_batch(tmp_path) -> None:

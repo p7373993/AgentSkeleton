@@ -119,16 +119,7 @@ class LLMClient:
         tool_calls: list[ToolCallAction] = []
         for item in output:
             if _read_attr(item, "type") == "function_call":
-                tool_calls.append(
-                    ToolCallAction(
-                        tool_name=str(_read_attr(item, "name")),
-                        arguments=self._parse_arguments(
-                            _read_attr(item, "arguments", "{}")
-                        ),
-                        call_id=str(_read_attr(item, "call_id")),
-                        provider_metadata={},
-                    )
-                )
+                tool_calls.append(self._parse_function_call(item))
         if output:
             if not state.response_context_items:
                 state.response_context_items = self._conversation_items(state)
@@ -236,10 +227,31 @@ class LLMClient:
                 serialized[field] = value
         return serialized
 
+    def _parse_function_call(self, item: Any) -> ToolCallAction:
+        name = _read_attr(item, "name")
+        if not isinstance(name, str) or not name.strip():
+            raise LLMResponseError("Function call missing name")
+
+        call_id = _read_attr(item, "call_id")
+        if not isinstance(call_id, str) or not call_id.strip():
+            raise LLMResponseError("Function call missing call_id")
+
+        return ToolCallAction(
+            tool_name=name,
+            arguments=self._parse_arguments(_read_attr(item, "arguments", "{}")),
+            call_id=call_id,
+            provider_metadata={},
+        )
+
     def _parse_arguments(self, raw_arguments: str | dict[str, Any]) -> dict[str, Any]:
         if isinstance(raw_arguments, dict):
             return raw_arguments
-        parsed = json.loads(raw_arguments)
+        try:
+            parsed = json.loads(raw_arguments)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise LLMResponseError(
+                "Function call arguments must be valid JSON"
+            ) from exc
         if not isinstance(parsed, dict):
             raise LLMResponseError("Function call arguments must decode to an object")
         return parsed
