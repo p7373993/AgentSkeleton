@@ -107,6 +107,29 @@ def _merge_required_domains(
     return merged
 
 
+def _assistant_transcript_content(state) -> str | None:
+    if state.final_answer:
+        return state.final_answer
+
+    if state.final_status:
+        content = f"Run stopped with status {state.final_status}."
+        if getattr(state, "final_reason", None):
+            content = f"{content} Reason: {state.final_reason}"
+        return content
+
+    return None
+
+
+def _assistant_transcript_metadata(run_id: str, state) -> dict[str, object]:
+    metadata: dict[str, object] = {
+        "run_id": run_id,
+        "status": state.final_status,
+    }
+    if getattr(state, "final_reason", None):
+        metadata["reason"] = state.final_reason
+    return metadata
+
+
 @app.command()
 def tools(
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
@@ -335,12 +358,13 @@ def run(
         conversation=conversation,
         trace_context={"session": None if no_session else session},
     )
-    if not no_session and state.final_answer:
+    assistant_content = _assistant_transcript_content(state)
+    if not no_session and assistant_content:
         session_store.append_transcript(
             session,
             "assistant",
-            state.final_answer,
-            {"run_id": run_id, "status": state.final_status},
+            assistant_content,
+            _assistant_transcript_metadata(run_id, state),
         )
     console.print(f"Run id: {run_id}")
     console.print(f"Status: {state.final_status}")
@@ -437,12 +461,13 @@ def chat(
             conversation=conversation,
             trace_context={"session": None if no_session else session},
         )
-        if not no_session and state.final_answer:
+        assistant_content = _assistant_transcript_content(state)
+        if not no_session and assistant_content:
             session_store.append_transcript(
                 session,
                 "assistant",
-                state.final_answer,
-                {"run_id": run_id, "status": state.final_status},
+                assistant_content,
+                _assistant_transcript_metadata(run_id, state),
             )
 
         if state.final_answer:

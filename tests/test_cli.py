@@ -775,6 +775,60 @@ def test_run_output_includes_run_id_and_final_reason(monkeypatch, tmp_path) -> N
     assert "Run log:" in result.stdout
 
 
+def test_run_persists_status_reason_when_no_final_answer(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    monkeypatch.setattr("agentskeleton.cli.uuid4", lambda: "run-fixed")
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "model_error",
+                    "final_answer": None,
+                    "final_reason": "Model call failed: RuntimeError",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "continue"])
+
+    assert result.exit_code == 0
+    session = SessionStore(tmp_path / "runs").load("default")
+    assert [turn.role for turn in session.transcript] == ["user", "assistant"]
+    assert [turn.content for turn in session.transcript] == [
+        "continue",
+        (
+            "Run stopped with status model_error. "
+            "Reason: Model call failed: RuntimeError"
+        ),
+    ]
+    assert session.transcript[1].metadata == {
+        "run_id": "run-fixed",
+        "status": "model_error",
+        "reason": "Model call failed: RuntimeError",
+    }
+
+
 def test_run_uses_enabled_tools_from_config(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
@@ -1016,6 +1070,75 @@ def test_chat_prints_final_reason_when_no_answer(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert "Status: invalid_action" in result.stdout
     assert "Reason: Model returned unsupported action: dict" in result.stdout
+
+
+def test_chat_persists_status_reason_for_next_turn(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    seen_conversation: list[list[str]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            seen_conversation.append([turn.content for turn in conversation or []])
+            if goal == "first":
+                return type(
+                    "State",
+                    (),
+                    {
+                        "final_status": "invalid_action",
+                        "final_answer": None,
+                        "final_reason": "Model returned unsupported action: dict",
+                    },
+                )()
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "second answer",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="first\nsecond\n/exit\n")
+
+    assert result.exit_code == 0
+    assert seen_conversation == [
+        [],
+        [
+            "first",
+            (
+                "Run stopped with status invalid_action. "
+                "Reason: Model returned unsupported action: dict"
+            ),
+        ],
+    ]
+    session = SessionStore(tmp_path / "runs").load("default")
+    assert [turn.role for turn in session.transcript] == [
+        "user",
+        "assistant",
+        "user",
+        "assistant",
+    ]
+    assert session.transcript[1].metadata["status"] == "invalid_action"
+    assert (
+        session.transcript[1].metadata["reason"]
+        == "Model returned unsupported action: dict"
+    )
 
 
 def test_resume_reuses_named_session_transcript(monkeypatch, tmp_path) -> None:
