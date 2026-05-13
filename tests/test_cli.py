@@ -2525,6 +2525,7 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
         "answer": "done",
         "steps": 3,
         "model_retries": 0,
+        "last_model_retry": None,
         "tool_calls": 0,
         "tool_failures": 0,
         "last_tool_error": None,
@@ -2702,9 +2703,19 @@ def test_show_run_summarizes_model_retries_as_json(monkeypatch, tmp_path) -> Non
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["model_retries"] == 1
+    assert payload["last_model_retry"] == {
+        "attempt": 1,
+        "next_attempt": 2,
+        "max_attempts": 2,
+        "error_type": "RuntimeError",
+        "error": "temporary model outage",
+    }
 
 
-def test_show_run_prints_model_retry_count(monkeypatch, tmp_path) -> None:
+def test_show_run_prints_model_retry_count_and_last_error(
+    monkeypatch,
+    tmp_path,
+) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
     log_dir.mkdir(parents=True)
@@ -2714,7 +2725,13 @@ def test_show_run_prints_model_retry_count(monkeypatch, tmp_path) -> None:
             "type": "model_retry",
             "run_id": "run-1",
             "step": 1,
-            "payload": {"attempt": 1},
+            "payload": {
+                "attempt": 1,
+                "next_attempt": 2,
+                "max_attempts": 2,
+                "error_type": "RuntimeError",
+                "error": "temporary model outage",
+            },
         },
         {
             "type": "run_finished",
@@ -2733,6 +2750,7 @@ def test_show_run_prints_model_retry_count(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert "Model retries: 1" in result.stdout
+    assert "Last model retry: RuntimeError - temporary model outage" in result.stdout
 
 
 def test_show_run_summarizes_bounded_tool_error_text_as_json(
@@ -3224,6 +3242,7 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
                 "answer": None,
                 "steps": 4,
                 "model_retries": 0,
+                "last_model_retry": None,
                 "tool_calls": 0,
                 "tool_failures": 0,
                 "last_tool_error": None,
