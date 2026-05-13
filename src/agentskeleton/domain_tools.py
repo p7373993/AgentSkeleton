@@ -58,16 +58,18 @@ def _text_error(message: str) -> ToolResult:
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return str(value.strip())
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 def _safe_lower(value: str) -> str | None:
     try:
-        return str(value.lower())
+        lowered = value.lower()
     except Exception:
         return None
+    return str.__str__(lowered)
 
 
 def _classify_domain(text: str) -> str:

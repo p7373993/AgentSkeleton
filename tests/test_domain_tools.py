@@ -31,6 +31,9 @@ def test_classify_domain_normalizes_text_subclass_lower_output(
     tmp_path: Path,
 ) -> None:
     class UnsearchableString(str):
+        def __str__(self) -> str:
+            return self
+
         def lower(self) -> str:
             return self
 
