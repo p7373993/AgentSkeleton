@@ -301,6 +301,29 @@ def test_session_store_bounds_large_persisted_transcript_fields_on_load(
     assert session.transcript[0].metadata["attempt"] == 1
 
 
+def test_session_store_serializes_unstringable_persisted_transcript_fields_on_load(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text("{}\n", encoding="utf-8")
+
+    def fake_loads(_line: str) -> dict[str, object]:
+        return {
+            "role": UnstringableValue(),
+            "content": UnstringableValue(),
+        }
+
+    monkeypatch.setattr(json, "loads", fake_loads)
+
+    session = store.load("default")
+
+    assert session.transcript[0].role == "<uninspectable>"
+    assert session.transcript[0].content == "<uninspectable>"
+
+
 def test_session_store_serializes_recursive_metadata_values(tmp_path: Path) -> None:
     store = SessionStore(tmp_path)
     metadata = {}

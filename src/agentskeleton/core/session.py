@@ -242,9 +242,9 @@ class SessionStore:
             safe_metadata = _json_safe(metadata) if isinstance(metadata, dict) else {}
             transcript.append(
                 ConversationMessage(
-                    role=str(row.get("role", "user")),
+                    role=_safe_text(row.get("role", "user")),
                     content=_bounded_transcript_content(
-                        str(row.get("content", "")),
+                        _safe_text(row.get("content", "")),
                     ),
                     metadata=safe_metadata
                     if isinstance(safe_metadata, dict)
