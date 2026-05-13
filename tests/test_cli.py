@@ -1757,6 +1757,110 @@ def test_run_tool_option_overrides_enabled_tools_config(monkeypatch, tmp_path) -
     assert seen_tools == [["read_file", "ask_user"]]
 
 
+def test_run_model_retry_attempts_option_overrides_config(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("model_retry_attempts: 1\n", encoding="utf-8")
+    seen_retry_attempts: list[int] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            seen_retry_attempts.append(kwargs["config"].model_retry_attempts)
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "run",
+            "continue",
+            "--config",
+            str(config_path),
+            "--model-retry-attempts",
+            "4",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert seen_retry_attempts == [4]
+
+
+def test_chat_model_retry_attempts_option_overrides_config(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("model_retry_attempts: 1\n", encoding="utf-8")
+    seen_retry_attempts: list[int] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            seen_retry_attempts.append(kwargs["config"].model_retry_attempts)
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "chat",
+            "--config",
+            str(config_path),
+            "--model-retry-attempts",
+            "4",
+        ],
+        input="continue\n/exit\n",
+    )
+
+    assert result.exit_code == 0
+    assert seen_retry_attempts == [4]
+
+
 def test_chat_reuses_session_transcript_between_inputs(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")

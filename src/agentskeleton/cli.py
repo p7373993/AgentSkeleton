@@ -350,6 +350,10 @@ def run(
         typer.Option("--reasoning-effort"),
     ] = None,
     max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    model_retry_attempts: Annotated[
+        int | None,
+        typer.Option("--model-retry-attempts"),
+    ] = None,
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
     session: Annotated[str, typer.Option("--session")] = "default",
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
@@ -363,6 +367,7 @@ def run(
             "base_url": base_url,
             "reasoning_effort": reasoning_effort,
             "max_steps": max_steps,
+            "model_retry_attempts": model_retry_attempts,
             "enabled_tools": tool,
         },
     )
@@ -454,6 +459,10 @@ def chat(
         typer.Option("--reasoning-effort"),
     ] = None,
     max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    model_retry_attempts: Annotated[
+        int | None,
+        typer.Option("--model-retry-attempts"),
+    ] = None,
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
     session: Annotated[str, typer.Option("--session")] = "default",
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
@@ -466,6 +475,7 @@ def chat(
             "base_url": base_url,
             "reasoning_effort": reasoning_effort,
             "max_steps": max_steps,
+            "model_retry_attempts": model_retry_attempts,
             "enabled_tools": tool,
         },
     )
@@ -569,6 +579,10 @@ def resume(
         typer.Option("--reasoning-effort"),
     ] = None,
     max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    model_retry_attempts: Annotated[
+        int | None,
+        typer.Option("--model-retry-attempts"),
+    ] = None,
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
     trace: Annotated[bool, typer.Option("--trace")] = False,
 ) -> None:
@@ -578,6 +592,7 @@ def resume(
         base_url=base_url,
         reasoning_effort=reasoning_effort,
         max_steps=max_steps,
+        model_retry_attempts=model_retry_attempts,
         tool=tool,
         session=session,
         no_session=False,
