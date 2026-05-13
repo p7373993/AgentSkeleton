@@ -30,6 +30,13 @@ def _path_security_error(exc: PathSecurityError) -> ToolResult:
     return _error(summary, error)
 
 
+def _utf8_bytes(value: str) -> bytes | None:
+    try:
+        return value.encode("utf-8")
+    except Exception:
+        return None
+
+
 def _string_arg(
     args: dict[str, Any],
     name: str,
@@ -311,7 +318,12 @@ class WriteFileTool(Tool):
             if not target_is_file:
                 return _error(f"Not a file: {requested}", "Not a file")
 
-        encoded = content.encode("utf-8")
+        encoded = _utf8_bytes(content)
+        if encoded is None:
+            return _error(
+                "Content invalid: content could not be inspected",
+                "Content invalid",
+            )
         if len(encoded) > MAX_WRITE_FILE_BYTES:
             return _error(f"Content too large: {requested}", "Content too large")
 

@@ -511,6 +511,23 @@ def test_write_file_rejects_large_content(tmp_path: Path) -> None:
     assert not (tmp_path / "out.txt").exists()
 
 
+def test_write_file_rejects_unencodable_content(tmp_path: Path) -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": UnencodableString("hello")},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Content invalid"
+    assert result.summary == "Content invalid: content could not be inspected"
+    assert result.payload == {}
+    assert not (tmp_path / "out.txt").exists()
+
+
 def test_write_file_rejects_non_bool_create_parent_dirs(tmp_path: Path) -> None:
     result = WriteFileTool().execute(
         {"path": "nested/out.txt", "content": "hello", "create_parent_dirs": "true"},
