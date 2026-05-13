@@ -3953,6 +3953,60 @@ def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None
     }
 
 
+def test_restore_run_imports_run_snapshot_metadata(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    snapshot = {
+        "step_count": 1,
+        "observations": [
+            {
+                "call_id": "call-1",
+                "tool_name": "read_file",
+                "policy_decision": "allow",
+                "result": {
+                    "success": True,
+                    "payload": {"content": "alpha"},
+                    "summary": "read file",
+                    "error": None,
+                },
+            }
+        ],
+    }
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "finish the report"},
+        },
+        {
+            "type": "run_snapshot",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": snapshot,
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert result.exit_code == 0
+    session = SessionStore(tmp_path / "runs").load("work")
+    assert session.transcript[1].metadata["last_snapshot"] == snapshot
+
+
 def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
