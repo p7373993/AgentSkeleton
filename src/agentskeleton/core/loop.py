@@ -846,7 +846,7 @@ def _json_log_safe(
             for index, (key, item) in enumerate(value.items()):
                 if index >= item_limit:
                     continue
-                safe_items[str(key)] = _json_log_safe(
+                safe_items[_safe_text(key)] = _json_log_safe(
                     item,
                     seen,
                     depth + 1,
@@ -889,10 +889,7 @@ def _json_log_safe(
         finally:
             seen.remove(marker)
 
-    try:
-        return str(value)
-    except Exception:
-        return UNINSPECTABLE_VALUE
+    return _safe_text(value)
 
 
 def _collection_item_limit(

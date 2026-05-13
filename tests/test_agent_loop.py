@@ -1641,6 +1641,49 @@ def test_loop_recovers_when_logging_tool_arguments_fails(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_preserves_unstringable_logged_argument_entries(
+    tmp_path: Path,
+) -> None:
+    class UnstringableKey:
+        def __str__(self) -> str:
+            raise RuntimeError("key unavailable")
+
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("value unavailable")
+
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                "record",
+                {UnstringableKey(): UnstringableValue()},  # type: ignore[dict-item]
+                "call-1",
+            ),
+            FinalAction(text="recovered"),
+        ],
+        logger,
+    ).run("record")
+
+    model_action = next(event for event in logger.events if event[0] == "model_action")
+    observation = state.observations[0]
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert model_action[2]["arguments"] == {
+        "<uninspectable>": "<uninspectable>"
+    }
+    assert observation.result.error == "Invalid arguments"
+    assert observation.result.payload["arguments"] == {
+        "<uninspectable>": "<uninspectable>"
+    }
+    assert observation.result.payload["validation_errors"] == [
+        "Tool argument names must be strings"
+    ]
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_rejects_non_object_tool_arguments_before_execution(
     tmp_path: Path,
 ) -> None:
@@ -2090,6 +2133,50 @@ def test_loop_bounds_stored_successful_tool_result_payload(tmp_path: Path) -> No
     assert payload["bytes"] > 1_048_576
     assert str(payload["preview"]).startswith('{"content":"xxxxxxxxxxxxxxxx')
     assert large_payload not in str(state.observations)
+
+
+def test_loop_preserves_unstringable_tool_result_payload_entries(
+    tmp_path: Path,
+) -> None:
+    class UnstringableKey:
+        def __str__(self) -> str:
+            raise RuntimeError("key unavailable")
+
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("value unavailable")
+
+    class UnstringablePayloadTool(RecordTool):
+        name = "unstringable_payload"
+
+        def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+            return ToolResult.model_construct(
+                success=True,
+                payload={UnstringableKey(): UnstringableValue()},
+                summary="ok",
+                error=None,
+            )
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="unstringable_payload",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([UnstringablePayloadTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].result.payload == {
+        "<uninspectable>": "<uninspectable>"
+    }
 
 
 def test_loop_bounds_stored_successful_tool_result_summary(tmp_path: Path) -> None:
