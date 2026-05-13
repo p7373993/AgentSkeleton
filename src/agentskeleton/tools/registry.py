@@ -31,6 +31,13 @@ def _utf8_size(value: str) -> int | None:
         return None
 
 
+def _safe_text(value: object) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return "<uninspectable>"
+
+
 class ToolRegistry:
     def __init__(self, tools: Iterable[Tool] | None = None) -> None:
         self._tools: dict[str, Tool] = {}
@@ -92,7 +99,7 @@ class ToolRegistry:
         try:
             return self._tool_with_schema_snapshot(name)
         except KeyError as exc:
-            raise KeyError(f"Unknown tool: {name}") from exc
+            raise KeyError(f"Unknown tool: {_safe_text(name)}") from exc
 
     def all(self) -> list[Tool]:
         return [self._tool_with_schema_snapshot(name) for name in self._tools]

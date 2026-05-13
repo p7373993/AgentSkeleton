@@ -1669,6 +1669,34 @@ def test_loop_stops_with_unknown_tool_status(tmp_path: Path) -> None:
     ) in logger.events
 
 
+def test_loop_stops_with_unknown_tool_when_name_stringification_fails(
+    tmp_path: Path,
+) -> None:
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("tool name unavailable")
+
+    logger = MemoryLogger()
+    try:
+        state = make_loop(
+            tmp_path,
+            [
+                ToolCallAction(
+                    tool_name=UnstringableString("missing"),
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                )
+            ],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording unknown tool: {exc!r}")
+
+    assert state.final_status == "unknown_tool"
+    assert state.final_reason == "Unknown tool: <uninspectable>"
+    assert state.observations[0].result.summary == "Unknown tool: <uninspectable>"
+
+
 @pytest.mark.parametrize(
     ("arguments", "validation_errors"),
     [
