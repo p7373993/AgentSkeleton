@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
@@ -225,7 +226,7 @@ class LLMClient:
                 tool_calls.append(self._parse_function_call(item))
         final_text = _response_final_text(response, output)
         if output:
-            if not state.response_context_items:
+            if not _has_items(state.response_context_items):
                 state.response_context_items = self._conversation_items(state)
             state.response_context_items.extend(
                 serialized
@@ -274,8 +275,9 @@ class LLMClient:
 
     def _build_input(self, state: RunState) -> str | list[dict[str, Any]]:
         unsent = state.observations[state.sent_observation_count :]
-        if state.response_context_items or unsent:
-            if not state.response_context_items:
+        has_context_items = _has_items(state.response_context_items)
+        if has_context_items or unsent:
+            if not has_context_items:
                 state.response_context_items = self._conversation_items(state)
             if unsent:
                 state.response_context_items.extend(
@@ -497,8 +499,9 @@ def _safe_conversation_role(role: object) -> str:
 
 
 def _trim_response_context_items(
-    items: list[dict[str, Any]],
+    items: Iterable[dict[str, Any]],
 ) -> list[dict[str, Any]]:
+    items = [item for item in items]
     if len(items) <= MAX_RESPONSE_CONTEXT_ITEMS:
         return items
     anchors = _leading_context_anchors(items)
@@ -517,6 +520,12 @@ def _leading_context_anchors(items: list[dict[str, Any]]) -> list[dict[str, Any]
             break
         anchors.append(item)
     return anchors
+
+
+def _has_items(items: Iterable[object]) -> bool:
+    for _item in items:
+        return True
+    return False
 
 
 def _is_conversation_context_item(item: dict[str, Any]) -> bool:

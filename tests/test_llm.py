@@ -1146,6 +1146,33 @@ def test_llm_client_bounds_accumulated_response_context_items(tmp_path) -> None:
     assert '"content": "latest"' in request_input[-1]["output"]
 
 
+def test_llm_client_uses_response_context_items_without_length(tmp_path) -> None:
+    class ExplodingContextItems(list):
+        def __len__(self) -> int:
+            raise RuntimeError("context length unavailable")
+
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        response_context_items=ExplodingContextItems(
+            [{"role": "user", "content": "read"}]
+        ),
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert fake_client.responses.calls[0]["input"] == [
+        {"role": "user", "content": "read"}
+    ]
+
+
 def test_llm_client_bounds_response_context_after_output_items(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-2",
