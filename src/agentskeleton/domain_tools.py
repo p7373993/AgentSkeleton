@@ -31,24 +31,43 @@ class ClassifyDomainTool(Tool):
     def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
         raw_text = args.get("text")
         if not isinstance(raw_text, str):
-            return ToolResult(
-                success=False,
-                summary="Text invalid: text must be a string",
-                error="Text invalid",
-            )
-        if not raw_text.strip():
-            return ToolResult(
-                success=False,
-                summary="Text invalid: text cannot be blank",
-                error="Text invalid",
-            )
-        text = raw_text.lower()
+            return _text_error("text must be a string")
+        stripped_text = _safe_strip(raw_text)
+        if stripped_text is None:
+            return _text_error("text could not be inspected")
+        if not stripped_text:
+            return _text_error("text cannot be blank")
+        text = _safe_lower(raw_text)
+        if text is None:
+            return _text_error("text could not be inspected")
         domain = _classify_domain(text)
         return ToolResult(
             success=True,
             payload={"domain": domain},
             summary=f"classified {domain}",
         )
+
+
+def _text_error(message: str) -> ToolResult:
+    return ToolResult(
+        success=False,
+        summary=f"Text invalid: {message}",
+        error="Text invalid",
+    )
+
+
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
+
+
+def _safe_lower(value: str) -> str | None:
+    try:
+        return value.lower()
+    except Exception:
+        return None
 
 
 def _classify_domain(text: str) -> str:

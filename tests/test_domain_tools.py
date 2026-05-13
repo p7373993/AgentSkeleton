@@ -6,6 +6,16 @@ from agentskeleton.domain_tools import ClassifyDomainTool
 from agentskeleton.tools.base import ToolContext
 
 
+class UninspectableString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot strip")
+
+
+class UnlowerableString(str):
+    def lower(self) -> str:
+        raise RuntimeError("cannot lower")
+
+
 def test_classify_domain_detects_finance_terms(tmp_path: Path) -> None:
     result = ClassifyDomainTool().execute(
         {"text": "Please reconcile this invoice"},
@@ -73,4 +83,26 @@ def test_classify_domain_rejects_invalid_text(
     assert result.success is False
     assert result.error == "Text invalid"
     assert result.summary == summary
+    assert result.payload == {}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        UninspectableString("Please reconcile this invoice"),
+        UnlowerableString("Please reconcile this invoice"),
+    ],
+)
+def test_classify_domain_rejects_uninspectable_text(
+    tmp_path: Path,
+    text: str,
+) -> None:
+    result = ClassifyDomainTool().execute(
+        {"text": text},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Text invalid"
+    assert result.summary == "Text invalid: text could not be inspected"
     assert result.payload == {}
