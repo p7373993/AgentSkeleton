@@ -4,6 +4,14 @@ from agentskeleton.tools.base import ToolContext
 from agentskeleton.tools.user import AskUserTool
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+
 def test_ask_user_tool_returns_callback_answer(tmp_path: Path) -> None:
     result = AskUserTool().execute(
         {"question": "Continue?"},
@@ -15,6 +23,25 @@ def test_ask_user_tool_returns_callback_answer(tmp_path: Path) -> None:
 
     assert result.success is True
     assert result.payload["answer"] == "answer to Continue?"
+
+
+def test_ask_user_tool_normalizes_question_text_subclasses(tmp_path: Path) -> None:
+    seen_questions: list[str] = []
+
+    def answer(question: str) -> str:
+        seen_questions.append(question)
+        return "yes"
+
+    result = AskUserTool().execute(
+        {"question": StickyString("Continue?")},
+        ToolContext(workspace=tmp_path, ask_user=answer),
+    )
+
+    assert result.success is True
+    assert seen_questions == ["Continue?"]
+    assert type(seen_questions[0]) is str
+    assert result.payload["question"] == "Continue?"
+    assert type(result.payload["question"]) is str
 
 
 def test_ask_user_tool_fails_without_callback(tmp_path: Path) -> None:

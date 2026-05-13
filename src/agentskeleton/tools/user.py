@@ -5,9 +5,10 @@ from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 class AskUserTool(Tool):
@@ -34,8 +35,7 @@ class AskUserTool(Tool):
                 summary="Question invalid: question must be a string",
                 error="Question invalid",
             )
-        question = raw_question
-        stripped_question = _safe_strip(question)
+        stripped_question = _safe_strip(raw_question)
         if stripped_question is None:
             return ToolResult(
                 success=False,
@@ -48,6 +48,7 @@ class AskUserTool(Tool):
                 summary="Question invalid: question cannot be blank",
                 error="Question invalid",
             )
+        question = str.__str__(raw_question)
 
         if context.ask_user is None:
             return ToolResult(
