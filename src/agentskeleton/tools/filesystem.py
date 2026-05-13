@@ -13,8 +13,15 @@ def _error(summary: str, error: str) -> ToolResult:
     return ToolResult(success=False, summary=summary, error=error)
 
 
+def _exception_text(exc: BaseException) -> str:
+    try:
+        return str(exc)
+    except Exception:
+        return type(exc).__name__
+
+
 def _path_security_error(exc: PathSecurityError) -> ToolResult:
-    summary = str(exc)
+    summary = _exception_text(exc)
     error = (
         "Path escapes workspace"
         if summary.startswith("Path escapes workspace")

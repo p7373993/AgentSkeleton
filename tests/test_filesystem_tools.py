@@ -168,6 +168,33 @@ def test_filesystem_tools_report_rejected_windows_paths_as_invalid(
     assert result.payload == {}
 
 
+def test_filesystem_tools_report_unstringable_path_security_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class UnstringablePathSecurityError(PathSecurityError):
+        def __str__(self) -> str:
+            raise RuntimeError("message unavailable")
+
+    def fail_resolve(workspace: Path, requested_path: str) -> Path:
+        raise UnstringablePathSecurityError()
+
+    monkeypatch.setattr(
+        "agentskeleton.tools.filesystem.resolve_workspace_path",
+        fail_resolve,
+    )
+
+    result = ReadFileTool().execute(
+        {"path": "note.txt"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Path invalid"
+    assert result.summary == "UnstringablePathSecurityError"
+    assert result.payload == {}
+
+
 def test_list_dir_returns_error_when_listing_fails(
     tmp_path: Path,
     monkeypatch,
