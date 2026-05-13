@@ -55,7 +55,7 @@ class ToolRegistry:
     def __init__(self, tools: Iterable[Tool] | None = None) -> None:
         self._tools: dict[str, Tool] = {}
         self._schemas: dict[str, dict[str, Any]] = {}
-        for tool in tools or ():
+        for tool in () if tools is None else tools:
             self.register(tool)
 
     def register(self, tool: Tool) -> None:

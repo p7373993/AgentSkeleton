@@ -44,6 +44,16 @@ def test_registry_registers_and_executes_tool(tmp_path) -> None:
     assert result.summary == "hello"
 
 
+def test_registry_initializes_from_iterable_without_length() -> None:
+    class ExplodingToolList(list):
+        def __len__(self) -> int:
+            raise RuntimeError("tool count unavailable")
+
+    registry = ToolRegistry(ExplodingToolList([EchoTool()]))
+
+    assert registry.get("echo").name == "echo"
+
+
 def test_registry_rejects_duplicate_tools() -> None:
     registry = ToolRegistry([EchoTool()])
 
