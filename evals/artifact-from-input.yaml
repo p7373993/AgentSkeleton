@@ -1,0 +1,48 @@
+name: artifact-from-input
+domain: artifacts
+goal: Read source notes and produce a normalized artifact file.
+config:
+  permission_profile: trusted
+files:
+  inputs/notes.txt: |
+    raw alpha
+    raw beta
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-source-notes
+    arguments:
+      path: inputs/notes.txt
+  - type: tool
+    tool: write_file
+    call_id: write-normalized-artifact
+    arguments:
+      path: artifacts/normalized-notes.txt
+      content: |
+        Normalized notes:
+        - alpha
+        - beta
+      create_parent_dirs: true
+  - type: final
+    text: artifact from input ok
+expect:
+  status: completed
+  answer: artifact from input ok
+  observations: 2
+  observations_detail:
+    - tool: read_file
+      success: true
+      payload:
+        path: inputs/notes.txt
+        content: |
+          raw alpha
+          raw beta
+    - tool: write_file
+      success: true
+      payload:
+        path: artifacts/normalized-notes.txt
+  files:
+    artifacts/normalized-notes.txt: |
+      Normalized notes:
+      - alpha
+      - beta

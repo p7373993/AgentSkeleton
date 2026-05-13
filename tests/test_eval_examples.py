@@ -34,8 +34,9 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "writing",
     ]
     assert result.passed is True
-    assert result.total == 47
+    assert result.total == 48
     assert result.failed_count == 0
+    assert "artifact-from-input" in {item.scenario for item in result.results}
     assert "coding-edit-test" in {item.scenario for item in result.results}
     assert "data-csv-report-artifact" in {item.scenario for item in result.results}
     assert "interactive-answer-artifact" in {
@@ -43,7 +44,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     }
     assert "invalid-tool-result" in {item.scenario for item in result.results}
     assert result.domains == {
-        "artifacts": {"passed": 1, "failed": 0, "total": 1},
+        "artifacts": {"passed": 2, "failed": 0, "total": 2},
         "coding": {"passed": 2, "failed": 0, "total": 2},
         "data": {"passed": 2, "failed": 0, "total": 2},
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
