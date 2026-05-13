@@ -117,6 +117,10 @@ def test_normalize_base_url_treats_blank_as_unset() -> None:
     assert normalize_base_url("   ") is None
 
 
+def test_normalize_base_url_treats_uninspectable_values_as_unset() -> None:
+    assert normalize_base_url(UninspectableString("https://example.test")) is None
+
+
 def test_resolve_openai_settings_uses_azure_environment(monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)

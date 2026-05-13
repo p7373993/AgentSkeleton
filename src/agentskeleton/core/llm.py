@@ -58,7 +58,10 @@ def normalize_base_url(base_url: str | None) -> str | None:
     if base_url is None:
         return None
 
-    normalized = base_url.strip()
+    try:
+        normalized = base_url.strip()
+    except Exception:
+        return None
     if not normalized:
         return None
     normalized = normalized.rstrip("/")
