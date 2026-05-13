@@ -34,13 +34,14 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "writing",
     ]
     assert result.passed is True
-    assert result.total == 44
+    assert result.total == 45
     assert result.failed_count == 0
+    assert "data-csv-report-artifact" in {item.scenario for item in result.results}
     assert "invalid-tool-result" in {item.scenario for item in result.results}
     assert result.domains == {
         "artifacts": {"passed": 1, "failed": 0, "total": 1},
         "coding": {"passed": 1, "failed": 0, "total": 1},
-        "data": {"passed": 1, "failed": 0, "total": 1},
+        "data": {"passed": 2, "failed": 0, "total": 2},
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
         "interactive": {"passed": 1, "failed": 0, "total": 1},
         "reliability": {"passed": 34, "failed": 0, "total": 34},
