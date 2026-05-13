@@ -58,14 +58,14 @@ def _text_error(message: str) -> ToolResult:
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return value.strip()
+        return str(value.strip())
     except Exception:
         return None
 
 
 def _safe_lower(value: str) -> str | None:
     try:
-        return value.lower()
+        return str(value.lower())
     except Exception:
         return None
 

@@ -27,6 +27,26 @@ def test_classify_domain_detects_finance_terms(tmp_path: Path) -> None:
     assert result.summary == "classified finance"
 
 
+def test_classify_domain_normalizes_text_subclass_lower_output(
+    tmp_path: Path,
+) -> None:
+    class UnsearchableString(str):
+        def lower(self) -> str:
+            return self
+
+        def __contains__(self, item: object) -> bool:
+            raise RuntimeError("text search unavailable")
+
+    result = ClassifyDomainTool().execute(
+        {"text": UnsearchableString("Please reconcile this invoice")},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is True
+    assert result.payload["domain"] == "finance"
+    assert result.summary == "classified finance"
+
+
 def test_classify_domain_defaults_to_general(tmp_path: Path) -> None:
     result = ClassifyDomainTool().execute(
         {"text": "Say hello"},
