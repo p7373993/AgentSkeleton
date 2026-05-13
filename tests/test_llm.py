@@ -67,6 +67,11 @@ class UnencodableString(str):
         raise RuntimeError("cannot encode")
 
 
+class UninspectableString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot strip")
+
+
 class FailingTrace:
     def emit(self, name: str, payload: dict[str, object]) -> None:
         raise OSError("trace sink unavailable")
@@ -1766,6 +1771,30 @@ def test_llm_client_normalizes_oversized_transcript_roles(tmp_path) -> None:
     request_input = fake_client.responses.calls[0]["input"]
     assert request_input[0]["role"] == "user"
     assert oversized_role not in json.dumps(request_input)
+
+
+def test_llm_client_normalizes_uninspectable_transcript_roles(tmp_path) -> None:
+    response = SimpleNamespace(id="resp-1", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="current",
+        conversation=[
+            ConversationMessage(
+                role=UninspectableString("assistant"),
+                content="remember alpha",
+            ),
+        ],
+    )
+
+    LLMClient(RunConfig(workspace=tmp_path), client=fake_client).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    request_input = fake_client.responses.calls[0]["input"]
+    assert request_input[0] == {"role": "user", "content": "remember alpha"}
 
 
 def test_llm_client_keeps_sticky_summary_when_limiting_transcript_context(

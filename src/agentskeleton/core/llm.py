@@ -457,7 +457,10 @@ def _bounded_final_text(text: str) -> str:
 def _safe_conversation_role(role: object) -> str:
     if not isinstance(role, str):
         return "user"
-    normalized = role.strip().lower()
+    try:
+        normalized = role.strip().lower()
+    except Exception:
+        return "user"
     if len(normalized) > MAX_CONVERSATION_ROLE_CHARS:
         return "user"
     if normalized not in ALLOWED_CONVERSATION_ROLES:
