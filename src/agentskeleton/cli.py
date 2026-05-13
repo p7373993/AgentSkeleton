@@ -805,6 +805,9 @@ def show_run(
         console.print(f"Conversation turns: {summary['conversation_turns']}")
     if summary["steps"] is not None:
         console.print(f"Steps: {summary['steps']}")
+    snapshot_summary = _snapshot_summary_text(summary.get("last_snapshot"))
+    if snapshot_summary:
+        console.print(f"Snapshot: {snapshot_summary}")
     if summary["model_retries"]:
         console.print(f"Model retries: {summary['model_retries']}")
         retry_detail = _error_detail_text(summary.get("last_model_retry"))
@@ -1178,6 +1181,16 @@ def _snapshot_detail_text(snapshot: object) -> str | None:
     except (TypeError, ValueError):
         text = _display_text(snapshot)
     return _bounded_display_text(text)
+
+
+def _snapshot_summary_text(snapshot: object) -> str | None:
+    if not isinstance(snapshot, dict):
+        return None
+    step_count = snapshot.get("step_count")
+    observations = snapshot.get("observations")
+    if not isinstance(observations, list):
+        return None
+    return f"step {_display_text(step_count)}, observations {len(observations)}"
 
 
 def _error_detail_text(error_detail: object) -> str | None:

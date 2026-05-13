@@ -2640,6 +2640,46 @@ def test_show_run_summarizes_latest_run_snapshot_as_json(
     }
 
 
+def test_show_run_prints_latest_run_snapshot_summary(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_snapshot",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {
+                "step_count": 2,
+                "observations": [
+                    {"call_id": "call-1"},
+                    {"call_id": "call-2"},
+                ],
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 3,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert "Snapshot: step 2, observations 2" in result.stdout
+
+
 def test_show_run_json_preserves_rich_markup_literals(
     monkeypatch,
     tmp_path,
