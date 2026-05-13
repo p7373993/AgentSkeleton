@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, NoReturn
 from uuid import uuid4
@@ -805,6 +806,8 @@ def show_run(
         console.print(f"Started: {summary['started_at']}")
     if summary["finished_at"]:
         console.print(f"Finished: {summary['finished_at']}")
+    if summary["duration_seconds"] is not None:
+        console.print(f"Duration: {summary['duration_seconds']}s")
     if summary["resumed_run_id"]:
         console.print(f"Resumed from: {summary['resumed_run_id']}")
     if summary["conversation_turns"] is not None:
@@ -1079,17 +1082,20 @@ def _summarize_run_log(
         resolved_run_id = str(start_event["run_id"])
     if resolved_run_id is None:
         resolved_run_id = log_path.stem
+    started_at = _run_log_text_value(
+        start_event.get("timestamp") if start_event else None
+    )
+    finished_at = _run_log_text_value(
+        final_event.get("timestamp") if final_event else None
+    )
     summary = {
         "run_id": resolved_run_id,
         "goal": _run_log_text_value(start_payload.get("goal")),
         "workspace": start_payload.get("workspace"),
         "session": start_payload.get("session"),
-        "started_at": _run_log_text_value(
-            start_event.get("timestamp") if start_event else None
-        ),
-        "finished_at": _run_log_text_value(
-            final_event.get("timestamp") if final_event else None
-        ),
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "duration_seconds": _run_duration_seconds(started_at, finished_at),
         "resumed": start_payload.get("resumed"),
         "resumed_run_id": _run_log_text_value(start_payload.get("resumed_run_id")),
         "conversation_turns": start_payload.get("conversation_turns"),
@@ -1116,6 +1122,17 @@ def _event_payload(event: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     payload = event.get("payload")
     return payload if isinstance(payload, dict) else {}
+
+
+def _run_duration_seconds(started_at: object, finished_at: object) -> float | None:
+    if not isinstance(started_at, str) or not isinstance(finished_at, str):
+        return None
+    try:
+        started = datetime.fromisoformat(started_at)
+        finished = datetime.fromisoformat(finished_at)
+    except ValueError:
+        return None
+    return (finished - started).total_seconds()
 
 
 def _run_log_text_value(value: object) -> object:

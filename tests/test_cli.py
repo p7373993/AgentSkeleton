@@ -2562,6 +2562,7 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
         "session": None,
         "started_at": None,
         "finished_at": None,
+        "duration_seconds": None,
         "resumed": None,
         "resumed_run_id": None,
         "conversation_turns": None,
@@ -2616,6 +2617,7 @@ def test_show_run_reports_run_event_timestamps_as_json(
     payload = json.loads(result.stdout)
     assert payload["started_at"] == "2026-05-11T10:00:00+00:00"
     assert payload["finished_at"] == "2026-05-11T10:05:00+00:00"
+    assert payload["duration_seconds"] == 300.0
 
 
 def test_show_run_prints_run_event_timestamps(monkeypatch, tmp_path) -> None:
@@ -2650,6 +2652,7 @@ def test_show_run_prints_run_event_timestamps(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert "Started: 2026-05-11T10:00:00+00:00" in result.stdout
     assert "Finished: 2026-05-11T10:05:00+00:00" in result.stdout
+    assert "Duration: 300.0s" in result.stdout
 
 
 def test_show_run_summarizes_latest_run_snapshot_as_json(
@@ -3694,6 +3697,7 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
                 "session": None,
                 "started_at": None,
                 "finished_at": None,
+                "duration_seconds": None,
                 "resumed": None,
                 "resumed_run_id": None,
                 "conversation_turns": None,
