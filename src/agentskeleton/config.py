@@ -64,6 +64,27 @@ def _utf8_size(value: str) -> int | None:
         return None
 
 
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
+
+
+def _has_whitespace(value: str) -> bool | None:
+    try:
+        return any(character.isspace() for character in value)
+    except Exception:
+        return None
+
+
+def _has_invalid_module_part(value: str) -> bool | None:
+    try:
+        return any(not part.isidentifier() for part in value.split("."))
+    except Exception:
+        return None
+
+
 def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
     if len(value) > MAX_CONFIG_TOOL_LIST_ITEMS:
         raise ValueError(
@@ -79,9 +100,15 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
                 f"{field_name} entries cannot exceed "
                 f"{MAX_CONFIG_TOOL_NAME_BYTES} bytes"
             )
-        if not name.strip():
+        stripped_name = _safe_strip(name)
+        if stripped_name is None:
+            raise ValueError(f"{field_name} entries could not be inspected")
+        if not stripped_name:
             raise ValueError(f"{field_name} cannot contain empty names")
-        if any(character.isspace() for character in name):
+        has_whitespace = _has_whitespace(name)
+        if has_whitespace is None:
+            raise ValueError(f"{field_name} entries could not be inspected")
+        if has_whitespace:
             raise ValueError(f"{field_name} cannot contain whitespace")
     return value
 
@@ -89,7 +116,10 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
 def _reject_invalid_module_list(value: list[str], field_name: str) -> list[str]:
     _reject_invalid_name_list(value, field_name)
     for name in value:
-        if any(not part.isidentifier() for part in name.split(".")):
+        has_invalid_module_part = _has_invalid_module_part(name)
+        if has_invalid_module_part is None:
+            raise ValueError(f"{field_name} entries could not be inspected")
+        if has_invalid_module_part:
             raise ValueError(f"{field_name} must contain dotted Python module paths")
     return value
 
