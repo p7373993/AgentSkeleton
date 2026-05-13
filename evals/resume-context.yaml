@@ -22,6 +22,12 @@ expect:
         resumed: true
         conversation_turns: 2
         scenario: resume-context
+    - type: run_snapshot
+      payload:
+        conversation_turns: 2
+        final_status: completed
+        final_answer: resume context ok
+        observations: []
     - type: run_finished
       payload:
         status: completed

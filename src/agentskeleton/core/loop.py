@@ -626,6 +626,7 @@ class AgentLoop:
             ToolObservation(call_id, tool_name, policy_decision, stored_result)
         )
         self._log_tool_finished(state, tool_name, stored_result)
+        self._log_run_snapshot(state)
         return stored_result
 
     def _log_tool_finished(
@@ -686,8 +687,12 @@ class AgentLoop:
         }
         if state.final_reason:
             payload["reason"] = _logged_text(state.final_reason)
+        self._log_run_snapshot(state)
         self._emit_trace("run_finished", payload)
         self._log_event("run_finished", state.step_count, payload)
+
+    def _log_run_snapshot(self, state: RunState) -> None:
+        self._log_event("run_snapshot", state.step_count, _run_state_snapshot(state))
 
     def _emit_trace(self, name: str, payload: dict[str, object]) -> None:
         try:
@@ -718,6 +723,49 @@ def _action_fingerprint(action: ToolCallAction) -> str:
     except (TypeError, ValueError):
         arguments = repr(action.arguments).encode("utf-8", errors="replace")
     return f"{_safe_text(action.tool_name)}:{hashlib.sha256(arguments).hexdigest()}"
+
+
+def _run_state_snapshot(state: RunState) -> dict[str, object]:
+    return {
+        "goal": _logged_text(state.goal),
+        "workspace": str(state.workspace),
+        "step_count": state.step_count,
+        "sent_observation_count": state.sent_observation_count,
+        "conversation_turns": len(state.conversation),
+        "response_context_items": _logged_value(state.response_context_items),
+        "last_action_fingerprint": state.last_action_fingerprint,
+        "repeated_action_count": state.repeated_action_count,
+        "final_status": state.final_status,
+        "final_answer": (
+            _logged_text(state.final_answer)
+            if state.final_answer is not None
+            else None
+        ),
+        "final_reason": (
+            _logged_text(state.final_reason)
+            if state.final_reason is not None
+            else None
+        ),
+        "observations": [
+            _tool_observation_snapshot(observation)
+            for observation in state.observations
+        ],
+    }
+
+
+def _tool_observation_snapshot(observation: ToolObservation) -> dict[str, object]:
+    result = observation.result
+    return {
+        "call_id": observation.call_id,
+        "tool_name": observation.tool_name,
+        "policy_decision": observation.policy_decision,
+        "result": {
+            "success": result.success,
+            "payload": _logged_value(result.payload),
+            "summary": _logged_text(result.summary),
+            "error": _logged_text(result.error) if result.error is not None else None,
+        },
+    }
 
 
 def _logged_arguments(arguments: object) -> object:

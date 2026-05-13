@@ -1243,6 +1243,44 @@ def test_loop_executes_tool_and_feeds_observation(tmp_path: Path) -> None:
     assert any(event[0] == "tool_finished" for event in logger.events)
 
 
+def test_loop_logs_run_snapshot_with_observation_details(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                tool_name="record",
+                arguments={"value": "x"},
+                call_id="call-1",
+            ),
+            FinalAction(text="done"),
+        ],
+        logger,
+    ).run("record")
+
+    snapshot = next(event[2] for event in logger.events if event[0] == "run_snapshot")
+
+    assert state.final_status == "completed"
+    assert snapshot["goal"] == "record"
+    assert snapshot["workspace"] == str(tmp_path)
+    assert snapshot["step_count"] == 1
+    assert snapshot["sent_observation_count"] == 0
+    assert snapshot["repeated_action_count"] == 1
+    assert snapshot["observations"] == [
+        {
+            "call_id": "call-1",
+            "tool_name": "record",
+            "policy_decision": "allow",
+            "result": {
+                "success": True,
+                "payload": {"value": "x", "workspace": str(tmp_path)},
+                "summary": "recorded x",
+                "error": None,
+            },
+        }
+    ]
+
+
 def test_loop_bounds_logged_tool_arguments_without_changing_execution(
     tmp_path: Path,
 ) -> None:
