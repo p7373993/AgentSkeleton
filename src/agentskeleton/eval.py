@@ -1070,6 +1070,8 @@ def _safe_repr_inner(value: object, seen: set[int]) -> str:
                 f"{_safe_repr_inner(key, seen)}: {_safe_repr_inner(item, seen)}"
                 for key, item in value.items()
             )
+        except Exception:
+            return UNINSPECTABLE_VALUE
         finally:
             seen.remove(value_id)
         return f"{{{items}}}"
@@ -1080,6 +1082,8 @@ def _safe_repr_inner(value: object, seen: set[int]) -> str:
         seen.add(value_id)
         try:
             items = ", ".join(_safe_repr_inner(item, seen) for item in value)
+        except Exception:
+            return UNINSPECTABLE_VALUE
         finally:
             seen.remove(value_id)
         return f"[{items}]"
@@ -1090,6 +1094,8 @@ def _safe_repr_inner(value: object, seen: set[int]) -> str:
         seen.add(value_id)
         try:
             items = [_safe_repr_inner(item, seen) for item in value]
+        except Exception:
+            return UNINSPECTABLE_VALUE
         finally:
             seen.remove(value_id)
         suffix = "," if len(items) == 1 else ""

@@ -562,6 +562,21 @@ def test_eval_expectation_failures_handle_unreprable_values(tmp_path: Path) -> N
     ]
 
 
+def test_eval_safe_repr_handles_uninspectable_collections() -> None:
+    class ExplodingItems(dict):
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("items unavailable")
+
+    class ExplodingIter(list):
+        def __iter__(self):  # type: ignore[override]
+            raise RuntimeError("items unavailable")
+
+    assert eval_module._safe_repr(ExplodingItems({"api_key": "secret"})) == (
+        "<uninspectable>"
+    )
+    assert eval_module._safe_repr(ExplodingIter(["secret"])) == "<uninspectable>"
+
+
 def test_run_scenario_reports_failed_expectations(tmp_path: Path) -> None:
     scenario_path = tmp_path / "mismatch.yaml"
     scenario_path.write_text(
