@@ -1627,6 +1627,37 @@ def test_llm_client_sends_transcript_context(
     ]
 
 
+def test_llm_client_serializes_unencodable_transcript_context(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-2",
+        workspace=tmp_path,
+        goal=UnencodableString("current visible"),
+        conversation=[
+            ConversationMessage(
+                role="user",
+                content=UnencodableString("prior visible"),
+            ),
+        ],
+    )
+
+    LLMClient(RunConfig(workspace=tmp_path), client=fake_client).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    request_input = fake_client.responses.calls[0]["input"]
+    assert request_input == [
+        {"role": "user", "content": "<uninspectable>"},
+        {"role": "user", "content": "<uninspectable>"},
+    ]
+    assert "prior visible" not in str(request_input)
+    assert "current visible" not in str(request_input)
+
+
 def test_llm_client_limits_transcript_context_to_recent_turns(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
     fake_client = FakeClient(response)

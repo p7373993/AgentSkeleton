@@ -439,6 +439,8 @@ def _current_user_turn(goal: str) -> ConversationMessage:
 
 
 def _bounded_conversation_content(content: str) -> str:
+    if _utf8_size(content) is None:
+        return UNINSPECTABLE_VALUE
     if len(content) <= MAX_CONVERSATION_CONTENT_CHARS:
         return content
     omitted = len(content) - MAX_CONVERSATION_CONTENT_CHARS
