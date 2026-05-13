@@ -24,6 +24,13 @@ MAX_TOOL_NAME_BYTES = 512
 MAX_REGISTERED_TOOLS = 128
 
 
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
+
+
 class ToolRegistry:
     def __init__(self, tools: Iterable[Tool] | None = None) -> None:
         self._tools: dict[str, Tool] = {}
@@ -43,7 +50,10 @@ class ToolRegistry:
             raise ValueError("Tool name cannot contain whitespace")
         if TOOL_NAME_PATTERN.fullmatch(name) is None:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
-        if len(name.encode("utf-8")) > MAX_TOOL_NAME_BYTES:
+        name_bytes = _utf8_size(name)
+        if name_bytes is None:
+            raise ValueError("Tool name could not be inspected")
+        if name_bytes > MAX_TOOL_NAME_BYTES:
             raise ValueError("Tool name exceeds maximum size")
         if not isinstance(tool.description, str):
             raise ValueError(f"Tool {name} description must be a string")
@@ -53,7 +63,10 @@ class ToolRegistry:
             raise ValueError(
                 f"Tool {name} description cannot contain surrounding whitespace"
             )
-        if len(tool.description.encode("utf-8")) > MAX_TOOL_DESCRIPTION_BYTES:
+        description_bytes = _utf8_size(tool.description)
+        if description_bytes is None:
+            raise ValueError(f"Tool {name} description could not be inspected")
+        if description_bytes > MAX_TOOL_DESCRIPTION_BYTES:
             raise ValueError(f"Tool {name} description exceeds maximum size")
         if not isinstance(tool.risk, str):
             raise ValueError(f"Tool {name} risk must be a string")

@@ -118,6 +118,23 @@ def test_registry_rejects_oversized_tool_names() -> None:
         registry.register(OversizedNameTool())
 
 
+def test_registry_rejects_unencodable_tool_names() -> None:
+    class UnencodableString(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return self
+
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnencodableNameTool(EchoTool):
+        name = UnencodableString("echo")
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool name could not be inspected"):
+        registry.register(UnencodableNameTool())
+
+
 def test_registry_rejects_non_string_tool_descriptions() -> None:
     class InvalidDescriptionTool(EchoTool):
         description = 123
@@ -157,6 +174,23 @@ def test_registry_rejects_oversized_tool_description() -> None:
 
     with pytest.raises(ValueError, match="Tool echo description exceeds maximum size"):
         registry.register(OversizedDescriptionTool())
+
+
+def test_registry_rejects_unencodable_tool_descriptions() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnencodableDescriptionTool(EchoTool):
+        description = UnencodableString("Echo text.")
+
+    registry = ToolRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="Tool echo description could not be inspected",
+    ):
+        registry.register(UnencodableDescriptionTool())
 
 
 @pytest.mark.parametrize(
@@ -882,6 +916,18 @@ def test_load_tools_from_modules_rejects_too_many_module_names() -> None:
 def test_load_tools_from_module_rejects_oversized_module_name() -> None:
     with pytest.raises(ValueError, match="Tool module name exceeds 512 bytes"):
         load_tools_from_modules(["a" * 513])
+
+
+def test_load_tools_from_module_rejects_unencodable_module_name() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    with pytest.raises(
+        ValueError,
+        match="Tool module name could not be inspected",
+    ):
+        load_tools_from_modules([UnencodableString("custom_tools")])
 
 
 def test_load_tools_from_module_rejects_blank_module_name() -> None:

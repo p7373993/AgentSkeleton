@@ -10,6 +10,13 @@ MAX_TOOL_MODULE_NAME_BYTES = 512
 MAX_LOADED_TOOLS = 128
 
 
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
+
+
 def _exception_text(exc: BaseException) -> str:
     try:
         return str(exc)
@@ -81,7 +88,10 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
 def _validate_module_name(module_name: object) -> None:
     if not isinstance(module_name, str):
         raise ValueError("Tool module name must be a string")
-    if len(module_name.encode("utf-8")) > MAX_TOOL_MODULE_NAME_BYTES:
+    module_name_bytes = _utf8_size(module_name)
+    if module_name_bytes is None:
+        raise ValueError("Tool module name could not be inspected")
+    if module_name_bytes > MAX_TOOL_MODULE_NAME_BYTES:
         raise ValueError(f"Tool module name exceeds {MAX_TOOL_MODULE_NAME_BYTES} bytes")
     if not module_name.strip():
         raise ValueError("Tool module name cannot be blank")
