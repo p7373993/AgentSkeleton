@@ -39,16 +39,18 @@ def _utf8_bytes(value: str) -> bytes | None:
 
 def _safe_text(value: object) -> str | None:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return None
+    return str.__str__(text)
 
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 def _string_arg(
@@ -65,7 +67,8 @@ def _string_arg(
             f"{label} invalid: {name} must be a string",
             f"{label} invalid",
         )
-    if _safe_text(value) is None or _utf8_bytes(value) is None:
+    text = _safe_text(value)
+    if text is None or _utf8_bytes(value) is None:
         return _error(
             f"{label} invalid: {name} could not be inspected",
             f"{label} invalid",
@@ -93,7 +96,7 @@ def _string_arg(
             f"{label} invalid: {name} cannot contain control characters",
             f"{label} invalid",
         )
-    return value
+    return text
 
 
 def _bool_arg(

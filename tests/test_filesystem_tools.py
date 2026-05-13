@@ -7,6 +7,14 @@ from agentskeleton.tools.base import ToolContext
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+
 def test_resolve_workspace_path_blocks_parent_escape(tmp_path: Path) -> None:
     with pytest.raises(PathSecurityError):
         resolve_workspace_path(tmp_path, "../outside.txt")
@@ -86,6 +94,33 @@ def test_list_dir_lists_direct_children(tmp_path: Path) -> None:
         {"name": "a.txt", "type": "file"},
         {"name": "folder", "type": "directory"},
     ]
+
+
+def test_filesystem_tools_normalize_path_text_subclasses(tmp_path: Path) -> None:
+    (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
+
+    list_result = ListDirTool().execute(
+        {"path": StickyString(".")},
+        ToolContext(workspace=tmp_path),
+    )
+    read_result = ReadFileTool().execute(
+        {"path": StickyString("note.txt")},
+        ToolContext(workspace=tmp_path),
+    )
+    write_result = WriteFileTool().execute(
+        {"path": StickyString("out.txt"), "content": "hello"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert list_result.success is True
+    assert list_result.payload["path"] == "."
+    assert type(list_result.payload["path"]) is str
+    assert read_result.success is True
+    assert read_result.payload["path"] == "note.txt"
+    assert type(read_result.payload["path"]) is str
+    assert write_result.success is True
+    assert write_result.payload["path"] == "out.txt"
+    assert type(write_result.payload["path"]) is str
 
 
 def test_list_dir_limits_large_directory_payload(tmp_path: Path) -> None:
