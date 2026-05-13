@@ -33,9 +33,10 @@ def _utf8_size(value: str) -> int | None:
 
 def _safe_text(value: object) -> str:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return "<uninspectable>"
+    return str.__str__(text)
 
 
 def _is_uninspectable_text(value: str) -> bool:
@@ -44,9 +45,10 @@ def _is_uninspectable_text(value: str) -> bool:
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 class ToolRegistry:
@@ -71,7 +73,7 @@ class ToolRegistry:
         if TOOL_NAME_PATTERN.fullmatch(name) is None:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
         name_bytes = _utf8_size(name)
-        if _is_uninspectable_text(name):
+        if _is_uninspectable_text(tool.name):
             raise ValueError("Tool name could not be inspected")
         if name_bytes > MAX_TOOL_NAME_BYTES:
             raise ValueError("Tool name exceeds maximum size")
@@ -102,7 +104,7 @@ class ToolRegistry:
             raise ValueError(f"Tool {name} risk cannot contain whitespace")
         if _is_uninspectable_text(tool.risk):
             raise ValueError(f"Tool {name} risk could not be inspected")
-        if tool.risk not in SUPPORTED_TOOL_RISKS:
+        if risk not in SUPPORTED_TOOL_RISKS:
             raise ValueError(
                 f"Tool {name} risk must be one of: "
                 f"{', '.join(SUPPORTED_TOOL_RISKS)}"
@@ -113,6 +115,9 @@ class ToolRegistry:
         if len(self._tools) >= MAX_REGISTERED_TOOLS:
             raise ValueError(f"Too many tools registered (max {MAX_REGISTERED_TOOLS})")
         self._schemas[name] = schema_snapshot
+        tool.name = name
+        tool.description = description
+        tool.risk = risk
         tool.args_schema = deepcopy(schema_snapshot)
         self._tools[name] = tool
 

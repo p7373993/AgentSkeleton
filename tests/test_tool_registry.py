@@ -24,6 +24,14 @@ class EchoTool(Tool):
         )
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+
 def test_registry_registers_and_executes_tool(tmp_path) -> None:
     registry = ToolRegistry()
     registry.register(EchoTool())
@@ -836,6 +844,29 @@ def test_registry_exports_openai_function_schemas() -> None:
             "parameters": EchoTool.args_schema,
         }
     ]
+
+
+def test_registry_normalizes_tool_metadata_text_subclasses() -> None:
+    class StickyMetadataTool(EchoTool):
+        name = StickyString("echo")
+        description = StickyString("Echo text.")
+        risk = StickyString("read")
+
+    registry = ToolRegistry([StickyMetadataTool()])
+
+    tool = registry.get("echo")
+    schema = registry.to_openai_tools()[0]
+
+    assert tool.name == "echo"
+    assert type(tool.name) is str
+    assert tool.description == "Echo text."
+    assert type(tool.description) is str
+    assert tool.risk == "read"
+    assert type(tool.risk) is str
+    assert schema["name"] == "echo"
+    assert type(schema["name"]) is str
+    assert schema["description"] == "Echo text."
+    assert type(schema["description"]) is str
 
 
 def test_registry_exports_openai_function_schemas_as_isolated_copies() -> None:
