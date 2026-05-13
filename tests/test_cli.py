@@ -2771,6 +2771,8 @@ def test_show_run_prints_last_model_error(monkeypatch, tmp_path) -> None:
             "step": 1,
             "payload": {
                 "status": "model_error",
+                "attempt": 2,
+                "max_attempts": 2,
                 "error_type": "RuntimeError",
                 "error": "final model outage",
             },
@@ -2795,6 +2797,7 @@ def test_show_run_prints_last_model_error(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert "Last model error: RuntimeError - final model outage" in result.stdout
+    assert "attempt 2/2" in result.stdout
 
 
 def test_show_run_prints_model_retry_count_and_last_error(
@@ -3822,6 +3825,8 @@ def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
             "step": 1,
             "payload": {
                 "status": "model_error",
+                "attempt": 2,
+                "max_attempts": 2,
                 "error_type": "RuntimeError",
                 "error": "final model outage",
             },
@@ -3849,7 +3854,7 @@ def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
     assert session.transcript[1].content == (
         "Run stopped with status model_error. "
         "Reason: Model call failed: RuntimeError "
-        "Last model error: RuntimeError - final model outage"
+        "Last model error: RuntimeError - final model outage (attempt 2/2)"
     )
 
 

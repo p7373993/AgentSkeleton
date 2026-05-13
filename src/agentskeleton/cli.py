@@ -1014,14 +1014,21 @@ def _error_detail_text(error_detail: object) -> str | None:
         return None
     error_type_value = error_detail.get("error_type")
     error_value = error_detail.get("error")
+    attempt_value = error_detail.get("attempt")
+    max_attempts_value = error_detail.get("max_attempts")
+    attempt_detail = None
+    if attempt_value is not None and max_attempts_value is not None:
+        attempt = _display_text(attempt_value)
+        max_attempts = _display_text(max_attempts_value)
+        attempt_detail = f" (attempt {attempt}/{max_attempts})"
     if error_type_value is not None and error_value is not None:
         error_type = _display_text(error_type_value)
         error = _display_text(error_value)
-        return f"{error_type} - {error}"
+        return f"{error_type} - {error}{attempt_detail or ''}"
     if error_type_value is not None:
-        return _display_text(error_type_value)
+        return f"{_display_text(error_type_value)}{attempt_detail or ''}"
     if error_value is not None:
-        return _display_text(error_value)
+        return f"{_display_text(error_value)}{attempt_detail or ''}"
     return None
 
 
