@@ -1930,6 +1930,43 @@ def test_llm_client_bounds_large_tool_observation_summary(tmp_path) -> None:
     assert summary not in output
 
 
+def test_llm_client_bounds_tool_observation_summary_without_length(tmp_path) -> None:
+    class LengthlessSummary(str):
+        def __len__(self) -> int:
+            raise RuntimeError("summary length unavailable")
+
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult.model_construct(
+                    success=True,
+                    payload={"content": "x" * 1_100_000},
+                    summary=LengthlessSummary("summary ok"),
+                    error=None,
+                ),
+            )
+        ],
+    )
+
+    LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    output = fake_client.responses.calls[0]["input"][1]["output"]
+    observation_output = json.loads(output)
+    assert observation_output["summary"] == "summary ok"
+    assert observation_output["payload"]["truncated"] is True
+
+
 def test_llm_client_bounds_large_tool_observation_error(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="done", output=[])
     fake_client = FakeClient(response)
