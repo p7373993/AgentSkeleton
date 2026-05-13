@@ -715,7 +715,8 @@ def list_runs(
     table.add_column("Run ID")
     table.add_column("Status")
     table.add_column("Steps")
-    table.add_column("Tool Failures")
+    table.add_column("Retries")
+    table.add_column("Tool Fail")
     table.add_column("Goal")
     table.add_column("Log")
     for summary in summaries:
@@ -723,6 +724,7 @@ def list_runs(
             str(summary["run_id"]),
             str(summary["status"]),
             "" if summary["steps"] is None else str(summary["steps"]),
+            str(summary["model_retries"]),
             f"{summary['tool_failures']}/{summary['tool_calls']}",
             str(summary["goal"] or ""),
             str(summary["log"]),

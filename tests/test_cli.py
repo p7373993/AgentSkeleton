@@ -3417,8 +3417,44 @@ def test_list_runs_prints_tool_failure_counts(monkeypatch, tmp_path) -> None:
     result = runner.invoke(app, ["list-runs"])
 
     assert result.exit_code == 0
-    assert "Tool Failures" in result.stdout
+    assert "Tool Fail" in result.stdout
     assert "1/1" in result.stdout
+
+
+def test_list_runs_prints_model_retry_counts(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    (log_dir / "run-1.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "model_retry",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {"attempt": 1},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {"status": "completed"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs"])
+
+    assert result.exit_code == 0
+    assert "Retries" in result.stdout
+    assert "1" in result.stdout
 
 
 def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:
