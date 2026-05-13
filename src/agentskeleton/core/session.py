@@ -34,12 +34,12 @@ class SessionState:
     summary: str | None = None
 
     def context_messages(self) -> list[ConversationMessage]:
-        if not self.summary:
+        if self.summary is None:
             return list(self.transcript)
         return [
             ConversationMessage(
                 role="user",
-                content=f"Prior conversation summary:\n{self.summary}",
+                content=f"Prior conversation summary:\n{_safe_text(self.summary)}",
                 metadata={
                     "source": "session_summary",
                     "sticky_context": True,

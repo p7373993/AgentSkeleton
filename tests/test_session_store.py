@@ -443,6 +443,30 @@ def test_session_store_refreshes_summary_for_older_transcript_turns(tmp_path) ->
     ]
 
 
+def test_session_context_messages_accepts_summary_without_length() -> None:
+    class LengthlessSummary(str):
+        def __len__(self) -> int:
+            raise RuntimeError("summary length unavailable")
+
+    transcript = [ConversationMessage(role="user", content="recent")]
+    session = session_module.SessionState(
+        name="default",
+        transcript=transcript,
+        summary=LengthlessSummary("kept summary"),
+    )
+
+    context = session.context_messages()
+
+    assert [turn.content for turn in context] == [
+        "Prior conversation summary:\nkept summary",
+        "recent",
+    ]
+    assert context[0].metadata == {
+        "source": "session_summary",
+        "sticky_context": True,
+    }
+
+
 def test_session_store_limits_summary_to_recent_older_turns(tmp_path) -> None:
     store = SessionStore(tmp_path)
     store.append_transcript("default", "user", "very old user")
