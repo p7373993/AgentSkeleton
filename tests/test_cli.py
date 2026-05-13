@@ -1861,6 +1861,46 @@ def test_chat_model_retry_attempts_option_overrides_config(
     assert seen_retry_attempts == [4]
 
 
+def test_chat_output_includes_run_id_status_and_log_path(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    monkeypatch.setattr("agentskeleton.cli.uuid4", lambda: "chat-run-fixed")
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="continue\n/exit\n")
+
+    assert result.exit_code == 0
+    assert "Run id: chat-run-fixed" in result.stdout
+    assert "Status: completed" in result.stdout
+    assert "assistant> done" in result.stdout
+    assert "Run log:" in result.stdout
+
+
 def test_chat_reuses_session_transcript_between_inputs(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
