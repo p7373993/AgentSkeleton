@@ -24,9 +24,10 @@ def _utf8_size(value: str) -> int | None:
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 def _truncate(text: str | bytes | None, max_bytes: int) -> tuple[str, bool]:
@@ -67,8 +68,7 @@ class ShellTool(Tool):
                 summary="Command invalid: command must be a string",
                 error="Command invalid",
             )
-        command = raw_command
-        stripped_command = _safe_strip(command)
+        stripped_command = _safe_strip(raw_command)
         if stripped_command is None:
             return ToolResult(
                 success=False,
@@ -81,7 +81,7 @@ class ShellTool(Tool):
                 summary="Command invalid: command cannot be blank",
                 error="Command invalid",
             )
-        command_bytes = _utf8_size(command)
+        command_bytes = _utf8_size(raw_command)
         if command_bytes is None:
             return ToolResult(
                 success=False,
@@ -94,6 +94,7 @@ class ShellTool(Tool):
                 summary="Command invalid: command too large",
                 error="Command invalid",
             )
+        command = str.__str__(raw_command)
         started = time.perf_counter()
         try:
             completed = subprocess.run(

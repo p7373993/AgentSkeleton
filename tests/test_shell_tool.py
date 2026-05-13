@@ -16,6 +16,14 @@ class UnencodableString(str):
         raise RuntimeError("cannot encode")
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+
 def test_shell_tool_captures_stdout(tmp_path: Path) -> None:
     result = ShellTool().execute(
         {"command": command_for("print('hello')")},
@@ -144,6 +152,30 @@ def test_shell_tool_rejects_uninspectable_command(
     assert result.error == "Command invalid"
     assert result.summary == "Command invalid: command could not be inspected"
     assert result.payload == {}
+
+
+def test_shell_tool_normalizes_command_text_subclasses_before_execution(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seen_commands: list[str] = []
+
+    def fake_run(command, **kwargs):
+        seen_commands.append(command)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": StickyString("echo test")},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is True
+    assert seen_commands == ["echo test"]
+    assert type(seen_commands[0]) is str
+    assert result.payload["command"] == "echo test"
+    assert type(result.payload["command"]) is str
 
 
 def test_shell_tool_serializes_unencodable_process_output(
