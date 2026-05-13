@@ -1319,6 +1319,56 @@ def test_loop_denies_tool_when_confirmer_raises(tmp_path: Path) -> None:
     )
 
 
+def test_loop_denies_tool_when_confirmer_raises_unstringable_exception(
+    tmp_path: Path,
+) -> None:
+    class UnstringableException(Exception):
+        def __str__(self) -> str:
+            raise RuntimeError("message unavailable")
+
+    logger = MemoryLogger()
+
+    def failing_confirmer(decision, action) -> bool:
+        raise UnstringableException()
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="write_record",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                )
+            ]
+        ),
+        registry=ToolRegistry([WriteRecordTool()]),
+        logger=logger,
+        confirmer=failing_confirmer,
+    ).run("record")
+
+    assert state.final_status == "denied"
+    assert state.final_reason == (
+        "Permission confirmation failed: UnstringableException"
+    )
+    observation = state.observations[0]
+    assert observation.policy_decision == "confirm"
+    assert observation.result.success is False
+    assert observation.result.summary == (
+        "Permission confirmation failed: UnstringableException"
+    )
+    assert observation.result.error == "UnstringableException"
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "denied",
+            "answer": None,
+            "reason": "Permission confirmation failed: UnstringableException",
+        },
+    )
+
+
 def test_loop_denies_tool_when_confirmer_returns_non_boolean(tmp_path: Path) -> None:
     logger = MemoryLogger()
 

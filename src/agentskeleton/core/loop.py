@@ -400,7 +400,7 @@ class AgentLoop:
                 result = ToolResult(
                     success=False,
                     summary=f"Permission confirmation failed: {type(exc).__name__}",
-                    error=str(exc),
+                    error=_exception_text(exc),
                 )
                 stored_result = self._record_tool_observation(
                     state,
