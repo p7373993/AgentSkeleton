@@ -88,6 +88,8 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
         finally:
             seen.remove(marker)
     if isinstance(value, str):
+        if _utf8_size(value) is None:
+            return _UNINSPECTABLE_VALUE
         redacted = value
         for pattern in SECRET_PATTERNS:
             if pattern.groups:
@@ -168,10 +170,19 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 
 
 def _bounded_log_string(value: str) -> str:
+    if _utf8_size(value) is None:
+        return _UNINSPECTABLE_VALUE
     if len(value) <= _MAX_LOG_STRING_CHARS:
         return value
     omitted = len(value) - _MAX_LOG_STRING_CHARS
     return f"{value[:_MAX_LOG_STRING_CHARS]}\n[truncated {omitted} characters]"
+
+
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
 
 
 def _safe_text(value: object) -> str:
