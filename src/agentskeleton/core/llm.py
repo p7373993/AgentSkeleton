@@ -509,10 +509,17 @@ def _is_context_item(item: object) -> bool:
     role = item.get("role")
     return (
         isinstance(item_type, str)
-        and bool(item_type.strip())
+        and _has_text(item_type)
         or isinstance(role, str)
-        and bool(role.strip())
+        and _has_text(role)
     )
+
+
+def _has_text(value: str) -> bool:
+    try:
+        return bool(value.strip())
+    except Exception:
+        return False
 
 
 def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
