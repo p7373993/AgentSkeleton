@@ -4006,6 +4006,71 @@ def test_resume_run_continues_from_run_snapshot(monkeypatch, tmp_path) -> None:
     assert "Run log:" in result.stdout
 
 
+def test_resume_run_includes_snapshot_after_final_answer(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    snapshot = {"step_count": 1, "observations": []}
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "summarize"},
+        },
+        {
+            "type": "run_snapshot",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": snapshot,
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {"status": "completed", "answer": "summary done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    seen_conversation: list[list[object]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            seen_conversation.append(list(conversation or []))
+            return type(
+                "State",
+                (),
+                {"final_status": "completed", "final_answer": "continued"},
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["resume-run", "run-1", "continue"])
+
+    assert result.exit_code == 0
+    assert seen_conversation[0][1].content == (
+        'summary done Last run snapshot: {"observations":[],"step_count":1}'
+    )
+
+
 def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"

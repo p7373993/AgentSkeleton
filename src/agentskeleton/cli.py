@@ -1139,6 +1139,9 @@ def _bounded_run_log_event(value: Any, depth: int = 0) -> Any:
 def _summary_transcript_content(summary: dict[str, object]) -> str | None:
     answer = summary.get("answer")
     if isinstance(answer, str) and answer:
+        snapshot_detail = _snapshot_detail_text(summary.get("last_snapshot"))
+        if snapshot_detail:
+            return f"{answer} Last run snapshot: {snapshot_detail}"
         return answer
 
     status = summary.get("status")
