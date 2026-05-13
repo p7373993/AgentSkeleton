@@ -42,6 +42,13 @@ def _is_uninspectable_text(value: str) -> bool:
     return _utf8_size(value) is None or _safe_text(value) == "<uninspectable>"
 
 
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
+
+
 class ToolRegistry:
     def __init__(self, tools: Iterable[Tool] | None = None) -> None:
         self._tools: dict[str, Tool] = {}
@@ -54,7 +61,9 @@ class ToolRegistry:
             raise ValueError("Registered value must be a Tool")
         if not isinstance(tool.name, str):
             raise ValueError("Tool name must be a string")
-        name = tool.name.strip()
+        name = _safe_strip(tool.name)
+        if name is None:
+            raise ValueError("Tool name could not be inspected")
         if not name:
             raise ValueError("Tool name cannot be empty")
         if name != tool.name:
@@ -68,9 +77,12 @@ class ToolRegistry:
             raise ValueError("Tool name exceeds maximum size")
         if not isinstance(tool.description, str):
             raise ValueError(f"Tool {name} description must be a string")
-        if not tool.description.strip():
+        description = _safe_strip(tool.description)
+        if description is None:
+            raise ValueError(f"Tool {name} description could not be inspected")
+        if not description:
             raise ValueError(f"Tool {name} description cannot be empty")
-        if tool.description.strip() != tool.description:
+        if description != tool.description:
             raise ValueError(
                 f"Tool {name} description cannot contain surrounding whitespace"
             )
@@ -81,9 +93,12 @@ class ToolRegistry:
             raise ValueError(f"Tool {name} description exceeds maximum size")
         if not isinstance(tool.risk, str):
             raise ValueError(f"Tool {name} risk must be a string")
-        if not tool.risk.strip():
+        risk = _safe_strip(tool.risk)
+        if risk is None:
+            raise ValueError(f"Tool {name} risk could not be inspected")
+        if not risk:
             raise ValueError(f"Tool {name} risk cannot be empty")
-        if tool.risk.strip() != tool.risk:
+        if risk != tool.risk:
             raise ValueError(f"Tool {name} risk cannot contain whitespace")
         if _is_uninspectable_text(tool.risk):
             raise ValueError(f"Tool {name} risk could not be inspected")
