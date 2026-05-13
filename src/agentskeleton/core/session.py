@@ -471,11 +471,13 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 
 
 def _bounded_metadata_string(value: str) -> str | dict[str, object]:
-    encoded = value.encode("utf-8", errors="replace")
+    encoded_size = _utf8_size(value)
+    if encoded_size is None:
+        return _UNINSPECTABLE_VALUE
     if len(value) <= _MAX_TRANSCRIPT_METADATA_VALUE_CHARS:
         return value
     return {
         "truncated": True,
-        "bytes": len(encoded),
+        "bytes": encoded_size,
         "preview": f"{value[:_MAX_TRANSCRIPT_METADATA_PREVIEW_CHARS]}...",
     }

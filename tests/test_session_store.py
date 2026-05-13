@@ -224,6 +224,25 @@ def test_session_store_serializes_unstringable_metadata_values(
     assert session.transcript[0].metadata["payload"] == "<uninspectable>"
 
 
+def test_session_store_serializes_unencodable_metadata_strings(
+    tmp_path: Path,
+) -> None:
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata={"payload": UnencodableString("sk-secret123")},
+    )
+
+    session = store.load("default")
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    raw = transcript_path.read_text(encoding="utf-8")
+    assert session.transcript[0].metadata["payload"] == "<uninspectable>"
+    assert "sk-secret123" not in raw
+
+
 def test_session_store_serializes_unstringable_metadata_keys(
     tmp_path: Path,
 ) -> None:
