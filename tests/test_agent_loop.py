@@ -2596,6 +2596,51 @@ def test_loop_preserves_unstringable_tool_result_payload_entries(
     }
 
 
+def test_loop_preserves_iterable_tool_result_payload_without_length(
+    tmp_path: Path,
+) -> None:
+    class ExplodingPayloadItems(list):
+        def __len__(self) -> int:
+            raise RuntimeError("payload length unavailable")
+
+    class LengthlessPayloadTool(RecordTool):
+        name = "lengthless_payload"
+
+        def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+            return ToolResult.model_construct(
+                success=True,
+                payload={
+                    "items": ExplodingPayloadItems(
+                        [{"name": "first"}, {"name": "second"}]
+                    )
+                },
+                summary="ok",
+                error=None,
+            )
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="lengthless_payload",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([LengthlessPayloadTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].result.payload["items"] == [
+        {"name": "first"},
+        {"name": "second"},
+    ]
+
+
 def test_loop_bounds_stored_successful_tool_result_summary(tmp_path: Path) -> None:
     large_summary = "s" * 1_100_000
 

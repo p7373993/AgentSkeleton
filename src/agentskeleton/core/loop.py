@@ -851,23 +851,44 @@ def _json_log_safe(
             return "<recursive>"
         seen.add(marker)
         try:
-            item_limit = _collection_item_limit(len(value), collection_item_limit)
             safe_items: dict[str, object] = {}
+            pending_key = ""
+            pending_item: object = None
+            has_pending_item = False
+            omitted_after_pending = 0
+            total_items = 0
             for index, (key, item) in enumerate(value.items()):
-                if index >= item_limit:
-                    continue
-                safe_items[_safe_text(key)] = _json_log_safe(
+                total_items = index + 1
+                safe_key = _safe_text(key)
+                safe_item = _json_log_safe(
                     item,
                     seen,
                     depth + 1,
                     collection_item_limit=collection_item_limit,
                 )
-            omitted = len(value) - item_limit
-            if omitted:
+                if collection_item_limit is None:
+                    safe_items[safe_key] = safe_item
+                    continue
+                if collection_item_limit <= 0:
+                    omitted_after_pending += 1
+                    continue
+                if index < collection_item_limit - 1:
+                    safe_items[safe_key] = safe_item
+                    continue
+                if index == collection_item_limit - 1:
+                    pending_key = safe_key
+                    pending_item = safe_item
+                    has_pending_item = True
+                    continue
+                omitted_after_pending += 1
+            if omitted_after_pending:
+                omitted = omitted_after_pending + int(has_pending_item)
                 safe_items[TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
-                    len(value),
+                    total_items,
                     omitted,
                 )
+            elif has_pending_item:
+                safe_items[pending_key] = pending_item
             return safe_items
         except Exception:
             return UNINSPECTABLE_VALUE
@@ -880,19 +901,38 @@ def _json_log_safe(
             return "<recursive>"
         seen.add(marker)
         try:
-            item_limit = _collection_item_limit(len(value), collection_item_limit)
-            safe_items = [
-                _json_log_safe(
+            safe_items = []
+            pending_item: object = None
+            has_pending_item = False
+            omitted_after_pending = 0
+            total_items = 0
+            for index, item in enumerate(value):
+                total_items = index + 1
+                safe_item = _json_log_safe(
                     item,
                     seen,
                     depth + 1,
                     collection_item_limit=collection_item_limit,
                 )
-                for item in value[:item_limit]
-            ]
-            omitted = len(value) - item_limit
-            if omitted:
-                safe_items.append(_truncated_items_marker(len(value), omitted))
+                if collection_item_limit is None:
+                    safe_items.append(safe_item)
+                    continue
+                if collection_item_limit <= 0:
+                    omitted_after_pending += 1
+                    continue
+                if index < collection_item_limit - 1:
+                    safe_items.append(safe_item)
+                    continue
+                if index == collection_item_limit - 1:
+                    pending_item = safe_item
+                    has_pending_item = True
+                    continue
+                omitted_after_pending += 1
+            if omitted_after_pending:
+                omitted = omitted_after_pending + int(has_pending_item)
+                safe_items.append(_truncated_items_marker(total_items, omitted))
+            elif has_pending_item:
+                safe_items.append(pending_item)
             return safe_items
         except Exception:
             return UNINSPECTABLE_VALUE
@@ -900,15 +940,6 @@ def _json_log_safe(
             seen.remove(marker)
 
     return _safe_text(value)
-
-
-def _collection_item_limit(
-    total_items: int,
-    collection_item_limit: int | None,
-) -> int:
-    if collection_item_limit is None or total_items <= collection_item_limit:
-        return total_items
-    return max(collection_item_limit - 1, 0)
 
 
 def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]:
