@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 import agentskeleton.cli as cli_module
 from agentskeleton.cli import app, build_default_registry, configure_streams_for_unicode
+from agentskeleton.core.actions import FinalAction
 from agentskeleton.core.session import SessionStore
 
 
@@ -4109,6 +4110,63 @@ def test_resume_run_includes_snapshot_after_final_answer(monkeypatch, tmp_path) 
     assert seen_conversation[0][1].content == (
         'summary done Last run snapshot: {"observations":[],"step_count":1}'
     )
+
+
+def test_resume_run_logs_source_run_id(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    monkeypatch.setattr("agentskeleton.cli.uuid4", lambda: "resumed-run-fixed")
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    source_log_path = log_dir / "run-1.jsonl"
+    source_log_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-1",
+                        "step": 0,
+                        "payload": {"goal": "summarize"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {"status": "completed", "answer": "done"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeLLM:
+        def next_action(self, state, registry):  # noqa: ANN001, ANN201
+            return FinalAction(text="continued")
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: FakeLLM(),
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["resume-run", "run-1", "continue"])
+
+    assert result.exit_code == 0
+    resumed_log = next(
+        (tmp_path / "runs").glob("*/resumed-run-fixed.jsonl"),
+    )
+    events = [
+        json.loads(line)
+        for line in resumed_log.read_text(encoding="utf-8").splitlines()
+    ]
+    run_started = next(event for event in events if event["type"] == "run_started")
+    assert run_started["payload"]["resumed_run_id"] == "run-1"
+    assert run_started["payload"]["resumed"] is True
+    assert run_started["payload"]["conversation_turns"] == 2
 
 
 def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None:
