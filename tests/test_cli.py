@@ -2526,6 +2526,7 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
         "steps": 3,
         "model_retries": 0,
         "last_model_retry": None,
+        "last_model_error": None,
         "tool_calls": 0,
         "tool_failures": 0,
         "last_tool_error": None,
@@ -2710,6 +2711,86 @@ def test_show_run_summarizes_model_retries_as_json(monkeypatch, tmp_path) -> Non
         "error_type": "RuntimeError",
         "error": "temporary model outage",
     }
+
+
+def test_show_run_summarizes_model_errors_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_error",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "model_error",
+                "error_type": "RuntimeError",
+                "error": "final model outage",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "model_error",
+                "reason": "Model call failed: RuntimeError",
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["last_model_error"] == {
+        "error_type": "RuntimeError",
+        "error": "final model outage",
+    }
+
+
+def test_show_run_prints_last_model_error(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_error",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "model_error",
+                "error_type": "RuntimeError",
+                "error": "final model outage",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "model_error",
+                "reason": "Model call failed: RuntimeError",
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert "Last model error: RuntimeError - final model outage" in result.stdout
 
 
 def test_show_run_prints_model_retry_count_and_last_error(
@@ -3278,6 +3359,7 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
                 "steps": 4,
                 "model_retries": 0,
                 "last_model_retry": None,
+                "last_model_error": None,
                 "tool_calls": 0,
                 "tool_failures": 0,
                 "last_tool_error": None,

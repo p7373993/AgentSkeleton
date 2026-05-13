@@ -687,6 +687,18 @@ def show_run(
                 )
             elif error_value is not None:
                 console.print(f"Last model retry: {_display_text(error_value)}")
+    last_model_error = summary.get("last_model_error")
+    if isinstance(last_model_error, dict):
+        error_type_value = last_model_error.get("error_type")
+        error_value = last_model_error.get("error")
+        if error_type_value is not None and error_value is not None:
+            error_type = _display_text(error_type_value)
+            error = _display_text(error_value)
+            console.print(f"Last model error: {error_type} - {error}")
+        elif error_type_value is not None:
+            console.print(f"Last model error: {_display_text(error_type_value)}")
+        elif error_value is not None:
+            console.print(f"Last model error: {_display_text(error_value)}")
     if summary["tool_calls"]:
         console.print(
             f"Tool calls: {summary['tool_calls']} "
@@ -865,6 +877,13 @@ def _summarize_run_log(
         if event.get("type") == "model_retry"
         and isinstance(event.get("payload"), dict)
     ]
+    model_error_events = [
+        event
+        for event in events
+        if event.get("type") == "run_error"
+        and isinstance(event.get("payload"), dict)
+        and event["payload"].get("status") == "model_error"
+    ]
     failed_tool_payloads = [
         event["payload"]
         for event in tool_events
@@ -879,6 +898,13 @@ def _summarize_run_log(
             "max_attempts": last_retry_payload.get("max_attempts"),
             "error_type": _run_log_text_value(last_retry_payload.get("error_type")),
             "error": _run_log_text_value(last_retry_payload.get("error")),
+        }
+    last_model_error = None
+    if model_error_events:
+        last_error_payload = model_error_events[-1]["payload"]
+        last_model_error = {
+            "error_type": _run_log_text_value(last_error_payload.get("error_type")),
+            "error": _run_log_text_value(last_error_payload.get("error")),
         }
     last_tool_error = None
     if failed_tool_payloads:
@@ -908,6 +934,7 @@ def _summarize_run_log(
         "steps": step,
         "model_retries": len(model_retry_events),
         "last_model_retry": last_model_retry,
+        "last_model_error": last_model_error,
         "tool_calls": len(tool_events),
         "tool_failures": len(failed_tool_payloads),
         "last_tool_error": last_tool_error,
