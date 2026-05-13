@@ -1,6 +1,5 @@
 import json
 import sys
-from heapq import nlargest
 from pathlib import Path
 from typing import Annotated, Any, NoReturn
 from uuid import uuid4
@@ -964,9 +963,14 @@ def _find_run_log(logs_dir: Path, run_id: str) -> Path | None:
 def _run_log_paths(logs_dir: Path, limit: int | None = None) -> list[Path]:
     try:
         paths = (path for path in logs_dir.glob("*/*.jsonl") if path.is_file())
+        sorted_paths = sorted(
+            paths,
+            key=lambda path: (path.stat().st_mtime_ns, str(path)),
+            reverse=True,
+        )
         if limit is None:
-            return sorted(paths, reverse=True)
-        return nlargest(limit, paths)
+            return sorted_paths
+        return sorted_paths[:limit]
     except OSError as exc:
         raise ValueError(f"Run log directory could not be read: {logs_dir}") from exc
 

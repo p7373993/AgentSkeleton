@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -3635,6 +3636,72 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
             }
         ]
     }
+
+
+def test_list_runs_orders_same_day_logs_by_modified_time(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    old_log = log_dir / "zz-old.jsonl"
+    new_log = log_dir / "aa-new.jsonl"
+    old_log.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-old",
+                        "step": 0,
+                        "payload": {"goal": "old goal"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-old",
+                        "step": 1,
+                        "payload": {"status": "completed", "answer": "old"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    new_log.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "run_id": "run-new",
+                        "step": 0,
+                        "payload": {"goal": "new goal"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "run_id": "run-new",
+                        "step": 1,
+                        "payload": {"status": "completed", "answer": "new"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    os.utime(old_log, (100, 100))
+    os.utime(new_log, (200, 200))
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs", "--limit", "1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["runs"][0]["run_id"] == "run-new"
 
 
 def test_list_runs_passes_limit_to_log_discovery(monkeypatch, tmp_path) -> None:
