@@ -876,6 +876,10 @@ def list_runs(
             str(summary["log"]),
         )
     console.print(table)
+    for summary in summaries:
+        resumed_run_id = summary.get("resumed_run_id")
+        if resumed_run_id:
+            console.print(f"Run {summary['run_id']} resumed from: {resumed_run_id}")
 
 
 @app.command(name="restore-run")
