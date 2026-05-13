@@ -72,6 +72,14 @@ class UninspectableString(str):
         raise RuntimeError("cannot strip")
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+
 class FailingTrace:
     def emit(self, name: str, payload: dict[str, object]) -> None:
         raise OSError("trace sink unavailable")
@@ -365,6 +373,34 @@ def test_llm_client_accepts_single_output_item_mapping(tmp_path) -> None:
             "call_id": "call-1",
         },
     ]
+
+
+def test_llm_client_normalizes_function_call_text_subclasses(tmp_path) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output={
+            "type": "function_call",
+            "name": StickyString("read_file"),
+            "arguments": '{"path": "README.md"}',
+            "call_id": StickyString("call-1"),
+        },
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, ToolCallAction)
+    assert action.tool_name == "read_file"
+    assert type(action.tool_name) is str
+    assert action.call_id == "call-1"
+    assert type(action.call_id) is str
+    context_call = state.response_context_items[1]
+    assert type(context_call["name"]) is str
+    assert type(context_call["call_id"]) is str
 
 
 def test_llm_client_serializes_mapping_function_call_arguments_for_context(
@@ -1780,6 +1816,37 @@ def test_llm_client_serializes_unencodable_transcript_context(
     ]
     assert "prior visible" not in str(request_input)
     assert "current visible" not in str(request_input)
+
+
+def test_llm_client_normalizes_transcript_content_text_subclasses(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-2",
+        workspace=tmp_path,
+        goal=StickyString("current request"),
+        conversation=[
+            ConversationMessage(
+                role="user",
+                content=StickyString("prior visible"),
+            ),
+        ],
+    )
+
+    LLMClient(RunConfig(workspace=tmp_path), client=fake_client).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    request_input = fake_client.responses.calls[0]["input"]
+    assert request_input == [
+        {"role": "user", "content": "prior visible"},
+        {"role": "user", "content": "current request"},
+    ]
+    assert type(request_input[0]["content"]) is str
+    assert type(request_input[1]["content"]) is str
 
 
 def test_llm_client_limits_transcript_context_to_recent_turns(tmp_path) -> None:

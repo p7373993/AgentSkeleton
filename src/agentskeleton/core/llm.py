@@ -397,9 +397,9 @@ class LLMClient:
             )
 
         return ToolCallAction(
-            tool_name=name,
+            tool_name=normalized_name,
             arguments=self._parse_arguments(_read_attr(item, "arguments", "{}")),
-            call_id=call_id,
+            call_id=normalized_call_id,
             provider_metadata={},
         )
 
@@ -457,6 +457,7 @@ def _current_user_turn(goal: str) -> ConversationMessage:
 def _bounded_conversation_content(content: str) -> str:
     if _utf8_size(content) is None:
         return UNINSPECTABLE_VALUE
+    content = str.__str__(content)
     if len(content) <= MAX_CONVERSATION_CONTENT_CHARS:
         return content
     omitted = len(content) - MAX_CONVERSATION_CONTENT_CHARS
@@ -481,7 +482,7 @@ def _safe_conversation_role(role: object) -> str:
         return "user"
     if normalized not in ALLOWED_CONVERSATION_ROLES:
         return "user"
-    return normalized
+    return str.__str__(normalized)
 
 
 def _trim_response_context_items(
@@ -537,9 +538,10 @@ def _has_text(value: str) -> bool:
 
 def _safe_stripped_text(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
@@ -560,6 +562,7 @@ def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
 def _bounded_context_metadata(value: Any) -> Any:
     if not isinstance(value, str):
         return value
+    value = str.__str__(value)
     if len(value) <= MAX_CONTEXT_METADATA_CHARS:
         return value
     omitted = len(value) - MAX_CONTEXT_METADATA_CHARS
@@ -811,9 +814,10 @@ def _json_safe_sequence(
 
 def _safe_text(value: object) -> str:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return UNINSPECTABLE_VALUE
+    return str.__str__(text)
 
 
 def _json_size_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
