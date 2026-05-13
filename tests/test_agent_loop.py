@@ -645,6 +645,8 @@ def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:
         1,
         {
             "status": "model_error",
+            "attempt": 2,
+            "max_attempts": 2,
             "error_type": "RuntimeError",
             "error": "model unavailable",
         },
@@ -718,6 +720,17 @@ def test_loop_returns_model_error_after_retry_attempts_are_exhausted(
         for event in logger.events
         if event[0] in {"model_retry", "run_error"}
     ] == ["model_retry", "run_error"]
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "model_error",
+            "attempt": 2,
+            "max_attempts": 2,
+            "error_type": "RuntimeError",
+            "error": "model unavailable",
+        },
+    ) in logger.events
 
 
 def test_loop_logs_unstringable_model_error_and_returns_state(tmp_path: Path) -> None:
@@ -744,6 +757,8 @@ def test_loop_logs_unstringable_model_error_and_returns_state(tmp_path: Path) ->
         1,
         {
             "status": "model_error",
+            "attempt": 2,
+            "max_attempts": 2,
             "error_type": "UnstringableException",
             "error": "UnstringableException",
         },

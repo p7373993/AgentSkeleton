@@ -150,6 +150,8 @@ class AgentLoop:
                     state.final_reason = f"Model call failed: {type(exc).__name__}"
                     run_error_payload = {
                         "status": state.final_status,
+                        "attempt": attempt,
+                        "max_attempts": self.config.model_retry_attempts,
                         **error_payload,
                     }
                     self._log_event("run_error", state.step_count, run_error_payload)

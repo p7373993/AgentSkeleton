@@ -2725,6 +2725,8 @@ def test_show_run_summarizes_model_errors_as_json(monkeypatch, tmp_path) -> None
             "step": 1,
             "payload": {
                 "status": "model_error",
+                "attempt": 2,
+                "max_attempts": 2,
                 "error_type": "RuntimeError",
                 "error": "final model outage",
             },
@@ -2750,6 +2752,8 @@ def test_show_run_summarizes_model_errors_as_json(monkeypatch, tmp_path) -> None
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["last_model_error"] == {
+        "attempt": 2,
+        "max_attempts": 2,
         "error_type": "RuntimeError",
         "error": "final model outage",
     }

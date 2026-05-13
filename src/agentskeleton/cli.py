@@ -883,6 +883,8 @@ def _summarize_run_log(
     if model_error_events:
         last_error_payload = model_error_events[-1]["payload"]
         last_model_error = {
+            "attempt": last_error_payload.get("attempt"),
+            "max_attempts": last_error_payload.get("max_attempts"),
             "error_type": _run_log_text_value(last_error_payload.get("error_type")),
             "error": _run_log_text_value(last_error_payload.get("error")),
         }

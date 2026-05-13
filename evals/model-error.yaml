@@ -14,7 +14,10 @@ expect:
     - type: run_error
       payload:
         status: model_error
+        attempt: 1
+        max_attempts: 1
         error_type: RuntimeError
+        error: model unavailable
     - type: run_finished
       payload:
         status: model_error
