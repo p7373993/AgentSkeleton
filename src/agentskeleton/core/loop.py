@@ -826,6 +826,7 @@ def _bounded_stored_tool_payload(payload: Mapping[str, object]) -> dict[str, obj
 
 
 def _bounded_stored_tool_text(value: str) -> str:
+    value = str.__str__(value)
     if len(value) <= MAX_STORED_TOOL_RESULT_TEXT_CHARS:
         return value
     omitted = len(value) - MAX_STORED_TOOL_RESULT_TEXT_CHARS

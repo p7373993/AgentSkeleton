@@ -2730,6 +2730,43 @@ def test_loop_bounds_stored_successful_tool_result_summary(tmp_path: Path) -> No
     assert large_summary not in str(state.observations)
 
 
+def test_loop_accepts_stored_tool_result_summary_without_length(
+    tmp_path: Path,
+) -> None:
+    class LengthlessSummary(str):
+        def __len__(self) -> int:
+            raise RuntimeError("summary length unavailable")
+
+    class LengthlessSummaryTool(RecordTool):
+        name = "lengthless_summary"
+
+        def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+            return ToolResult.model_construct(
+                success=True,
+                payload={"ok": True},
+                summary=LengthlessSummary("lengthless ok"),
+            )
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="lengthless_summary",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([LengthlessSummaryTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].result.summary == "lengthless ok"
+
+
 def test_loop_bounds_stored_unknown_tool_arguments(tmp_path: Path) -> None:
     large_argument = "x" * 1_100_000
 
