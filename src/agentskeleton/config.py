@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -86,14 +87,19 @@ def _has_invalid_module_part(value: str) -> bool | None:
         return None
 
 
-def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
-    if len(value) > MAX_CONFIG_TOOL_LIST_ITEMS:
-        raise ValueError(
-            f"{field_name} cannot contain more than "
-            f"{MAX_CONFIG_TOOL_LIST_ITEMS} entries"
-        )
+def _normalized_name_list(
+    value: Iterable[str],
+    field_name: str,
+) -> tuple[list[str], list[str]]:
+    raw_names: list[str] = []
     normalized_names: list[str] = []
-    for name in value:
+    for index, name in enumerate(value):
+        if index >= MAX_CONFIG_TOOL_LIST_ITEMS:
+            raise ValueError(
+                f"{field_name} cannot contain more than "
+                f"{MAX_CONFIG_TOOL_LIST_ITEMS} entries"
+            )
+        raw_names.append(name)
         name_bytes = _utf8_size(name)
         if name_bytes is None:
             raise ValueError(f"{field_name} entries could not be inspected")
@@ -113,12 +119,17 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
         if has_whitespace:
             raise ValueError(f"{field_name} cannot contain whitespace")
         normalized_names.append(stripped_name)
+    return raw_names, normalized_names
+
+
+def _reject_invalid_name_list(value: Iterable[str], field_name: str) -> list[str]:
+    _raw_names, normalized_names = _normalized_name_list(value, field_name)
     return normalized_names
 
 
-def _reject_invalid_module_list(value: list[str], field_name: str) -> list[str]:
-    normalized_names = _reject_invalid_name_list(value, field_name)
-    for raw_name, name in zip(value, normalized_names, strict=True):
+def _reject_invalid_module_list(value: Iterable[str], field_name: str) -> list[str]:
+    raw_names, normalized_names = _normalized_name_list(value, field_name)
+    for raw_name, name in zip(raw_names, normalized_names, strict=True):
         raw_has_invalid_module_part = _has_invalid_module_part(raw_name)
         if raw_has_invalid_module_part is None:
             raise ValueError(f"{field_name} entries could not be inspected")

@@ -454,6 +454,32 @@ def test_config_rejects_too_many_tool_modules(tmp_path: Path) -> None:
         )
 
 
+def test_config_name_list_accepts_iterable_without_length() -> None:
+    class ExplodingNameList(list):
+        def __len__(self) -> int:
+            raise RuntimeError("tool list length unavailable")
+
+    names = config_module._reject_invalid_name_list(  # noqa: SLF001
+        ExplodingNameList(["read_file"]),
+        "enabled_tools",
+    )
+
+    assert names == ["read_file"]
+
+
+def test_config_module_list_accepts_iterable_without_length() -> None:
+    class ExplodingModuleList(list):
+        def __len__(self) -> int:
+            raise RuntimeError("module list length unavailable")
+
+    modules = config_module._reject_invalid_module_list(  # noqa: SLF001
+        ExplodingModuleList(["custom_tools"]),
+        "tool_modules",
+    )
+
+    assert modules == ["custom_tools"]
+
+
 def test_config_rejects_oversized_enabled_tool_names(tmp_path: Path) -> None:
     with pytest.raises(
         ValueError,
