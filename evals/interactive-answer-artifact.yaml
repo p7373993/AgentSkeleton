@@ -1,0 +1,42 @@
+name: interactive-answer-artifact
+domain: interactive
+goal: Ask for a deployment preference and write the selected path to an artifact.
+config:
+  permission_profile: trusted
+files:
+  inputs/request.txt: Capture the rollout path selected by the user.
+user_answers:
+  - staged rollout
+actions:
+  - type: tool
+    tool: ask_user
+    call_id: ask-rollout-path
+    arguments:
+      question: Which rollout path should be documented?
+  - type: tool
+    tool: write_file
+    call_id: write-rollout-choice
+    arguments:
+      path: decisions/rollout-choice.txt
+      content: |
+        Rollout path: staged rollout
+      create_parent_dirs: true
+  - type: final
+    text: interactive answer artifact ok
+expect:
+  status: completed
+  answer: interactive answer artifact ok
+  observations: 2
+  observations_detail:
+    - tool: ask_user
+      success: true
+      payload:
+        question: Which rollout path should be documented?
+        answer: staged rollout
+    - tool: write_file
+      success: true
+      payload:
+        path: decisions/rollout-choice.txt
+  files:
+    decisions/rollout-choice.txt: |
+      Rollout path: staged rollout
