@@ -100,3 +100,22 @@ def test_ask_user_tool_rejects_blank_question(tmp_path: Path) -> None:
     assert result.error == "Question invalid"
     assert result.summary == "Question invalid: question cannot be blank"
     assert result.payload == {}
+
+
+def test_ask_user_tool_rejects_uninspectable_question(tmp_path: Path) -> None:
+    class UninspectableQuestion(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("question unavailable")
+
+    def fail_if_called(question: str) -> str:
+        raise AssertionError("ask_user callback should not be called")
+
+    result = AskUserTool().execute(
+        {"question": UninspectableQuestion("Continue?")},
+        ToolContext(workspace=tmp_path, ask_user=fail_if_called),
+    )
+
+    assert result.success is False
+    assert result.error == "Question invalid"
+    assert result.summary == "Question invalid: question could not be inspected"
+    assert result.payload == {}

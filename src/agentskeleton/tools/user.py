@@ -3,6 +3,13 @@ from typing import Any, ClassVar
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
 
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
+
+
 class AskUserTool(Tool):
     name: ClassVar[str] = "ask_user"
     description: ClassVar[str] = "Ask the user one direct question."
@@ -28,7 +35,14 @@ class AskUserTool(Tool):
                 error="Question invalid",
             )
         question = raw_question
-        if not question.strip():
+        stripped_question = _safe_strip(question)
+        if stripped_question is None:
+            return ToolResult(
+                success=False,
+                summary="Question invalid: question could not be inspected",
+                error="Question invalid",
+            )
+        if not stripped_question:
             return ToolResult(
                 success=False,
                 summary="Question invalid: question cannot be blank",
