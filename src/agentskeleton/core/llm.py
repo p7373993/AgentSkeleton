@@ -335,7 +335,7 @@ class LLMClient:
             return _normalize_context_item(model_dump(exclude_none=True))
 
         item_type = _read_attr(item, "type")
-        if not isinstance(item_type, str) or not item_type.strip():
+        if not isinstance(item_type, str):
             return None
         if item_type == "function_call":
             serialized = {
