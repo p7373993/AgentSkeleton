@@ -289,6 +289,14 @@ class AgentLoop:
                 error_type="invalid_tool_call",
             )
             return
+        tool_name = _normalized_checked_text(action.tool_name)
+        call_id = _normalized_checked_text(action.call_id)
+        normalized_action = ToolCallAction(
+            tool_name=tool_name,
+            arguments=action.arguments,
+            call_id=call_id,
+            provider_metadata=action.provider_metadata,
+        )
 
         logged_arguments = _logged_arguments(action.arguments)
         self._log_event(
@@ -296,20 +304,20 @@ class AgentLoop:
             state.step_count,
             {
                 "type": "tool_call",
-                "tool_name": action.tool_name,
+                "tool_name": tool_name,
                 "arguments": logged_arguments,
-                "call_id": action.call_id,
+                "call_id": call_id,
             },
         )
         self._emit_trace(
             "model_action",
             {
-                "tool_name": action.tool_name,
+                "tool_name": tool_name,
                 "arguments": logged_arguments,
-                "call_id": action.call_id,
+                "call_id": call_id,
             },
         )
-        if self._record_repeated_action(state, action):
+        if self._record_repeated_action(state, normalized_action):
             return
 
         try:
@@ -319,7 +327,7 @@ class AgentLoop:
             result = ToolResult(
                 success=False,
                 payload={
-                    "tool_name": action.tool_name,
+                    "tool_name": tool_name,
                     "arguments": action.arguments,
                 },
                 summary=summary,
@@ -327,14 +335,15 @@ class AgentLoop:
             )
             stored_result = self._record_tool_observation(
                 state,
-                action.call_id,
-                action.tool_name,
+                call_id,
+                tool_name,
                 "block",
                 result,
             )
             state.final_status = "unknown_tool"
             state.final_reason = stored_result.summary
             return
+        action = normalized_action
 
         validation_errors = _validate_tool_arguments(tool.args_schema, action.arguments)
         if validation_errors:
@@ -982,9 +991,14 @@ def _utf8_size(value: str) -> int | None:
 
 def _safe_stripped_text(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
+
+
+def _normalized_checked_text(value: str) -> str:
+    return str.__str__(value)
 
 
 def _validate_tool_result_metadata(result: ToolResult) -> list[str]:

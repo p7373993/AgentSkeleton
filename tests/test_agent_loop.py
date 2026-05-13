@@ -1111,6 +1111,41 @@ def test_loop_recovers_when_tool_name_stringification_fails_after_validation(
     assert state.observations[0].result.success is True
 
 
+def test_loop_normalizes_tool_action_text_subclasses(tmp_path: Path) -> None:
+    class StickyString(str):
+        def __str__(self) -> str:
+            return self
+
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return self
+
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                tool_name=StickyString("record"),
+                arguments={"value": "x"},
+                call_id=StickyString("call-1"),
+            ),
+            FinalAction(text="done"),
+        ],
+        logger,
+    ).run("record")
+
+    model_action = next(event for event in logger.events if event[0] == "model_action")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].tool_name == "record"
+    assert type(state.observations[0].tool_name) is str
+    assert state.observations[0].call_id == "call-1"
+    assert type(state.observations[0].call_id) is str
+    assert model_action[2]["tool_name"] == "record"
+    assert type(model_action[2]["tool_name"]) is str
+    assert model_action[2]["call_id"] == "call-1"
+    assert type(model_action[2]["call_id"]) is str
+
+
 def test_loop_executes_tool_and_feeds_observation(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = make_loop(
