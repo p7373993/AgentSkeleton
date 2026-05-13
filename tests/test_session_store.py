@@ -211,6 +211,33 @@ def test_session_store_serializes_uninspectable_transcript_metadata_values(
     assert "sk-secret123" not in raw
 
 
+def test_session_store_serializes_uninspectable_root_metadata(
+    tmp_path: Path,
+) -> None:
+    class ExplodingMetadata(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("metadata length unavailable")
+
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("metadata items unavailable")
+
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata=ExplodingMetadata({"api_key": "sk-secret123"}),
+    )
+
+    session = store.load("default")
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    raw = transcript_path.read_text(encoding="utf-8")
+    assert session.transcript[0].metadata == {}
+    assert "<uninspectable>" in raw
+    assert "sk-secret123" not in raw
+
+
 def test_session_store_serializes_unstringable_metadata_values(
     tmp_path: Path,
 ) -> None:

@@ -126,7 +126,7 @@ class SessionStore:
         row = {
             "role": _safe_text(role),
             "content": _bounded_transcript_content(_safe_text(content)),
-            "metadata": _json_safe(metadata or {}),
+            "metadata": _json_safe(metadata if metadata is not None else {}),
         }
         transcript_path = self._transcript_path_for(name)
         safe_name = self._safe_name(name)
