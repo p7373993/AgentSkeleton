@@ -506,6 +506,32 @@ def test_loop_normalizes_non_string_goal(tmp_path: Path) -> None:
     ) in logger.events
 
 
+def test_loop_normalizes_goal_text_subclasses(tmp_path: Path) -> None:
+    class StickyString(str):
+        def __str__(self) -> str:
+            return self
+
+    seen_goals: list[str] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_goals.append(state.goal)
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+    ).run(StickyString("finish"))
+
+    assert state.final_status == "completed"
+    assert state.goal == "finish"
+    assert type(state.goal) is str
+    assert seen_goals == ["finish"]
+    assert type(seen_goals[0]) is str
+
+
 def test_loop_normalizes_unstringable_goal(tmp_path: Path) -> None:
     class UnstringableGoal:
         def __str__(self) -> str:

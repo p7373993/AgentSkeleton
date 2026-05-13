@@ -751,9 +751,10 @@ def _exception_text(exc: BaseException) -> str:
 
 def _safe_text(value: object) -> str:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return UNINSPECTABLE_VALUE
+    return str.__str__(text)
 
 
 def _bounded_stored_tool_result(result: ToolResult) -> ToolResult:
