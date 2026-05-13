@@ -94,6 +94,44 @@ def test_policy_blocks_invalid_shell_command_arguments(args: object) -> None:
     assert decision.reason == "Shell command invalid"
 
 
+def test_policy_blocks_uninspectable_shell_command_arguments() -> None:
+    class UninspectableCommand(str):
+        def lower(self) -> str:
+            raise RuntimeError("command unavailable")
+
+    class UnstrippableCommand(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("command unavailable")
+
+    for command in [
+        UninspectableCommand("Get-ChildItem"),
+        UnstrippableCommand("Get-ChildItem"),
+    ]:
+        decision = PermissionPolicy(profile="trusted").decide(
+            "shell",
+            {"command": command},
+            "shell",
+        )
+
+        assert decision.outcome == "block"
+        assert decision.reason == "Shell command invalid"
+
+
+def test_policy_reports_uninspectable_unknown_risk_without_raising() -> None:
+    class UnstringableRisk(str):
+        def __str__(self) -> str:
+            raise RuntimeError("risk unavailable")
+
+    decision = PermissionPolicy().decide(
+        "custom_tool",
+        {},
+        UnstringableRisk("custom"),  # type: ignore[arg-type]
+    )
+
+    assert decision.outcome == "confirm"
+    assert decision.reason == "Unknown risk level: <uninspectable>"
+
+
 def test_trusted_profile_allows_risky_write_without_confirmation() -> None:
     decision = PermissionPolicy(profile="trusted").decide(
         "write_file",

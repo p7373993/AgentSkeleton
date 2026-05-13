@@ -107,7 +107,7 @@ class PermissionPolicy:
             if not isinstance(args, dict):
                 return PermissionDecision("block", "Shell command invalid")
             command = args.get("command")
-            if not isinstance(command, str) or not command.strip():
+            if not isinstance(command, str) or not _safe_strip(command):
                 return PermissionDecision("block", "Shell command invalid")
             return self._decide_shell(command)
 
@@ -120,10 +120,15 @@ class PermissionPolicy:
                 "Tool is blocked by read-only profile",
             )
 
-        return PermissionDecision("confirm", f"Unknown risk level: {risk}")
+        return PermissionDecision(
+            "confirm",
+            f"Unknown risk level: {_safe_text(risk)}",
+        )
 
     def _decide_shell(self, command: str) -> PermissionDecision:
-        normalized = command.lower()
+        normalized = _safe_lower(command)
+        if normalized is None:
+            return PermissionDecision("block", "Shell command invalid")
         destructive_patterns = [
             "rm -rf /",
             "rm -rf *",
@@ -216,6 +221,27 @@ class PermissionPolicy:
             )
 
         return PermissionDecision("allow", "shell command allowed")
+
+
+def _safe_text(value: object) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return "<uninspectable>"
+
+
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
+
+
+def _safe_lower(value: str) -> str | None:
+    try:
+        return value.lower()
+    except Exception:
+        return None
 
 
 def _looks_like_recursive_delete(command: str) -> bool:
