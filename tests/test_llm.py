@@ -1416,6 +1416,40 @@ def test_llm_client_bounds_wide_context_item_content(tmp_path) -> None:
     assert "key_249" not in str(state.response_context_items)
 
 
+def test_llm_client_preserves_iterable_context_item_content_without_length(
+    tmp_path,
+) -> None:
+    class ExplodingContentItems(list):
+        def __len__(self) -> int:
+            raise RuntimeError("content length unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": ExplodingContentItems(
+                    [{"type": "output_text", "text": "first"}, {"text": "second"}]
+                ),
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert state.response_context_items[1]["content"] == [
+        {"type": "output_text", "text": "first"},
+        {"text": "second"},
+    ]
+
+
 def test_llm_client_serializes_recursive_context_item_content(tmp_path) -> None:
     content = []
     content.append(content)
