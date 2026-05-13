@@ -685,11 +685,12 @@ def show_run(
             f"({summary['tool_failures']} failed)"
         )
         if summary["last_tool_error"]:
-            error = summary["last_tool_error"]
-            console.print(
-                f"Last tool error: {error['tool_name']} - {error['summary']}",
-                soft_wrap=True,
-            )
+            tool_error_detail = _tool_error_detail_text(summary["last_tool_error"])
+            if tool_error_detail:
+                console.print(
+                    f"Last tool error: {tool_error_detail}",
+                    soft_wrap=True,
+                )
     console.print(f"Log: {summary['log']}", soft_wrap=True)
 
 
@@ -1029,6 +1030,24 @@ def _error_detail_text(error_detail: object) -> str | None:
         return f"{_display_text(error_type_value)}{attempt_detail or ''}"
     if error_value is not None:
         return f"{_display_text(error_value)}{attempt_detail or ''}"
+    return None
+
+
+def _tool_error_detail_text(error_detail: object) -> str | None:
+    if not isinstance(error_detail, dict):
+        return None
+    tool_name_value = error_detail.get("tool_name")
+    summary_value = error_detail.get("summary")
+    error_value = error_detail.get("error")
+    detail_value = summary_value if summary_value is not None else error_value
+    if tool_name_value is not None and detail_value is not None:
+        tool_name = _display_text(tool_name_value)
+        detail = _display_text(detail_value)
+        return f"{tool_name} - {detail}"
+    if tool_name_value is not None:
+        return _display_text(tool_name_value)
+    if detail_value is not None:
+        return _display_text(detail_value)
     return None
 
 

@@ -2928,6 +2928,45 @@ def test_show_run_summarizes_bounded_tool_error_text_as_json(
     }
 
 
+def test_show_run_prints_tool_error_when_summary_is_missing(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "tool_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "tool_name": "shell",
+                "success": False,
+                "error": "Command failed",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "tool_error"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert "Last tool error: shell - Command failed" in result.stdout
+    assert "shell - None" not in result.stdout
+
+
 def test_show_run_bounds_large_tool_error_name_as_json(
     monkeypatch,
     tmp_path,
