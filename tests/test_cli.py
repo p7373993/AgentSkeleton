@@ -2521,6 +2521,18 @@ def test_show_run_events_bounds_large_raw_event_text(
     assert large_answer not in result.stdout
 
 
+def test_show_run_events_sanitize_unstringable_event_keys() -> None:
+    class UnstringableKey:
+        def __str__(self) -> str:
+            raise RuntimeError("key unavailable")
+
+    event = {UnstringableKey(): {"answer": "done"}}
+
+    assert cli_module._bounded_run_log_event(event) == {
+        "<uninspectable>": {"answer": "done"}
+    }
+
+
 def test_show_run_ignores_malformed_jsonl_lines(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"

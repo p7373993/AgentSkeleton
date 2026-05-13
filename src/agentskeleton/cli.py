@@ -911,7 +911,7 @@ def _bounded_run_log_event(value: Any, depth: int = 0) -> Any:
         return [_bounded_run_log_event(item, depth + 1) for item in value]
     if isinstance(value, dict):
         return {
-            str(key): _bounded_run_log_event(item, depth + 1)
+            _display_text(key): _bounded_run_log_event(item, depth + 1)
             for key, item in value.items()
         }
     return value
