@@ -332,7 +332,10 @@ class LLMClient:
 
         model_dump = getattr(item, "model_dump", None)
         if model_dump is not None:
-            return _normalize_context_item(model_dump(exclude_none=True))
+            try:
+                return _normalize_context_item(model_dump(exclude_none=True))
+            except Exception:
+                return None
 
         item_type = _read_attr(item, "type")
         if not isinstance(item_type, str):

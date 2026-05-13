@@ -458,6 +458,32 @@ def test_llm_client_serializes_uninspectable_object_response_context_item_types(
     ]
 
 
+def test_llm_client_ignores_uninspectable_model_dump_context_items(
+    tmp_path,
+) -> None:
+    class UninspectableOutputItem:
+        def model_dump(self, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("context unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[UninspectableOutputItem()],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "done"
+    assert state.response_context_items == [
+        {"role": "user", "content": "finish"}
+    ]
+
+
 def test_llm_client_serializes_object_function_call_arguments_for_context(
     tmp_path,
 ) -> None:
