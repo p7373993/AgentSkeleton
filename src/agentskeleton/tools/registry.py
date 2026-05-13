@@ -247,7 +247,7 @@ def _validate_schema_node_content(
     enum = schema.get("enum")
     if enum is not None and not isinstance(enum, list):
         raise ValueError(f"Tool {tool_name} {label} enum must be a list")
-    if isinstance(enum, list) and not enum:
+    if isinstance(enum, list) and not _has_items(enum):
         raise ValueError(f"Tool {tool_name} {label} enum cannot be empty")
     if isinstance(enum, list) and not all(
         _matches_schema_type(item, schema_type) for item in enum
@@ -333,6 +333,12 @@ def _schema_type_includes(raw_type: object, expected_type: str) -> bool:
         return raw_type == expected_type
     if isinstance(raw_type, list):
         return expected_type in raw_type
+    return False
+
+
+def _has_items(items: Iterable[object]) -> bool:
+    for _item in items:
+        return True
     return False
 
 

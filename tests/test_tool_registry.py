@@ -568,6 +568,29 @@ def test_registry_rejects_uninspectable_args_schema_type_values() -> None:
             registry.register(InvalidSchemaTool())
 
 
+def test_registry_accepts_enum_list_without_length() -> None:
+    class ExplodingEnumList(list):
+        def __len__(self) -> int:
+            raise RuntimeError("enum length unavailable")
+
+    class EnumTool(EchoTool):
+        args_schema = {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": ExplodingEnumList(["fast"]),
+                }
+            },
+        }
+
+    registry = ToolRegistry()
+
+    registry.register(EnumTool())
+
+    assert registry.get("echo").args_schema["properties"]["mode"]["enum"] == ["fast"]
+
+
 def test_registry_rejects_uninspectable_args_schema_descriptions() -> None:
     class UnstrippableString(str):
         def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
