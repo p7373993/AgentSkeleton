@@ -66,9 +66,10 @@ def _utf8_size(value: str) -> int | None:
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 def _has_whitespace(value: str) -> bool | None:
@@ -91,6 +92,7 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
             f"{field_name} cannot contain more than "
             f"{MAX_CONFIG_TOOL_LIST_ITEMS} entries"
         )
+    normalized_names: list[str] = []
     for name in value:
         name_bytes = _utf8_size(name)
         if name_bytes is None:
@@ -110,18 +112,22 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
             raise ValueError(f"{field_name} entries could not be inspected")
         if has_whitespace:
             raise ValueError(f"{field_name} cannot contain whitespace")
-    return value
+        normalized_names.append(stripped_name)
+    return normalized_names
 
 
 def _reject_invalid_module_list(value: list[str], field_name: str) -> list[str]:
-    _reject_invalid_name_list(value, field_name)
-    for name in value:
+    normalized_names = _reject_invalid_name_list(value, field_name)
+    for raw_name, name in zip(value, normalized_names, strict=True):
+        raw_has_invalid_module_part = _has_invalid_module_part(raw_name)
+        if raw_has_invalid_module_part is None:
+            raise ValueError(f"{field_name} entries could not be inspected")
         has_invalid_module_part = _has_invalid_module_part(name)
         if has_invalid_module_part is None:
             raise ValueError(f"{field_name} entries could not be inspected")
         if has_invalid_module_part:
             raise ValueError(f"{field_name} must contain dotted Python module paths")
-    return value
+    return normalized_names
 
 
 class RunConfig(BaseModel):

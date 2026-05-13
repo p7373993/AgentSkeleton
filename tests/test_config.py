@@ -22,6 +22,14 @@ class UnsplittableString(str):
         raise RuntimeError("cannot split")
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+
 def test_default_config_uses_current_directory(tmp_path: Path) -> None:
     config = RunConfig(workspace=tmp_path)
 
@@ -474,6 +482,31 @@ def test_config_name_list_rejects_uninspectable_entries() -> None:
             [UninspectableString("read_file")],
             "enabled_tools",
         )
+
+
+def test_config_name_lists_normalize_text_subclasses(tmp_path: Path) -> None:
+    enabled_tools = config_module._reject_invalid_name_list(  # noqa: SLF001
+        [StickyString("read_file")],
+        "enabled_tools",
+    )
+    tool_modules = config_module._reject_invalid_module_list(  # noqa: SLF001
+        [StickyString("custom_tools")],
+        "tool_modules",
+    )
+    config = RunConfig(
+        workspace=tmp_path,
+        enabled_tools=[StickyString("read_file")],
+        tool_modules=[StickyString("custom_tools")],
+    )
+
+    assert enabled_tools == ["read_file"]
+    assert type(enabled_tools[0]) is str
+    assert tool_modules == ["custom_tools"]
+    assert type(tool_modules[0]) is str
+    assert config.enabled_tools == ["read_file"]
+    assert type(config.enabled_tools[0]) is str
+    assert config.tool_modules == ["custom_tools"]
+    assert type(config.tool_modules[0]) is str
 
 
 def test_config_rejects_oversized_tool_module_names(tmp_path: Path) -> None:
