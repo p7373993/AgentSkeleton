@@ -53,7 +53,10 @@ SECRET_KEY_TERMS = {
 
 
 def _safe_log_stem(value: str) -> str:
-    safe_value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("._")
+    value_text = _safe_text(value)
+    if value_text == _UNINSPECTABLE_VALUE:
+        value_text = "run"
+    safe_value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value_text).strip("._")
     safe_value = safe_value or "run"
     if len(safe_value) > _MAX_RUN_LOG_STEM_LENGTH:
         digest = hashlib.sha256(safe_value.encode("utf-8")).hexdigest()[:12]
@@ -199,7 +202,7 @@ def _is_secret_key(key: object) -> bool:
 
 class RunLogger:
     def __init__(self, logs_dir: Path, run_id: str) -> None:
-        self.run_id = run_id
+        self.run_id = _safe_text(run_id)
         today = datetime.now(tz=UTC).strftime("%Y%m%d")
         self.path = logs_dir / today / f"{_safe_log_stem(run_id)}.jsonl"
         self._ensure_log_directory()

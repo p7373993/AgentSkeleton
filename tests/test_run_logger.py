@@ -12,6 +12,11 @@ class UnencodableString(str):
         raise RuntimeError("cannot encode")
 
 
+class UnstringableValue:
+    def __str__(self) -> str:
+        raise RuntimeError("cannot stringify")
+
+
 def test_run_logger_writes_jsonl_event(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
 
@@ -37,6 +42,17 @@ def test_run_logger_sanitizes_run_id_path_segments(tmp_path: Path) -> None:
     assert logger.path == expected_path
     assert event["run_id"] == "../bad id"
     assert not (tmp_path / "bad id.jsonl").exists()
+
+
+def test_run_logger_sanitizes_uninspectable_run_ids(tmp_path: Path) -> None:
+    today = datetime.now(tz=UTC).strftime("%Y%m%d")
+    logger = RunLogger(logs_dir=tmp_path, run_id=UnstringableValue())  # type: ignore[arg-type]
+
+    logger.log("run_started", step=0, payload={"goal": "test"})
+
+    assert logger.path == tmp_path / today / "run.jsonl"
+    event = json.loads(logger.path.read_text(encoding="utf-8").splitlines()[0])
+    assert event["run_id"] == "<uninspectable>"
 
 
 def test_run_logger_bounds_very_long_run_id_filenames(tmp_path: Path) -> None:
