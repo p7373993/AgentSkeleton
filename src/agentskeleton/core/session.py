@@ -271,7 +271,12 @@ class SessionStore:
                     f"{safe_name}"
                 )
             raw_summary = path.read_text(encoding="utf-8")
-            if len(raw_summary.encode("utf-8")) > _MAX_SESSION_FILE_BYTES:
+            raw_summary_bytes = _utf8_size(raw_summary)
+            if raw_summary_bytes is None:
+                raise ValueError(
+                    f"Session summary could not be inspected: {safe_name}"
+                )
+            if raw_summary_bytes > _MAX_SESSION_FILE_BYTES:
                 raise ValueError(
                     f"Session summary exceeds {_MAX_SESSION_FILE_BYTES} bytes: "
                     f"{safe_name}"
@@ -364,6 +369,13 @@ def _safe_text(value: object) -> str:
         return str(value)
     except Exception:
         return _UNINSPECTABLE_VALUE
+
+
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
 
 
 def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:

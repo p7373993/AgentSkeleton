@@ -6,6 +6,11 @@ import pytest
 from agentskeleton.core.session import SessionStore
 
 
+class UnencodableString(str):
+    def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot encode")
+
+
 def test_session_store_returns_empty_session_when_missing(tmp_path) -> None:
     session = SessionStore(tmp_path).load("default")
 
@@ -769,6 +774,30 @@ def test_session_store_rejects_summary_that_grows_after_stat(
     with pytest.raises(
         ValueError,
         match="Session summary exceeds 2097152 bytes: default",
+    ):
+        store.load("default")
+
+
+def test_session_store_reports_unencodable_summary_text(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = SessionStore(tmp_path)
+    summary_path = tmp_path / "sessions" / "default" / "summary.md"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_text("summary", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def unencodable_read_text(path: Path, *args, **kwargs) -> str:
+        if path == summary_path:
+            return UnencodableString("summary")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", unencodable_read_text)
+
+    with pytest.raises(
+        ValueError,
+        match="Session summary could not be inspected: default",
     ):
         store.load("default")
 
