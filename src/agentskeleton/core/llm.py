@@ -361,7 +361,12 @@ class LLMClient:
 
     def _parse_function_call(self, item: Any) -> ToolCallAction:
         name = _read_attr(item, "name")
-        if not isinstance(name, str) or not name.strip():
+        if not isinstance(name, str):
+            raise LLMResponseError("Function call missing name")
+        normalized_name = _safe_stripped_text(name)
+        if normalized_name is None:
+            raise LLMResponseError("Function call name could not be inspected")
+        if not normalized_name:
             raise LLMResponseError("Function call missing name")
         name_bytes = _utf8_size(name)
         if name_bytes is None:
@@ -372,7 +377,12 @@ class LLMClient:
             )
 
         call_id = _read_attr(item, "call_id")
-        if not isinstance(call_id, str) or not call_id.strip():
+        if not isinstance(call_id, str):
+            raise LLMResponseError("Function call missing call_id")
+        normalized_call_id = _safe_stripped_text(call_id)
+        if normalized_call_id is None:
+            raise LLMResponseError("Function call call_id could not be inspected")
+        if not normalized_call_id:
             raise LLMResponseError("Function call missing call_id")
         call_id_bytes = _utf8_size(call_id)
         if call_id_bytes is None:
@@ -520,6 +530,13 @@ def _has_text(value: str) -> bool:
         return bool(value.strip())
     except Exception:
         return False
+
+
+def _safe_stripped_text(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
 
 
 def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:
