@@ -675,9 +675,18 @@ def show_run(
         console.print(f"Model retries: {summary['model_retries']}")
         last_model_retry = summary.get("last_model_retry")
         if isinstance(last_model_retry, dict):
-            error_type = _display_text(last_model_retry.get("error_type"))
-            error = _display_text(last_model_retry.get("error"))
-            console.print(f"Last model retry: {error_type} - {error}")
+            error_type_value = last_model_retry.get("error_type")
+            error_value = last_model_retry.get("error")
+            if error_type_value is not None and error_value is not None:
+                error_type = _display_text(error_type_value)
+                error = _display_text(error_value)
+                console.print(f"Last model retry: {error_type} - {error}")
+            elif error_type_value is not None:
+                console.print(
+                    f"Last model retry: {_display_text(error_type_value)}"
+                )
+            elif error_value is not None:
+                console.print(f"Last model retry: {_display_text(error_value)}")
     if summary["tool_calls"]:
         console.print(
             f"Tool calls: {summary['tool_calls']} "

@@ -2753,6 +2753,41 @@ def test_show_run_prints_model_retry_count_and_last_error(
     assert "Last model retry: RuntimeError - temporary model outage" in result.stdout
 
 
+def test_show_run_omits_empty_model_retry_details(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "model_retry",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"attempt": 1},
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert "Model retries: 1" in result.stdout
+    assert "Last model retry:" not in result.stdout
+
+
 def test_show_run_summarizes_bounded_tool_error_text_as_json(
     monkeypatch,
     tmp_path,
