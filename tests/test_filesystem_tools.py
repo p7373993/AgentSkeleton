@@ -66,6 +66,15 @@ def test_resolve_workspace_path_blocks_ambiguous_windows_path_parts(
         resolve_workspace_path(tmp_path, requested_path)
 
 
+def test_resolve_workspace_path_rejects_uninspectable_paths(tmp_path: Path) -> None:
+    class UninspectablePath(str):
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+    with pytest.raises(PathSecurityError, match="Path could not be inspected"):
+        resolve_workspace_path(tmp_path, UninspectablePath("../outside.txt"))
+
+
 def test_list_dir_lists_direct_children(tmp_path: Path) -> None:
     (tmp_path / "a.txt").write_text("a", encoding="utf-8")
     (tmp_path / "folder").mkdir()
