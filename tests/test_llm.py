@@ -316,6 +316,35 @@ def test_llm_client_avoids_length_checks_for_message_content_parts(tmp_path) -> 
     assert action.text == "done from content"
 
 
+def test_llm_client_avoids_truthiness_checks_for_message_content_text(
+    tmp_path,
+) -> None:
+    class LengthlessText(str):
+        def __len__(self) -> int:
+            raise RuntimeError("text length unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": LengthlessText("done")}],
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "done"
+
+
 def test_llm_client_bounds_final_text_message_content_parts(tmp_path) -> None:
     content = [
         {"type": "output_text", "text": f"part-{index:03d}"}

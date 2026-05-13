@@ -141,7 +141,7 @@ def _response_final_text(response: Any, output: list[Any]) -> str:
 
 def _message_content_text_parts(content: Any) -> list[str]:
     if isinstance(content, str):
-        return [content]
+        return [str.__str__(content)]
     if isinstance(content, list | tuple):
         text_parts = []
         pending_text = None
@@ -171,7 +171,7 @@ def _message_content_text_parts(content: Any) -> list[str]:
 
 def _message_content_part_text(part: Any) -> str | None:
     if isinstance(part, str):
-        return part
+        return str.__str__(part)
     part_type = _read_attr(part, "type")
     if part_type == "refusal":
         refusal = _read_attr(part, "refusal")
@@ -180,7 +180,7 @@ def _message_content_part_text(part: Any) -> str | None:
     if not isinstance(text, str):
         return None
     if part_type in (None, "output_text", "text"):
-        return text
+        return str.__str__(text)
     return None
 
 
