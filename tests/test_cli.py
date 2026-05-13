@@ -4272,6 +4272,7 @@ def test_resume_run_logs_source_run_id(monkeypatch, tmp_path) -> None:
     result = runner.invoke(app, ["resume-run", "run-1", "continue"])
 
     assert result.exit_code == 0
+    assert "Resumed from: run-1" in result.stdout
     resumed_log = next(
         (tmp_path / "runs").glob("*/resumed-run-fixed.jsonl"),
     )

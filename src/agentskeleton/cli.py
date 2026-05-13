@@ -725,6 +725,7 @@ def resume_run(
         trace_context={"resumed_run_id": run_id},
     )
     console.print(f"Run id: {resumed_run_id}")
+    console.print(f"Resumed from: {run_id}")
     console.print(f"Status: {state.final_status}")
     if getattr(state, "final_reason", None) is not None:
         reason = _display_text(state.final_reason)
