@@ -1975,6 +1975,30 @@ def test_load_scenario_requires_expectations(tmp_path: Path) -> None:
         raise AssertionError("Expected unchecked scenario to fail")
 
 
+def test_load_scenario_allows_blank_goal_for_invalid_goal_expectation(
+    tmp_path: Path,
+) -> None:
+    scenario_path = tmp_path / "blank-goal.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "goal: '   '",
+                "actions:",
+                "  - type: final",
+                "    text: should not run",
+                "expect:",
+                "  status: invalid_goal",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario(scenario_path)
+
+    assert scenario.goal == "   "
+    assert scenario.expect["status"] == "invalid_goal"
+
+
 def test_load_scenario_suite_discovers_yaml_files_in_order(tmp_path: Path) -> None:
     suite_dir = tmp_path / "evals"
     suite_dir.mkdir()

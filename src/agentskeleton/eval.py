@@ -251,24 +251,24 @@ def load_scenario(path: Path) -> Scenario:
     if not isinstance(raw, dict):
         raise ValueError(f"Scenario file must contain a mapping: {path}")
 
+    expect = raw.get("expect", {})
+    if not isinstance(expect, dict):
+        raise ValueError("Scenario expect must be a mapping")
+    if not expect:
+        raise ValueError("Scenario must define expectations")
+
     goal = raw.get("goal")
     if not isinstance(goal, str):
         raise ValueError("Scenario must define a non-empty goal")
     stripped_goal = _safe_strip(goal)
     if stripped_goal is None:
         raise ValueError("Scenario goal could not be inspected")
-    if not stripped_goal:
+    if not stripped_goal and expect.get("status") != "invalid_goal":
         raise ValueError("Scenario must define a non-empty goal")
 
     raw_actions = raw.get("actions")
     if not isinstance(raw_actions, list) or not raw_actions:
         raise ValueError("Scenario must define at least one action")
-
-    expect = raw.get("expect", {})
-    if not isinstance(expect, dict):
-        raise ValueError("Scenario expect must be a mapping")
-    if not expect:
-        raise ValueError("Scenario must define expectations")
 
     files = _parse_files(raw.get("files", {}))
     config_overrides = _parse_config_overrides(raw.get("config", {}))

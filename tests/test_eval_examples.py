@@ -38,9 +38,10 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     ]
     assert suite_config.min_scenarios_per_required_domain == 2
     assert result.passed is True
-    assert result.total == 51
+    assert result.total == 52
     assert result.failed_count == 0
     assert "artifact-from-input" in {item.scenario for item in result.results}
+    assert "blank-goal" in {item.scenario for item in result.results}
     assert "coding-edit-test" in {item.scenario for item in result.results}
     assert "data-csv-report-artifact" in {item.scenario for item in result.results}
     assert "interactive-answer-artifact" in {
@@ -58,7 +59,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "data": {"passed": 2, "failed": 0, "total": 2},
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
         "interactive": {"passed": 2, "failed": 0, "total": 2},
-        "reliability": {"passed": 35, "failed": 0, "total": 35},
+        "reliability": {"passed": 36, "failed": 0, "total": 36},
         "tool_packs": {"passed": 2, "failed": 0, "total": 2},
         "writing": {"passed": 2, "failed": 0, "total": 2},
     }

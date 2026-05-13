@@ -1,0 +1,15 @@
+name: blank-goal
+domain: reliability
+goal: "   "
+actions:
+  - type: final
+    text: should not run
+expect:
+  status: invalid_goal
+  reason: Goal cannot be blank
+  observations: 0
+  events:
+    - type: run_finished
+      payload:
+        status: invalid_goal
+        reason: Goal cannot be blank
