@@ -550,6 +550,31 @@ def test_registry_rejects_uninspectable_args_schema_type_values() -> None:
             registry.register(InvalidSchemaTool())
 
 
+def test_registry_rejects_uninspectable_args_schema_descriptions() -> None:
+    class UnstrippableString(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("description unavailable")
+
+    class InvalidSchemaTool(EchoTool):
+        args_schema = {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": UnstrippableString("Text to echo."),
+                }
+            },
+        }
+
+    registry = ToolRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="schema property text description could not be inspected",
+    ):
+        registry.register(InvalidSchemaTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [

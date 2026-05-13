@@ -201,7 +201,12 @@ def _validate_schema_node_content(
     if description is not None:
         if not isinstance(description, str):
             raise ValueError(f"Tool {tool_name} {label} description must be a string")
-        if not description.strip():
+        stripped_description = _safe_strip(description)
+        if stripped_description is None:
+            raise ValueError(
+                f"Tool {tool_name} {label} description could not be inspected"
+            )
+        if not stripped_description:
             raise ValueError(f"Tool {tool_name} {label} description cannot be empty")
 
     schema_type = schema.get("type")
