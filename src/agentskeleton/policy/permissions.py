@@ -225,23 +225,26 @@ class PermissionPolicy:
 
 def _safe_text(value: object) -> str:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return "<uninspectable>"
+    return str.__str__(text)
 
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return str(value.strip())
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 def _safe_lower(value: str) -> str | None:
     try:
-        return str(value.lower())
+        lowered = value.lower()
     except Exception:
         return None
+    return str.__str__(lowered)
 
 
 def _looks_like_recursive_delete(command: str) -> bool:
