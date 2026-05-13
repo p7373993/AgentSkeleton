@@ -17,6 +17,24 @@ def _utf8_size(value: str) -> int | None:
         return None
 
 
+def _inspect_module_name(module_name: str) -> tuple[str, bool, bool, list[str]] | None:
+    try:
+        stripped = module_name.strip()
+        has_control_characters = any(ord(character) < 32 for character in module_name)
+        has_whitespace = any(character.isspace() for character in module_name)
+        parts = module_name.split(".")
+    except Exception:
+        return None
+    if has_control_characters or has_whitespace:
+        return stripped, has_control_characters, has_whitespace, parts
+    try:
+        if any(not part.isidentifier() for part in parts):
+            return stripped, has_control_characters, has_whitespace, parts
+    except Exception:
+        return None
+    return stripped, has_control_characters, has_whitespace, parts
+
+
 def _exception_text(exc: BaseException) -> str:
     try:
         return str(exc)
@@ -93,13 +111,17 @@ def _validate_module_name(module_name: object) -> None:
         raise ValueError("Tool module name could not be inspected")
     if module_name_bytes > MAX_TOOL_MODULE_NAME_BYTES:
         raise ValueError(f"Tool module name exceeds {MAX_TOOL_MODULE_NAME_BYTES} bytes")
-    if not module_name.strip():
+    inspected = _inspect_module_name(module_name)
+    if inspected is None:
+        raise ValueError("Tool module name could not be inspected")
+    stripped, has_control_characters, has_whitespace, parts = inspected
+    if not stripped:
         raise ValueError("Tool module name cannot be blank")
-    if any(ord(character) < 32 for character in module_name):
+    if has_control_characters:
         raise ValueError("Tool module name cannot contain control characters")
-    if any(character.isspace() for character in module_name):
+    if has_whitespace:
         raise ValueError("Tool module name cannot contain whitespace")
-    if any(not part.isidentifier() for part in module_name.split(".")):
+    if any(not part.isidentifier() for part in parts):
         raise ValueError("Tool module name must be a dotted Python module path")
 
 

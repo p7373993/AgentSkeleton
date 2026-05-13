@@ -1079,6 +1079,40 @@ def test_load_tools_from_module_rejects_unencodable_module_name() -> None:
         load_tools_from_modules([UnencodableString("custom_tools")])
 
 
+@pytest.mark.parametrize(
+    "method_name",
+    [
+        "strip",
+        "split",
+        "iter",
+    ],
+)
+def test_load_tools_from_module_rejects_uninspectable_module_name(
+    method_name: str,
+) -> None:
+    class UninspectableString(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if method_name == "strip":
+                raise RuntimeError("module name unavailable")
+            return super().strip(*args, **kwargs)
+
+        def split(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if method_name == "split":
+                raise RuntimeError("module name unavailable")
+            return super().split(*args, **kwargs)
+
+        def __iter__(self):  # type: ignore[no-untyped-def]
+            if method_name == "iter":
+                raise RuntimeError("module name unavailable")
+            return super().__iter__()
+
+    with pytest.raises(
+        ValueError,
+        match="Tool module name could not be inspected",
+    ):
+        load_tools_from_modules([UninspectableString("custom_tools")])
+
+
 def test_load_tools_from_module_rejects_blank_module_name() -> None:
     with pytest.raises(ValueError, match="Tool module name cannot be blank"):
         load_tools_from_modules(["   "])
