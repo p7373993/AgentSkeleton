@@ -1,0 +1,45 @@
+name: writing-release-note
+domain: writing
+goal: Convert implementation notes into a concise release note artifact.
+config:
+  permission_profile: trusted
+files:
+  notes/change-summary.txt: |
+    Added safer retry handling.
+    Improved run log summaries.
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-change-summary
+    arguments:
+      path: notes/change-summary.txt
+  - type: tool
+    tool: write_file
+    call_id: write-release-note
+    arguments:
+      path: drafts/release-note.txt
+      content: |
+        Release note:
+        - Safer retry handling for agent runs.
+        - Clearer run log summaries for operators.
+      create_parent_dirs: true
+  - type: final
+    text: writing release note ok
+expect:
+  status: completed
+  answer: writing release note ok
+  observations: 2
+  observations_detail:
+    - tool: read_file
+      success: true
+      payload:
+        path: notes/change-summary.txt
+    - tool: write_file
+      success: true
+      payload:
+        path: drafts/release-note.txt
+  files:
+    drafts/release-note.txt: |
+      Release note:
+      - Safer retry handling for agent runs.
+      - Clearer run log summaries for operators.
