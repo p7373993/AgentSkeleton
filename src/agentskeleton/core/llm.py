@@ -360,7 +360,10 @@ class LLMClient:
         name = _read_attr(item, "name")
         if not isinstance(name, str) or not name.strip():
             raise LLMResponseError("Function call missing name")
-        if len(name.encode("utf-8")) > MAX_FUNCTION_CALL_METADATA_BYTES:
+        name_bytes = _utf8_size(name)
+        if name_bytes is None:
+            raise LLMResponseError("Function call name could not be inspected")
+        if name_bytes > MAX_FUNCTION_CALL_METADATA_BYTES:
             raise LLMResponseError(
                 f"Function call name exceeds {MAX_FUNCTION_CALL_METADATA_BYTES} bytes"
             )
@@ -368,7 +371,10 @@ class LLMClient:
         call_id = _read_attr(item, "call_id")
         if not isinstance(call_id, str) or not call_id.strip():
             raise LLMResponseError("Function call missing call_id")
-        if len(call_id.encode("utf-8")) > MAX_FUNCTION_CALL_METADATA_BYTES:
+        call_id_bytes = _utf8_size(call_id)
+        if call_id_bytes is None:
+            raise LLMResponseError("Function call call_id could not be inspected")
+        if call_id_bytes > MAX_FUNCTION_CALL_METADATA_BYTES:
             raise LLMResponseError(
                 "Function call call_id exceeds "
                 f"{MAX_FUNCTION_CALL_METADATA_BYTES} bytes"
@@ -401,7 +407,12 @@ class LLMClient:
                 ) from exc
             return raw_arguments
         if isinstance(raw_arguments, str):
-            if len(raw_arguments.encode("utf-8")) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
+            argument_bytes = _utf8_size(raw_arguments)
+            if argument_bytes is None:
+                raise LLMResponseError(
+                    "Function call arguments could not be inspected"
+                )
+            if argument_bytes > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
                 raise LLMResponseError(
                     "Function call arguments are too large "
                     f"(max {MAX_FUNCTION_CALL_ARGUMENT_BYTES} bytes)"
@@ -651,6 +662,13 @@ def _bounded_tool_result_text(value: str) -> str:
 
 def _json_size(value: Any) -> int:
     return len(json.dumps(_json_size_safe(value), default=str).encode("utf-8"))
+
+
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
 
 
 def _json_exceeds_depth(value: Any, max_depth: int) -> bool:

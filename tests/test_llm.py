@@ -529,6 +529,41 @@ def test_llm_client_rejects_oversized_function_call_metadata(
     assert state.response_context_items == []
 
 
+@pytest.mark.parametrize(
+    ("field", "message"),
+    [
+        ("name", "Function call name could not be inspected"),
+        ("call_id", "Function call call_id could not be inspected"),
+    ],
+)
+def test_llm_client_rejects_unencodable_function_call_metadata(
+    tmp_path,
+    field: str,
+    message: str,
+) -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    item = {
+        "type": "function_call",
+        "name": "read_file",
+        "arguments": "{}",
+        "call_id": "call-1",
+    }
+    item[field] = UnencodableString(str(item[field]))
+    response = SimpleNamespace(id="resp-1", output_text="", output=[item])
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(LLMResponseError, match=message):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_rejects_invalid_function_call_arguments_json(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",
@@ -600,6 +635,37 @@ def test_llm_client_rejects_oversized_function_call_arguments(tmp_path) -> None:
     with pytest.raises(
         LLMResponseError,
         match="Function call arguments are too large",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
+def test_llm_client_rejects_unencodable_function_call_arguments(tmp_path) -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            SimpleNamespace(
+                type="function_call",
+                name="read_file",
+                arguments=UnencodableString('{"path":"README.md"}'),
+                call_id="call-1",
+            )
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Function call arguments could not be inspected",
     ):
         LLMClient(
             RunConfig(workspace=tmp_path),
