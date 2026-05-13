@@ -117,6 +117,24 @@ def test_policy_blocks_uninspectable_shell_command_arguments() -> None:
         assert decision.reason == "Shell command invalid"
 
 
+def test_policy_normalizes_shell_command_subclass_outputs_before_inspection() -> None:
+    class UnreplaceableCommand(str):
+        def lower(self) -> str:
+            return self
+
+        def replace(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("command unavailable")
+
+    decision = PermissionPolicy(profile="trusted").decide(
+        "shell",
+        {"command": UnreplaceableCommand("Get-ChildItem")},
+        "shell",
+    )
+
+    assert decision.outcome == "allow"
+    assert decision.reason == "shell command allowed"
+
+
 def test_policy_reports_uninspectable_unknown_risk_without_raising() -> None:
     class UnstringableRisk(str):
         def __str__(self) -> str:
