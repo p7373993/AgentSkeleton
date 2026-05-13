@@ -1188,6 +1188,43 @@ def test_assistant_transcript_content_bounds_large_text() -> None:
     assert large_reason not in reason_content
 
 
+def test_assistant_transcript_content_handles_uninspectable_values() -> None:
+    class UninspectableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+    value = UninspectableValue()
+    answer_state = type(
+        "State",
+        (),
+        {
+            "final_status": "completed",
+            "final_answer": value,
+            "final_reason": None,
+        },
+    )()
+
+    answer_content = cli_module._assistant_transcript_content(answer_state)
+
+    assert answer_content == "<uninspectable>"
+
+    reason_state = type(
+        "State",
+        (),
+        {
+            "final_status": "model_error",
+            "final_answer": None,
+            "final_reason": value,
+        },
+    )()
+
+    reason_content = cli_module._assistant_transcript_content(reason_state)
+
+    assert reason_content == (
+        "Run stopped with status model_error. Reason: <uninspectable>"
+    )
+
+
 def test_assistant_transcript_metadata_bounds_large_reason() -> None:
     large_reason = "r" * 20_000
     state = type(
@@ -1208,6 +1245,29 @@ def test_assistant_transcript_metadata_bounds_large_reason() -> None:
     assert str(metadata["reason"]).startswith("rrrrrrrrrrrrrrrr")
     assert "[truncated" in str(metadata["reason"])
     assert large_reason not in str(metadata["reason"])
+
+
+def test_assistant_transcript_metadata_handles_uninspectable_reason() -> None:
+    class UninspectableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+    state = type(
+        "State",
+        (),
+        {
+            "final_status": "model_error",
+            "final_reason": UninspectableValue(),
+        },
+    )()
+
+    metadata = cli_module._assistant_transcript_metadata("run-fixed", state)
+
+    assert metadata == {
+        "run_id": "run-fixed",
+        "status": "model_error",
+        "reason": "<uninspectable>",
+    }
 
 
 def test_run_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:

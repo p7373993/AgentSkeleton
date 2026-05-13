@@ -160,12 +160,12 @@ def _merge_required_domains(
 
 def _assistant_transcript_content(state) -> str | None:
     if state.final_answer:
-        return _bounded_display_text(str(state.final_answer))
+        return _display_text(state.final_answer)
 
     if state.final_status:
-        content = f"Run stopped with status {state.final_status}."
+        content = f"Run stopped with status {_display_text(state.final_status)}."
         if getattr(state, "final_reason", None):
-            content = f"{content} Reason: {state.final_reason}"
+            content = f"{content} Reason: {_display_text(state.final_reason)}"
         return _bounded_display_text(content)
 
     return None
@@ -177,7 +177,7 @@ def _assistant_transcript_metadata(run_id: str, state) -> dict[str, object]:
         "status": state.final_status,
     }
     if getattr(state, "final_reason", None):
-        metadata["reason"] = _bounded_display_text(str(state.final_reason))
+        metadata["reason"] = _display_text(state.final_reason)
     return metadata
 
 
