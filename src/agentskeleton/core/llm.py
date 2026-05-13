@@ -104,16 +104,20 @@ def _read_attr(item: Any, name: str, default: Any = None) -> Any:
 
 
 def _response_output_items(response: Any) -> list[Any]:
-    output = _read_attr(response, "output", []) or []
+    output = _read_attr(response, "output", [])
+    if output is None:
+        output = []
     if isinstance(output, dict):
         return [output]
     if isinstance(output, list | tuple):
-        items = list(output)
-        if len(items) > MAX_RESPONSE_OUTPUT_ITEMS:
-            raise LLMResponseError(
-                "Response output contains too many items "
-                f"({len(items)} > {MAX_RESPONSE_OUTPUT_ITEMS})"
-            )
+        items = []
+        for index, item in enumerate(output, 1):
+            if index > MAX_RESPONSE_OUTPUT_ITEMS:
+                raise LLMResponseError(
+                    "Response output contains too many items "
+                    f"({index} > {MAX_RESPONSE_OUTPUT_ITEMS})"
+                )
+            items.append(item)
         return items
     raise LLMResponseError("Response output must be a list of items")
 

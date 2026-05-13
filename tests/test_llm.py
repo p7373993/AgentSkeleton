@@ -204,6 +204,27 @@ def test_llm_client_serializes_unstringable_output_text(tmp_path) -> None:
     assert action.text == "<uninspectable>"
 
 
+def test_llm_client_avoids_truthiness_checks_for_response_output(tmp_path) -> None:
+    class ExplodingOutput(list):
+        def __len__(self) -> int:
+            raise RuntimeError("output length unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=ExplodingOutput([]),
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="hello")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "done"
+
+
 def test_llm_client_parses_final_text_from_message_output_content(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",
