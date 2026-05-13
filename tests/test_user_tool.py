@@ -44,6 +44,20 @@ def test_ask_user_tool_normalizes_question_text_subclasses(tmp_path: Path) -> No
     assert type(result.payload["question"]) is str
 
 
+def test_ask_user_tool_normalizes_answer_text_subclasses(tmp_path: Path) -> None:
+    result = AskUserTool().execute(
+        {"question": "Continue?"},
+        ToolContext(
+            workspace=tmp_path,
+            ask_user=lambda question: StickyString(f"answer to {question}"),
+        ),
+    )
+
+    assert result.success is True
+    assert result.payload["answer"] == "answer to Continue?"
+    assert type(result.payload["answer"]) is str
+
+
 def test_ask_user_tool_fails_without_callback(tmp_path: Path) -> None:
     result = AskUserTool().execute(
         {"question": "Continue?"},

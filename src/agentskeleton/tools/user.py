@@ -73,6 +73,7 @@ class AskUserTool(Tool):
                 summary=f"User input returned invalid answer: {type(answer).__name__}",
                 error="User input invalid",
             )
+        answer = str.__str__(answer)
         return ToolResult(
             success=True,
             payload={"question": question, "answer": answer},
