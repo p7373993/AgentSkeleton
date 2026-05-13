@@ -886,6 +886,7 @@ def _run_log_text_value(value: object) -> object:
 
 
 def _bounded_run_log_text(value: str) -> str:
+    value = str.__str__(value)
     if len(value) <= MAX_RUN_LOG_TEXT_CHARS:
         return value
     omitted = len(value) - MAX_RUN_LOG_TEXT_CHARS

@@ -2701,6 +2701,16 @@ def test_show_run_events_sanitize_unstringable_event_keys() -> None:
     }
 
 
+def test_show_run_events_bound_string_values_without_length() -> None:
+    class LengthlessText(str):
+        def __len__(self) -> int:
+            raise RuntimeError("text length unavailable")
+
+    event = {"payload": {"answer": LengthlessText("done")}}
+
+    assert cli_module._bounded_run_log_event(event) == {"payload": {"answer": "done"}}
+
+
 def test_show_run_ignores_malformed_jsonl_lines(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
