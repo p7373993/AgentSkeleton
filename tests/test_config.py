@@ -7,6 +7,11 @@ import agentskeleton.config as config_module
 from agentskeleton.config import RunConfig, load_config
 
 
+class UnencodableString(str):
+    def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot encode")
+
+
 def test_default_config_uses_current_directory(tmp_path: Path) -> None:
     config = RunConfig(workspace=tmp_path)
 
@@ -153,6 +158,26 @@ def test_load_config_rejects_config_that_grows_after_stat(
     monkeypatch.setattr(Path, "read_text", grow_read_text)
 
     with pytest.raises(ValueError, match=r"Config file exceeds 10 bytes"):
+        load_config(config_path)
+
+
+def test_load_config_rejects_unencodable_config_text(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("model: gpt-5.4-mini\n", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def unencodable_read_text(path: Path, *args, **kwargs) -> str:
+        if path == config_path:
+            return UnencodableString("model: gpt-5.4-mini\n")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", unencodable_read_text)
+
+    with pytest.raises(ValueError, match=r"Config file could not be inspected"):
         load_config(config_path)
 
 
@@ -313,6 +338,26 @@ def test_load_config_rejects_dotenv_that_grows_after_stat(
         load_config()
 
 
+def test_load_config_rejects_unencodable_dotenv_text(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text("OPENAI_MODEL=gpt-5.4-mini\n", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def unencodable_read_text(path: Path, *args, **kwargs) -> str:
+        if path == Path(".env"):
+            return UnencodableString("OPENAI_MODEL=gpt-5.4-mini\n")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", unencodable_read_text)
+
+    with pytest.raises(ValueError, match=r"Dotenv file could not be inspected"):
+        load_config()
+
+
 def test_config_rejects_non_positive_limits(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         RunConfig(workspace=tmp_path, max_steps=0)
@@ -399,12 +444,34 @@ def test_config_rejects_oversized_enabled_tool_names(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, enabled_tools=["a" * 513])
 
 
+def test_config_name_list_rejects_unencodable_entries() -> None:
+    with pytest.raises(
+        ValueError,
+        match="enabled_tools entries could not be inspected",
+    ):
+        config_module._reject_invalid_name_list(  # noqa: SLF001
+            [UnencodableString("read_file")],
+            "enabled_tools",
+        )
+
+
 def test_config_rejects_oversized_tool_module_names(tmp_path: Path) -> None:
     with pytest.raises(
         ValueError,
         match="tool_modules entries cannot exceed 512 bytes",
     ):
         RunConfig(workspace=tmp_path, tool_modules=["a" * 513])
+
+
+def test_config_module_list_rejects_unencodable_entries() -> None:
+    with pytest.raises(
+        ValueError,
+        match="tool_modules entries could not be inspected",
+    ):
+        config_module._reject_invalid_module_list(  # noqa: SLF001
+            [UnencodableString("custom_tools")],
+            "tool_modules",
+        )
 
 
 @pytest.mark.parametrize(

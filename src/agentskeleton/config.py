@@ -57,6 +57,13 @@ def _ensure_file_size_or_error(path: Path, label: str) -> None:
         raise ValueError(f"{label} exceeds {MAX_CONFIG_FILE_BYTES} bytes: {path}")
 
 
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
+
+
 def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
     if len(value) > MAX_CONFIG_TOOL_LIST_ITEMS:
         raise ValueError(
@@ -64,7 +71,10 @@ def _reject_invalid_name_list(value: list[str], field_name: str) -> list[str]:
             f"{MAX_CONFIG_TOOL_LIST_ITEMS} entries"
         )
     for name in value:
-        if len(name.encode("utf-8")) > MAX_CONFIG_TOOL_NAME_BYTES:
+        name_bytes = _utf8_size(name)
+        if name_bytes is None:
+            raise ValueError(f"{field_name} entries could not be inspected")
+        if name_bytes > MAX_CONFIG_TOOL_NAME_BYTES:
             raise ValueError(
                 f"{field_name} entries cannot exceed "
                 f"{MAX_CONFIG_TOOL_NAME_BYTES} bytes"
@@ -152,7 +162,10 @@ def dotenv_values(path: Path = Path(".env")) -> dict[str, str]:
         raise ValueError(f"Dotenv file could not be read as UTF-8: {path}") from exc
     except OSError as exc:
         raise ValueError(f"Dotenv file could not be read: {path}") from exc
-    if len(raw_text.encode("utf-8")) > MAX_CONFIG_FILE_BYTES:
+    raw_text_bytes = _utf8_size(raw_text)
+    if raw_text_bytes is None:
+        raise ValueError(f"Dotenv file could not be inspected: {path}")
+    if raw_text_bytes > MAX_CONFIG_FILE_BYTES:
         raise ValueError(f"Dotenv file exceeds {MAX_CONFIG_FILE_BYTES} bytes: {path}")
     lines = raw_text.splitlines()
 
@@ -211,7 +224,10 @@ def load_config(
             ) from exc
         except OSError as exc:
             raise ValueError(f"Config file could not be read: {config_path}") from exc
-        if len(config_text.encode("utf-8")) > MAX_CONFIG_FILE_BYTES:
+        config_text_bytes = _utf8_size(config_text)
+        if config_text_bytes is None:
+            raise ValueError(f"Config file could not be inspected: {config_path}")
+        if config_text_bytes > MAX_CONFIG_FILE_BYTES:
             raise ValueError(
                 f"Config file exceeds {MAX_CONFIG_FILE_BYTES} bytes: {config_path}"
             )
