@@ -97,6 +97,30 @@ def test_shell_tool_rejects_oversized_command(tmp_path: Path, monkeypatch) -> No
     assert result.payload == {}
 
 
+def test_shell_tool_rejects_unencodable_command(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    def fake_run(*args, **kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": UnencodableString("echo test")},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Command invalid"
+    assert result.summary == "Command invalid: command could not be inspected"
+    assert result.payload == {}
+
+
 def test_shell_tool_times_out(tmp_path: Path) -> None:
     result = ShellTool().execute(
         {"command": command_for("import time; time.sleep(2)")},

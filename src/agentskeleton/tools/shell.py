@@ -14,6 +14,13 @@ def _exception_text(exc: BaseException) -> str:
         return type(exc).__name__
 
 
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
+
+
 def _truncate(text: str | bytes | None, max_bytes: int) -> tuple[str, bool]:
     if text is None:
         text = ""
@@ -56,7 +63,14 @@ class ShellTool(Tool):
                 summary="Command invalid: command cannot be blank",
                 error="Command invalid",
             )
-        if len(command.encode("utf-8")) > MAX_COMMAND_BYTES:
+        command_bytes = _utf8_size(command)
+        if command_bytes is None:
+            return ToolResult(
+                success=False,
+                summary="Command invalid: command could not be inspected",
+                error="Command invalid",
+            )
+        if command_bytes > MAX_COMMAND_BYTES:
             return ToolResult(
                 success=False,
                 summary="Command invalid: command too large",
