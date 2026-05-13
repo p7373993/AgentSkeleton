@@ -1,5 +1,6 @@
 import importlib
 import sys
+from collections.abc import Iterable
 
 from agentskeleton.tools.base import Tool
 from agentskeleton.tools.registry import ToolRegistry
@@ -42,11 +43,9 @@ def _exception_text(exc: BaseException) -> str:
         return type(exc).__name__
 
 
-def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
+def load_tools_from_modules(module_names: Iterable[object] | None) -> list[Tool]:
     tools: list[Tool] = []
-    names = module_names or []
-    if len(names) > MAX_TOOL_MODULES:
-        raise ValueError(f"Cannot load more than {MAX_TOOL_MODULES} tool modules")
+    names = _bounded_module_names(module_names)
     for raw_module_name in names:
         module_name = _validate_module_name(raw_module_name)
         try:
@@ -101,6 +100,17 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
             _append_loaded_tools(tools, registry.all())
 
     return tools
+
+
+def _bounded_module_names(module_names: Iterable[object] | None) -> list[object]:
+    if module_names is None:
+        return []
+    names: list[object] = []
+    for index, module_name in enumerate(module_names):
+        if index >= MAX_TOOL_MODULES:
+            raise ValueError(f"Cannot load more than {MAX_TOOL_MODULES} tool modules")
+        names.append(module_name)
+    return names
 
 
 def _validate_module_name(module_name: object) -> str:

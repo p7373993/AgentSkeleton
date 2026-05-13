@@ -1176,6 +1176,23 @@ def test_load_tools_from_modules_rejects_too_many_module_names() -> None:
         load_tools_from_modules([f"module_{index}" for index in range(129)])
 
 
+def test_load_tools_from_modules_accepts_module_name_iterable_without_length(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    class ExplodingModuleNameList(list):
+        def __len__(self) -> int:
+            raise RuntimeError("module count unavailable")
+
+    module_path = tmp_path / "custom_tools.py"
+    _write_tool_module(module_path, "custom_echo")
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    tools = load_tools_from_modules(ExplodingModuleNameList(["custom_tools"]))
+
+    assert [tool.name for tool in tools] == ["custom_echo"]
+
+
 def test_load_tools_from_module_rejects_oversized_module_name() -> None:
     with pytest.raises(ValueError, match="Tool module name exceeds 512 bytes"):
         load_tools_from_modules(["a" * 513])
