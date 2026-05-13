@@ -801,6 +801,10 @@ def show_run(
         console.print(f"Goal: {summary['goal']}", soft_wrap=True)
     if summary["session"]:
         console.print(f"Session: {summary['session']}")
+    if summary["started_at"]:
+        console.print(f"Started: {summary['started_at']}")
+    if summary["finished_at"]:
+        console.print(f"Finished: {summary['finished_at']}")
     if summary["resumed_run_id"]:
         console.print(f"Resumed from: {summary['resumed_run_id']}")
     if summary["conversation_turns"] is not None:
@@ -1067,6 +1071,12 @@ def _summarize_run_log(
         "goal": _run_log_text_value(start_payload.get("goal")),
         "workspace": start_payload.get("workspace"),
         "session": start_payload.get("session"),
+        "started_at": _run_log_text_value(
+            start_event.get("timestamp") if start_event else None
+        ),
+        "finished_at": _run_log_text_value(
+            final_event.get("timestamp") if final_event else None
+        ),
         "resumed": start_payload.get("resumed"),
         "resumed_run_id": _run_log_text_value(start_payload.get("resumed_run_id")),
         "conversation_turns": start_payload.get("conversation_turns"),
