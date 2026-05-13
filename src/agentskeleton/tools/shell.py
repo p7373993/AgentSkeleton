@@ -7,6 +7,13 @@ from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 MAX_COMMAND_BYTES = 16_384
 
 
+def _exception_text(exc: BaseException) -> str:
+    try:
+        return str(exc)
+    except Exception:
+        return type(exc).__name__
+
+
 def _truncate(text: str | bytes | None, max_bytes: int) -> tuple[str, bool]:
     if text is None:
         text = ""
@@ -126,7 +133,7 @@ class ShellTool(Tool):
         except OSError as exc:
             duration = time.perf_counter() - started
             stderr, stderr_truncated = _truncate(
-                str(exc),
+                _exception_text(exc),
                 context.shell_max_output_bytes,
             )
             return ToolResult(

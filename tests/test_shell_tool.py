@@ -206,3 +206,27 @@ def test_shell_tool_returns_error_when_process_launch_fails(
     assert result.payload["exit_code"] is None
     assert result.payload["timed_out"] is False
     assert result.payload["stderr"] == "workspace unavailable"
+
+
+def test_shell_tool_returns_error_when_launch_error_is_unstringable(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class UnstringableOSError(OSError):
+        def __str__(self) -> str:
+            raise RuntimeError("message unavailable")
+
+    def fake_run(*args, **kwargs):
+        raise UnstringableOSError()
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": "echo test"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Command launch failed"
+    assert result.summary == "Command launch failed: UnstringableOSError"
+    assert result.payload["stderr"] == "UnstringableOSError"
