@@ -51,7 +51,7 @@ class ConsoleTraceSink:
             session = payload.get("session")
             session_part = (
                 f" session={preview(session, max_chars=120)}"
-                if session
+                if _has_trace_value(session)
                 else ""
             )
             resumed = " resumed" if payload.get("resumed") else ""

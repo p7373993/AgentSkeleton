@@ -179,6 +179,29 @@ def test_console_trace_sink_prints_repeated_large_instructions_once() -> None:
     assert output.count("[llm ->]") == 2
 
 
+def test_console_trace_sink_preserves_lengthless_session_payload() -> None:
+    class ExplodingSession(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("session length unavailable")
+
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "run_started",
+        {
+            "model": "gpt-5.5",
+            "session": ExplodingSession({"api_key": "sk-secret123"}),
+            "resumed": True,
+        },
+    )
+
+    output = console.export_text()
+    assert "session=" in output
+    assert '"api_key": "[REDACTED]"' in output
+    assert "sk-secret123" not in output
+
+
 def test_console_trace_sink_bounds_large_llm_tool_list() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)
