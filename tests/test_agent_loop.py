@@ -827,6 +827,30 @@ def test_loop_rejects_oversized_final_status_before_logging(
     ) in logger.events
 
 
+def test_loop_normalizes_final_action_text_subclasses(tmp_path: Path) -> None:
+    class StickyString(str):
+        def __str__(self) -> str:
+            return self
+
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return self
+
+    state = make_loop(
+        tmp_path,
+        [
+            FinalAction(
+                text=StickyString("done"),
+                status=StickyString("completed"),
+            )
+        ],
+    ).run("finish")
+
+    assert state.final_status == "completed"
+    assert type(state.final_status) is str
+    assert state.final_answer == "done"
+    assert type(state.final_answer) is str
+
+
 def test_loop_rejects_unencodable_final_status_before_logging(
     tmp_path: Path,
 ) -> None:

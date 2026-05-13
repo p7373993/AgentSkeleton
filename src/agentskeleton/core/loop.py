@@ -148,8 +148,8 @@ class AgentLoop:
                     )
                     self._log_run_finished(state)
                     return state
-                state.final_status = action.status
-                state.final_answer = action.text
+                state.final_status = _safe_text(action.status)
+                state.final_answer = _safe_text(action.text)
                 self._log_run_finished(state)
                 return state
 
