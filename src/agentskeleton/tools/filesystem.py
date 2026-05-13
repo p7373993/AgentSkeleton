@@ -37,6 +37,20 @@ def _utf8_bytes(value: str) -> bytes | None:
         return None
 
 
+def _safe_text(value: object) -> str | None:
+    try:
+        return str(value)
+    except Exception:
+        return None
+
+
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
+
+
 def _string_arg(
     args: dict[str, Any],
     name: str,
@@ -51,12 +65,30 @@ def _string_arg(
             f"{label} invalid: {name} must be a string",
             f"{label} invalid",
         )
-    if not allow_blank and not value.strip():
+    if _safe_text(value) is None or _utf8_bytes(value) is None:
+        return _error(
+            f"{label} invalid: {name} could not be inspected",
+            f"{label} invalid",
+        )
+    stripped = _safe_strip(value)
+    if stripped is None:
+        return _error(
+            f"{label} invalid: {name} could not be inspected",
+            f"{label} invalid",
+        )
+    if not allow_blank and not stripped:
         return _error(
             f"{label} invalid: {name} cannot be blank",
             f"{label} invalid",
         )
-    if not allow_control_chars and any(ord(character) < 32 for character in value):
+    try:
+        has_control_chars = any(ord(character) < 32 for character in value)
+    except Exception:
+        return _error(
+            f"{label} invalid: {name} could not be inspected",
+            f"{label} invalid",
+        )
+    if not allow_control_chars and has_control_chars:
         return _error(
             f"{label} invalid: {name} cannot contain control characters",
             f"{label} invalid",

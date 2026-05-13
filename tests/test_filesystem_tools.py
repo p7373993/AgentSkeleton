@@ -135,6 +135,50 @@ def test_filesystem_tools_reject_control_characters_in_paths(
 
 
 @pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param("encode", id="unencodable"),
+        pytest.param("strip", id="unstrippable"),
+        pytest.param("str", id="unstringable"),
+    ],
+)
+def test_filesystem_tools_reject_uninspectable_paths(
+    tmp_path: Path,
+    path: str,
+) -> None:
+    class UninspectablePath(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if path == "encode":
+                raise RuntimeError("path unavailable")
+            return super().encode(*args, **kwargs)
+
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            if path == "strip":
+                raise RuntimeError("path unavailable")
+            return super().strip(*args, **kwargs)
+
+        def __str__(self) -> str:
+            if path == "str":
+                raise RuntimeError("path unavailable")
+            return super().__str__()
+
+    for tool, args in [
+        (ListDirTool(), {"path": UninspectablePath("missing")}),
+        (ReadFileTool(), {"path": UninspectablePath("missing.txt")}),
+        (
+            WriteFileTool(),
+            {"path": UninspectablePath("out.txt"), "content": "hello"},
+        ),
+    ]:
+        result = tool.execute(args, ToolContext(workspace=tmp_path))
+
+        assert result.success is False
+        assert result.error == "Path invalid"
+        assert result.summary == "Path invalid: path could not be inspected"
+        assert result.payload == {}
+
+
+@pytest.mark.parametrize(
     ("tool", "args", "summary"),
     [
         (
