@@ -13,6 +13,7 @@ from agentskeleton.config import load_config
 from agentskeleton.core.llm import LLMClient, MissingAPIKeyError
 from agentskeleton.core.loop import AgentLoop
 from agentskeleton.core.session import SessionStore
+from agentskeleton.core.state import ConversationMessage
 from agentskeleton.core.trace import ConsoleTraceSink, NullTraceSink
 from agentskeleton.eval import (
     load_scenario,
@@ -181,6 +182,52 @@ def _assistant_transcript_metadata(run_id: str, state) -> dict[str, object]:
     if getattr(state, "final_reason", None) is not None:
         metadata["reason"] = _display_text(state.final_reason)
     return metadata
+
+
+def _summary_assistant_metadata(
+    run_id: str,
+    summary: dict[str, object],
+) -> dict[str, object]:
+    metadata = {
+        "run_id": run_id,
+        "source": "run_log",
+        "status": summary["status"],
+    }
+    if summary["reason"]:
+        metadata["reason"] = summary["reason"]
+    if summary["last_model_error"]:
+        metadata["last_model_error"] = summary["last_model_error"]
+    if summary["last_tool_error"]:
+        metadata["last_tool_error"] = summary["last_tool_error"]
+    if summary["last_snapshot"]:
+        metadata["last_snapshot"] = summary["last_snapshot"]
+    return metadata
+
+
+def _summary_conversation(
+    run_id: str,
+    summary: dict[str, object],
+) -> list[ConversationMessage]:
+    goal = summary["goal"]
+    if not isinstance(goal, str) or not goal:
+        return []
+    conversation = [
+        ConversationMessage(
+            role="user",
+            content=goal,
+            metadata={"run_id": run_id, "source": "run_log"},
+        )
+    ]
+    assistant_content = _summary_transcript_content(summary)
+    if assistant_content:
+        conversation.append(
+            ConversationMessage(
+                role="assistant",
+                content=assistant_content,
+                metadata=_summary_assistant_metadata(run_id, summary),
+            )
+        )
+    return conversation
 
 
 @app.command()
@@ -599,6 +646,94 @@ def resume(
     )
 
 
+@app.command(name="resume-run")
+def resume_run(
+    run_id: str,
+    goal: str,
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    base_url: Annotated[str | None, typer.Option("--base-url")] = None,
+    reasoning_effort: Annotated[
+        str | None,
+        typer.Option("--reasoning-effort"),
+    ] = None,
+    max_steps: Annotated[int | None, typer.Option("--max-steps")] = None,
+    model_retry_attempts: Annotated[
+        int | None,
+        typer.Option("--model-retry-attempts"),
+    ] = None,
+    tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
+    quiet: Annotated[bool, typer.Option("--quiet")] = False,
+) -> None:
+    _validate_goal_or_exit(goal)
+    loaded = _load_config_or_exit(
+        config,
+        {
+            "model": model,
+            "base_url": base_url,
+            "reasoning_effort": reasoning_effort,
+            "max_steps": max_steps,
+            "model_retry_attempts": model_retry_attempts,
+            "enabled_tools": tool,
+        },
+    )
+    try:
+        log_path = _find_run_log(loaded.logs_dir, run_id)
+    except ValueError as exc:
+        _exit_run_log_error(exc)
+    if log_path is None:
+        console.print(f"Run log not found: {run_id}")
+        raise typer.Exit(1)
+
+    summary = _summarize_run_log_or_exit(log_path, run_id=run_id)
+    conversation = _summary_conversation(run_id, summary)
+    if not conversation:
+        console.print(f"Run log has no restorable goal: {run_id}")
+        raise typer.Exit(1)
+
+    resumed_run_id = str(uuid4())
+    logger = _create_run_logger_or_exit(loaded.logs_dir, resumed_run_id)
+    registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
+    trace = NullTraceSink() if quiet else ConsoleTraceSink(console)
+    try:
+        llm = LLMClient(loaded, trace=trace)
+    except MissingAPIKeyError as exc:
+        console.print(str(exc))
+        raise typer.Exit(1) from exc
+
+    def confirm(decision: PermissionDecision, action) -> bool:
+        reason = _display_text(decision.reason)
+        arguments = _display_text(action.arguments)
+        console.print(f"Tool requires confirmation: {action.tool_name}")
+        console.print(f"Reason: {reason}")
+        console.print(f"Arguments: {arguments}")
+        return typer.confirm("Allow this action?", default=False)
+
+    loop = AgentLoop(
+        config=loaded,
+        llm=llm,
+        registry=registry,
+        logger=logger,
+        confirmer=confirm,
+        ask_user=lambda question: typer.prompt(question),
+        run_id=resumed_run_id,
+        trace=trace,
+    )
+    state = loop.run(
+        goal,
+        conversation=conversation,
+        trace_context={"resumed_run_id": run_id},
+    )
+    console.print(f"Run id: {resumed_run_id}")
+    console.print(f"Status: {state.final_status}")
+    if getattr(state, "final_reason", None) is not None:
+        reason = _display_text(state.final_reason)
+        console.print(f"Reason: {reason}")
+    if state.final_answer is not None:
+        console.print(_display_text(state.final_answer))
+    console.print(f"Run log: {logger.path}")
+
+
 @app.command()
 def sessions(
     config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
@@ -776,20 +911,12 @@ def restore_run(
         )
         assistant_content = _summary_transcript_content(summary)
         if assistant_content:
-            metadata = {
-                "run_id": run_id,
-                "source": "run_log",
-                "status": summary["status"],
-            }
-            if summary["reason"]:
-                metadata["reason"] = summary["reason"]
-            if summary["last_model_error"]:
-                metadata["last_model_error"] = summary["last_model_error"]
-            if summary["last_tool_error"]:
-                metadata["last_tool_error"] = summary["last_tool_error"]
-            if summary["last_snapshot"]:
-                metadata["last_snapshot"] = summary["last_snapshot"]
-            store.append_transcript(session, "assistant", assistant_content, metadata)
+            store.append_transcript(
+                session,
+                "assistant",
+                assistant_content,
+                _summary_assistant_metadata(run_id, summary),
+            )
     except ValueError as exc:
         _exit_session_error(exc)
 

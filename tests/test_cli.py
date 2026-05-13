@@ -3899,6 +3899,106 @@ def test_restore_run_reports_log_discovery_failures(monkeypatch, tmp_path) -> No
     assert result.exception is None or not isinstance(result.exception, OSError)
 
 
+def test_resume_run_continues_from_run_snapshot(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    monkeypatch.setattr("agentskeleton.cli.uuid4", lambda: "resumed-run-fixed")
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    snapshot = {
+        "step_count": 1,
+        "observations": [
+            {
+                "call_id": "call-1",
+                "tool_name": "read_file",
+                "policy_decision": "allow",
+                "result": {
+                    "success": True,
+                    "payload": {"content": "alpha"},
+                    "summary": "read file",
+                    "error": None,
+                },
+            }
+        ],
+    }
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "finish the report"},
+        },
+        {
+            "type": "run_snapshot",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": snapshot,
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {
+                "status": "max_steps",
+                "reason": "Reached max_steps limit: 2",
+                "answer": None,
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    seen_goal: list[str] = []
+    seen_conversation: list[list[object]] = []
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            seen_goal.append(goal)
+            seen_conversation.append(list(conversation or []))
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": "resumed done",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        ["resume-run", "run-1", "continue from snapshot"],
+    )
+
+    assert result.exit_code == 0
+    assert seen_goal == ["continue from snapshot"]
+    assert [turn.content for turn in seen_conversation[0]] == [
+        "finish the report",
+        "Run stopped with status max_steps. Reason: Reached max_steps limit: 2",
+    ]
+    assert seen_conversation[0][1].metadata["last_snapshot"] == snapshot
+    assert "Run id: resumed-run-fixed" in result.stdout
+    assert "Status: completed" in result.stdout
+    assert "resumed done" in result.stdout
+    assert "Run log:" in result.stdout
+
+
 def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
