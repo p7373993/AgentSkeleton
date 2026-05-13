@@ -1,0 +1,26 @@
+name: tool-pack-coding-domain
+domain: tool_packs
+goal: Classify a coding request through the scenario-provided tool pack.
+config:
+  tool_modules:
+    - agentskeleton.domain_tools
+  enabled_tools:
+    - classify_domain
+actions:
+  - type: tool
+    tool: classify_domain
+    call_id: classify-coding-domain
+    arguments:
+      text: fix python test failure in the agent loop
+  - type: final
+    text: tool pack coding domain ok
+expect:
+  status: completed
+  answer: tool pack coding domain ok
+  observations: 1
+  observations_detail:
+    - tool: classify_domain
+      success: true
+      summary: classified coding
+      payload:
+        domain: coding

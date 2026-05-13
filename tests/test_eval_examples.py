@@ -34,7 +34,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "writing",
     ]
     assert result.passed is True
-    assert result.total == 49
+    assert result.total == 50
     assert result.failed_count == 0
     assert "artifact-from-input" in {item.scenario for item in result.results}
     assert "coding-edit-test" in {item.scenario for item in result.results}
@@ -43,6 +43,9 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         item.scenario for item in result.results
     }
     assert "invalid-tool-result" in {item.scenario for item in result.results}
+    assert "tool-pack-coding-domain" in {
+        item.scenario for item in result.results
+    }
     assert "writing-release-note" in {item.scenario for item in result.results}
     assert result.domains == {
         "artifacts": {"passed": 2, "failed": 0, "total": 2},
@@ -51,6 +54,6 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
         "interactive": {"passed": 2, "failed": 0, "total": 2},
         "reliability": {"passed": 34, "failed": 0, "total": 34},
-        "tool_packs": {"passed": 1, "failed": 0, "total": 1},
+        "tool_packs": {"passed": 2, "failed": 0, "total": 2},
         "writing": {"passed": 2, "failed": 0, "total": 2},
     }
