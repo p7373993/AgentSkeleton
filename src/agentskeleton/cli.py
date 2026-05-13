@@ -386,8 +386,8 @@ def run(
         raise typer.Exit(1) from exc
 
     def confirm(decision: PermissionDecision, action) -> bool:
-        reason = _bounded_display_text(str(decision.reason))
-        arguments = _bounded_display_text(str(action.arguments))
+        reason = _display_text(decision.reason)
+        arguments = _display_text(action.arguments)
         console.print(f"Tool requires confirmation: {action.tool_name}")
         console.print(f"Reason: {reason}")
         console.print(f"Arguments: {arguments}")
@@ -475,8 +475,8 @@ def chat(
         raise typer.Exit(1) from exc
 
     def confirm(decision: PermissionDecision, action) -> bool:
-        reason = _bounded_display_text(str(decision.reason))
-        arguments = _bounded_display_text(str(action.arguments))
+        reason = _display_text(decision.reason)
+        arguments = _display_text(action.arguments)
         console.print(f"Tool requires confirmation: {action.tool_name}")
         console.print(f"Reason: {reason}")
         console.print(f"Arguments: {arguments}")
@@ -892,6 +892,14 @@ def _bounded_run_log_text(value: str) -> str:
 
 def _bounded_display_text(value: str) -> str:
     return _bounded_run_log_text(value)
+
+
+def _display_text(value: object) -> str:
+    try:
+        text = str(value)
+    except Exception:
+        text = "<uninspectable>"
+    return _bounded_display_text(text)
 
 
 def _bounded_run_log_event(value: Any, depth: int = 0) -> Any:

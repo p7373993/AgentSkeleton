@@ -1261,6 +1261,65 @@ def test_run_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> N
     assert large_argument not in result.stdout
 
 
+def test_run_confirmation_prompt_handles_uninspectable_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+
+    class UninspectableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+        def __repr__(self) -> str:
+            raise RuntimeError("cannot repr")
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            self.confirmer = kwargs["confirmer"]
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            value = UninspectableValue()
+            decision = type("Decision", (), {"reason": value})()
+            action = type(
+                "Action",
+                (),
+                {
+                    "tool_name": "write_file",
+                    "arguments": {"payload": value},
+                },
+            )()
+            assert self.confirmer(decision, action) is False
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "denied",
+                    "final_answer": None,
+                    "final_reason": "user denied",
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "confirm"], input="n\n")
+
+    assert result.exit_code == 0
+    assert "Reason: <uninspectable>" in result.stdout
+    assert "Arguments: <uninspectable>" in result.stdout
+
+
 def test_run_persists_status_reason_when_no_final_answer(
     monkeypatch,
     tmp_path,
