@@ -3800,6 +3800,55 @@ def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None
     }
 
 
+def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "finish the report"},
+        },
+        {
+            "type": "run_error",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "model_error",
+                "error_type": "RuntimeError",
+                "error": "final model outage",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "model_error",
+                "reason": "Model call failed: RuntimeError",
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert result.exit_code == 0
+    session = SessionStore(tmp_path / "runs").load("work")
+    assert session.transcript[1].content == (
+        "Run stopped with status model_error. "
+        "Reason: Model call failed: RuntimeError "
+        "Last model error: RuntimeError - final model outage"
+    )
+
+
 def test_restore_run_imports_final_answer(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"

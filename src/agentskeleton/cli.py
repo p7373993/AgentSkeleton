@@ -673,32 +673,12 @@ def show_run(
         console.print(f"Steps: {summary['steps']}")
     if summary["model_retries"]:
         console.print(f"Model retries: {summary['model_retries']}")
-        last_model_retry = summary.get("last_model_retry")
-        if isinstance(last_model_retry, dict):
-            error_type_value = last_model_retry.get("error_type")
-            error_value = last_model_retry.get("error")
-            if error_type_value is not None and error_value is not None:
-                error_type = _display_text(error_type_value)
-                error = _display_text(error_value)
-                console.print(f"Last model retry: {error_type} - {error}")
-            elif error_type_value is not None:
-                console.print(
-                    f"Last model retry: {_display_text(error_type_value)}"
-                )
-            elif error_value is not None:
-                console.print(f"Last model retry: {_display_text(error_value)}")
-    last_model_error = summary.get("last_model_error")
-    if isinstance(last_model_error, dict):
-        error_type_value = last_model_error.get("error_type")
-        error_value = last_model_error.get("error")
-        if error_type_value is not None and error_value is not None:
-            error_type = _display_text(error_type_value)
-            error = _display_text(error_value)
-            console.print(f"Last model error: {error_type} - {error}")
-        elif error_type_value is not None:
-            console.print(f"Last model error: {_display_text(error_type_value)}")
-        elif error_value is not None:
-            console.print(f"Last model error: {_display_text(error_value)}")
+        retry_detail = _error_detail_text(summary.get("last_model_retry"))
+        if retry_detail:
+            console.print(f"Last model retry: {retry_detail}")
+    model_error_detail = _error_detail_text(summary.get("last_model_error"))
+    if model_error_detail:
+        console.print(f"Last model error: {model_error_detail}")
     if summary["tool_calls"]:
         console.print(
             f"Tool calls: {summary['tool_calls']} "
@@ -1019,8 +999,27 @@ def _summary_transcript_content(summary: dict[str, object]) -> str | None:
         reason = summary.get("reason")
         if isinstance(reason, str) and reason:
             content = f"{content} Reason: {reason}"
+        model_error_detail = _error_detail_text(summary.get("last_model_error"))
+        if model_error_detail:
+            content = f"{content} Last model error: {model_error_detail}"
         return content
 
+    return None
+
+
+def _error_detail_text(error_detail: object) -> str | None:
+    if not isinstance(error_detail, dict):
+        return None
+    error_type_value = error_detail.get("error_type")
+    error_value = error_detail.get("error")
+    if error_type_value is not None and error_value is not None:
+        error_type = _display_text(error_type_value)
+        error = _display_text(error_value)
+        return f"{error_type} - {error}"
+    if error_type_value is not None:
+        return _display_text(error_type_value)
+    if error_value is not None:
+        return _display_text(error_value)
     return None
 
 
