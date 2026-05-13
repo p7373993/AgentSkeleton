@@ -417,6 +417,100 @@ def test_registry_rejects_uninspectable_args_schema() -> None:
         registry.register(UninspectableSchemaTool())
 
 
+def test_registry_rejects_uninspectable_args_schema_property_names() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("property name unavailable")
+
+    cases = [UnencodableString("text"), UnstringableString("text")]
+    for property_name in cases:
+        class InvalidSchemaTool(EchoTool):
+            args_schema = {
+                "type": "object",
+                "properties": {property_name: {"type": "string"}},
+            }
+
+        registry = ToolRegistry()
+
+        with pytest.raises(
+            ValueError,
+            match="schema property names could not be inspected",
+        ):
+            registry.register(InvalidSchemaTool())
+
+
+def test_registry_rejects_uninspectable_args_schema_required_entries() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("required entry unavailable")
+
+    cases = [UnencodableString("text"), UnstringableString("text")]
+    for required_entry in cases:
+        class InvalidSchemaTool(EchoTool):
+            args_schema = {
+                "type": "object",
+                "properties": {"text": {"type": "string"}},
+                "required": [required_entry],
+            }
+
+        registry = ToolRegistry()
+
+        with pytest.raises(
+            ValueError,
+            match="schema required entries could not be inspected",
+        ):
+            registry.register(InvalidSchemaTool())
+
+
+def test_registry_rejects_uninspectable_args_schema_type_values() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("schema type unavailable")
+
+    cases = [
+        (
+            {"type": UnencodableString("object"), "properties": {}},
+            "schema type could not be inspected",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"value": {"type": UnstringableString("string")}},
+            },
+            "schema property value type could not be inspected",
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {
+                    "value": {"type": ["string", UnencodableString("null")]}
+                },
+            },
+            "schema property value type entries could not be inspected",
+        ),
+    ]
+    for candidate_schema, expected_error in cases:
+        class InvalidSchemaTool(EchoTool):
+            args_schema = candidate_schema
+
+        registry = ToolRegistry()
+
+        with pytest.raises(ValueError, match=expected_error):
+            registry.register(InvalidSchemaTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [

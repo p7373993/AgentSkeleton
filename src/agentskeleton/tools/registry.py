@@ -38,6 +38,10 @@ def _safe_text(value: object) -> str:
         return "<uninspectable>"
 
 
+def _is_uninspectable_text(value: str) -> bool:
+    return _utf8_size(value) is None or _safe_text(value) == "<uninspectable>"
+
+
 class ToolRegistry:
     def __init__(self, tools: Iterable[Tool] | None = None) -> None:
         self._tools: dict[str, Tool] = {}
@@ -58,7 +62,7 @@ class ToolRegistry:
         if TOOL_NAME_PATTERN.fullmatch(name) is None:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
         name_bytes = _utf8_size(name)
-        if name_bytes is None or _safe_text(name) == "<uninspectable>":
+        if _is_uninspectable_text(name):
             raise ValueError("Tool name could not be inspected")
         if name_bytes > MAX_TOOL_NAME_BYTES:
             raise ValueError("Tool name exceeds maximum size")
@@ -71,10 +75,7 @@ class ToolRegistry:
                 f"Tool {name} description cannot contain surrounding whitespace"
             )
         description_bytes = _utf8_size(tool.description)
-        if (
-            description_bytes is None
-            or _safe_text(tool.description) == "<uninspectable>"
-        ):
+        if _is_uninspectable_text(tool.description):
             raise ValueError(f"Tool {name} description could not be inspected")
         if description_bytes > MAX_TOOL_DESCRIPTION_BYTES:
             raise ValueError(f"Tool {name} description exceeds maximum size")
@@ -84,8 +85,7 @@ class ToolRegistry:
             raise ValueError(f"Tool {name} risk cannot be empty")
         if tool.risk.strip() != tool.risk:
             raise ValueError(f"Tool {name} risk cannot contain whitespace")
-        risk_bytes = _utf8_size(tool.risk)
-        if risk_bytes is None or _safe_text(tool.risk) == "<uninspectable>":
+        if _is_uninspectable_text(tool.risk):
             raise ValueError(f"Tool {name} risk could not be inspected")
         if tool.risk not in SUPPORTED_TOOL_RISKS:
             raise ValueError(
@@ -196,6 +196,12 @@ def _validate_schema_node_content(
                 raise ValueError(
                     f"Tool {tool_name} {label} type entries must be strings"
                 )
+            if any(
+                _is_uninspectable_text(item) for item in schema_type
+            ):
+                raise ValueError(
+                    f"Tool {tool_name} {label} type entries could not be inspected"
+                )
             if any(item not in SUPPORTED_JSON_SCHEMA_TYPES for item in schema_type):
                 raise ValueError(
                     f"Tool {tool_name} {label} type must be one of: "
@@ -205,6 +211,8 @@ def _validate_schema_node_content(
             raise ValueError(
                 f"Tool {tool_name} {label} type must be a string or list of strings"
             )
+        elif _is_uninspectable_text(schema_type):
+            raise ValueError(f"Tool {tool_name} {label} type could not be inspected")
         elif schema_type not in SUPPORTED_JSON_SCHEMA_TYPES:
             raise ValueError(
                 f"Tool {tool_name} {label} type must be one of: "
@@ -237,6 +245,10 @@ def _validate_schema_node_content(
                 raise ValueError(
                     f"Tool {tool_name} {label} property names must be strings"
                 )
+            if _is_uninspectable_text(property_name):
+                raise ValueError(
+                    f"Tool {tool_name} {label} property names could not be inspected"
+                )
             if not isinstance(property_schema, Mapping):
                 raise ValueError(
                     f"Tool {tool_name} {label} property {property_name} "
@@ -258,6 +270,10 @@ def _validate_schema_node_content(
         if not all(isinstance(item, str) for item in required):
             raise ValueError(
                 f"Tool {tool_name} {label} required entries must be strings"
+            )
+        if any(_is_uninspectable_text(item) for item in required):
+            raise ValueError(
+                f"Tool {tool_name} {label} required entries could not be inspected"
             )
         property_names = set(properties) if isinstance(properties, Mapping) else set()
         for item in required:
