@@ -1005,6 +1005,9 @@ def _summary_transcript_content(summary: dict[str, object]) -> str | None:
         model_error_detail = _error_detail_text(summary.get("last_model_error"))
         if model_error_detail:
             content = f"{content} Last model error: {model_error_detail}"
+        tool_error_detail = _tool_error_detail_text(summary.get("last_tool_error"))
+        if tool_error_detail:
+            content = f"{content} Last tool error: {tool_error_detail}"
         return content
 
     return None

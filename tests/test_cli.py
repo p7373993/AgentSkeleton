@@ -3897,6 +3897,56 @@ def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
     )
 
 
+def test_restore_run_imports_tool_error_details(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "debug failure"},
+        },
+        {
+            "type": "tool_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "tool_name": "shell",
+                "success": False,
+                "summary": "Command exited with 1",
+                "error": "Command failed",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "status": "tool_error",
+                "reason": "Command exited with 1",
+            },
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert result.exit_code == 0
+    session = SessionStore(tmp_path / "runs").load("work")
+    assert session.transcript[1].content == (
+        "Run stopped with status tool_error. "
+        "Reason: Command exited with 1 "
+        "Last tool error: shell - Command exited with 1"
+    )
+
+
 def test_restore_run_imports_final_answer(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
