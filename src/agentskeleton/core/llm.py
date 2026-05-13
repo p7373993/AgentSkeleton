@@ -410,7 +410,8 @@ class LLMClient:
                     raise LLMResponseError(
                         "Function call arguments are too deeply nested"
                     )
-                if _json_size(raw_arguments) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
+                arguments = _normalize_function_call_arguments(raw_arguments)
+                if _json_size(arguments) > MAX_FUNCTION_CALL_ARGUMENT_BYTES:
                     raise LLMResponseError(
                         "Function call arguments are too large "
                         f"(max {MAX_FUNCTION_CALL_ARGUMENT_BYTES} bytes)"
@@ -421,7 +422,7 @@ class LLMClient:
                 raise LLMResponseError(
                     "Function call arguments could not be inspected"
                 ) from exc
-            return raw_arguments
+            return arguments
         if isinstance(raw_arguments, str):
             argument_bytes = _utf8_size(raw_arguments)
             if argument_bytes is None:
@@ -542,6 +543,71 @@ def _safe_stripped_text(value: str) -> str | None:
     except Exception:
         return None
     return str.__str__(stripped)
+
+
+def _normalize_function_call_arguments(arguments: dict[Any, Any]) -> dict[str, Any]:
+    normalized = _normalize_function_call_argument_value(arguments)
+    if not isinstance(normalized, dict):
+        raise LLMResponseError("Function call arguments must decode to an object")
+    return normalized
+
+
+def _normalize_function_call_argument_value(
+    value: Any,
+    seen: set[int] | None = None,
+    depth: int = 0,
+) -> Any:
+    if depth > MAX_JSON_SAFE_DEPTH:
+        raise LLMResponseError("Function call arguments are too deeply nested")
+    if isinstance(value, str):
+        if _utf8_size(value) is None:
+            raise LLMResponseError("Function call arguments could not be inspected")
+        return str.__str__(value)
+    if value is None or isinstance(value, int | float | bool):
+        return value
+
+    seen = seen or set()
+    if isinstance(value, dict):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            safe_items: dict[str, Any] = {}
+            for key, item in value.items():
+                if not isinstance(key, str):
+                    raise LLMResponseError(
+                        "Function call argument names must be strings"
+                    )
+                if _utf8_size(key) is None:
+                    raise LLMResponseError(
+                        "Function call arguments could not be inspected"
+                    )
+                safe_items[str.__str__(key)] = (
+                    _normalize_function_call_argument_value(
+                        item,
+                        seen,
+                        depth + 1,
+                    )
+                )
+            return safe_items
+        finally:
+            seen.remove(marker)
+
+    if isinstance(value, list | tuple):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [
+                _normalize_function_call_argument_value(item, seen, depth + 1)
+                for item in value
+            ]
+        finally:
+            seen.remove(marker)
+
+    return _safe_text(value)
 
 
 def _normalize_context_item(item: dict[str, Any]) -> dict[str, Any] | None:

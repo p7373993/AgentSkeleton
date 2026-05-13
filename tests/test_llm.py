@@ -436,6 +436,38 @@ def test_llm_client_serializes_mapping_function_call_arguments_for_context(
     ]
 
 
+def test_llm_client_normalizes_mapping_function_call_argument_text_subclasses(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output={
+            "type": "function_call",
+            "name": "read_file",
+            "arguments": {
+                StickyString("path"): StickyString("README.md"),
+                "tags": [StickyString("docs")],
+            },
+            "call_id": "call-1",
+        },
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, ToolCallAction)
+    key = next(key for key in action.arguments if key == "path")
+    assert type(key) is str
+    assert action.arguments["path"] == "README.md"
+    assert type(action.arguments["path"]) is str
+    assert action.arguments["tags"] == ["docs"]
+    assert type(action.arguments["tags"][0]) is str
+
+
 def test_llm_client_serializes_uninspectable_response_context_item_types(
     tmp_path,
 ) -> None:
