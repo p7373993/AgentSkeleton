@@ -2570,7 +2570,73 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
         "tool_calls": 0,
         "tool_failures": 0,
         "last_tool_error": None,
+        "last_snapshot": None,
         "log": str(log_path.resolve()),
+    }
+
+
+def test_show_run_summarizes_latest_run_snapshot_as_json(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_snapshot",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {
+                "step_count": 1,
+                "observations": [
+                    {
+                        "call_id": "call-1",
+                        "tool_name": "read_file",
+                        "policy_decision": "allow",
+                        "result": {
+                            "success": True,
+                            "payload": {"content": "alpha"},
+                            "summary": "read file",
+                            "error": None,
+                        },
+                    }
+                ],
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 2,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["last_snapshot"] == {
+        "step_count": 1,
+        "observations": [
+            {
+                "call_id": "call-1",
+                "tool_name": "read_file",
+                "policy_decision": "allow",
+                "result": {
+                    "success": True,
+                    "payload": {"content": "alpha"},
+                    "summary": "read file",
+                    "error": None,
+                },
+            }
+        ],
     }
 
 
@@ -3449,6 +3515,7 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
                 "tool_calls": 0,
                 "tool_failures": 0,
                 "last_tool_error": None,
+                "last_snapshot": None,
                 "log": str((second_dir / "run-new.jsonl").resolve()),
             }
         ]

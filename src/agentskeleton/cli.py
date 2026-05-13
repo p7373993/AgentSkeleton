@@ -868,6 +868,12 @@ def _summarize_run_log(
         and isinstance(event.get("payload"), dict)
         and event["payload"].get("status") == "model_error"
     ]
+    snapshot_events = [
+        event
+        for event in events
+        if event.get("type") == "run_snapshot"
+        and isinstance(event.get("payload"), dict)
+    ]
     failed_tool_payloads = [
         event["payload"]
         for event in tool_events
@@ -900,6 +906,12 @@ def _summarize_run_log(
             "summary": _run_log_text_value(last_failed.get("summary")),
             "error": _run_log_text_value(last_failed.get("error")),
         }
+    last_snapshot = None
+    if snapshot_events:
+        bounded_snapshot = _bounded_run_log_event(snapshot_events[-1])
+        snapshot_payload = bounded_snapshot.get("payload")
+        if isinstance(snapshot_payload, dict):
+            last_snapshot = snapshot_payload
     resolved_run_id = run_id
     if resolved_run_id is None and final_event and final_event.get("run_id"):
         resolved_run_id = str(final_event["run_id"])
@@ -924,6 +936,7 @@ def _summarize_run_log(
         "tool_calls": len(tool_events),
         "tool_failures": len(failed_tool_payloads),
         "last_tool_error": last_tool_error,
+        "last_snapshot": last_snapshot,
         "log": str(log_path.resolve()),
     }
     if include_events:
