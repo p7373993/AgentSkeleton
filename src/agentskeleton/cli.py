@@ -671,6 +671,8 @@ def show_run(
         console.print(f"Conversation turns: {summary['conversation_turns']}")
     if summary["steps"] is not None:
         console.print(f"Steps: {summary['steps']}")
+    if summary["model_retries"]:
+        console.print(f"Model retries: {summary['model_retries']}")
     if summary["tool_calls"]:
         console.print(
             f"Tool calls: {summary['tool_calls']} "
@@ -841,6 +843,12 @@ def _summarize_run_log(
         if event.get("type") == "tool_finished"
         and isinstance(event.get("payload"), dict)
     ]
+    model_retry_events = [
+        event
+        for event in events
+        if event.get("type") == "model_retry"
+        and isinstance(event.get("payload"), dict)
+    ]
     failed_tool_payloads = [
         event["payload"]
         for event in tool_events
@@ -872,6 +880,7 @@ def _summarize_run_log(
         "reason": _run_log_text_value(final_payload.get("reason")),
         "answer": _run_log_text_value(final_payload.get("answer")),
         "steps": step,
+        "model_retries": len(model_retry_events),
         "tool_calls": len(tool_events),
         "tool_failures": len(failed_tool_payloads),
         "last_tool_error": last_tool_error,
