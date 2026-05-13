@@ -2560,6 +2560,7 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
         "workspace": None,
         "session": None,
         "resumed": None,
+        "resumed_run_id": None,
         "conversation_turns": None,
         "status": "completed",
         "reason": "finished cleanly",
@@ -2639,6 +2640,78 @@ def test_show_run_summarizes_latest_run_snapshot_as_json(
             }
         ],
     }
+
+
+def test_show_run_reports_resumed_source_run_id(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-2.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-2",
+            "step": 0,
+            "payload": {
+                "goal": "continue",
+                "resumed": True,
+                "resumed_run_id": "run-1",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-2",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "continued"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-2", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["resumed"] is True
+    assert payload["resumed_run_id"] == "run-1"
+
+
+def test_show_run_prints_resumed_source_run_id(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-2.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-2",
+            "step": 0,
+            "payload": {
+                "goal": "continue",
+                "resumed": True,
+                "resumed_run_id": "run-1",
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-2",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "continued"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-2"])
+
+    assert result.exit_code == 0
+    assert "Resumed from: run-1" in result.stdout
 
 
 def test_show_run_prints_latest_run_snapshot_summary(
@@ -3545,6 +3618,7 @@ def test_list_runs_can_output_recent_runs_as_json(monkeypatch, tmp_path) -> None
                 "workspace": None,
                 "session": None,
                 "resumed": None,
+                "resumed_run_id": None,
                 "conversation_turns": None,
                 "status": "max_steps",
                 "reason": "step limit",
