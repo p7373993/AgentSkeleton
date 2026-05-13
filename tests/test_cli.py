@@ -3895,6 +3895,12 @@ def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
         "Reason: Model call failed: RuntimeError "
         "Last model error: RuntimeError - final model outage (attempt 2/2)"
     )
+    assert session.transcript[1].metadata["last_model_error"] == {
+        "attempt": 2,
+        "max_attempts": 2,
+        "error_type": "RuntimeError",
+        "error": "final model outage",
+    }
 
 
 def test_restore_run_imports_tool_error_details(monkeypatch, tmp_path) -> None:
@@ -3945,6 +3951,11 @@ def test_restore_run_imports_tool_error_details(monkeypatch, tmp_path) -> None:
         "Reason: Command exited with 1 "
         "Last tool error: shell - Command exited with 1"
     )
+    assert session.transcript[1].metadata["last_tool_error"] == {
+        "tool_name": "shell",
+        "summary": "Command exited with 1",
+        "error": "Command failed",
+    }
 
 
 def test_restore_run_imports_final_answer(monkeypatch, tmp_path) -> None:

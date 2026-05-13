@@ -784,6 +784,10 @@ def restore_run(
             }
             if summary["reason"]:
                 metadata["reason"] = summary["reason"]
+            if summary["last_model_error"]:
+                metadata["last_model_error"] = summary["last_model_error"]
+            if summary["last_tool_error"]:
+                metadata["last_tool_error"] = summary["last_tool_error"]
             store.append_transcript(session, "assistant", assistant_content, metadata)
     except ValueError as exc:
         _exit_session_error(exc)
