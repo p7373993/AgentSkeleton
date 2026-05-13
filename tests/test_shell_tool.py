@@ -11,6 +11,11 @@ def command_for(code: str) -> str:
     return subprocess.list2cmdline([sys.executable, "-c", code])
 
 
+class UnencodableString(str):
+    def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot encode")
+
+
 def test_shell_tool_captures_stdout(tmp_path: Path) -> None:
     result = ShellTool().execute(
         {"command": command_for("print('hello')")},
@@ -101,10 +106,6 @@ def test_shell_tool_rejects_unencodable_command(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    class UnencodableString(str):
-        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
-            raise RuntimeError("cannot encode")
-
     def fake_run(*args, **kwargs):
         raise AssertionError("subprocess.run should not be called")
 
@@ -119,6 +120,31 @@ def test_shell_tool_rejects_unencodable_command(
     assert result.error == "Command invalid"
     assert result.summary == "Command invalid: command could not be inspected"
     assert result.payload == {}
+
+
+def test_shell_tool_serializes_unencodable_process_output(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def fake_run(*args, **kwargs):
+        return SimpleNamespace(
+            returncode=0,
+            stdout=UnencodableString("sk-secret123"),
+            stderr=UnencodableString("stderr-secret"),
+        )
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": "echo test"},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is True
+    assert result.payload["stdout"] == "<uninspectable>"
+    assert result.payload["stderr"] == "<uninspectable>"
+    assert "sk-secret123" not in str(result.payload)
+    assert "stderr-secret" not in str(result.payload)
 
 
 def test_shell_tool_times_out(tmp_path: Path) -> None:

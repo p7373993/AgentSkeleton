@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 
 MAX_COMMAND_BYTES = 16_384
+UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
 def _exception_text(exc: BaseException) -> str:
@@ -26,7 +27,10 @@ def _truncate(text: str | bytes | None, max_bytes: int) -> tuple[str, bool]:
         text = ""
     if isinstance(text, bytes):
         text = text.decode("utf-8", errors="replace")
-    encoded = text.encode("utf-8")
+    try:
+        encoded = text.encode("utf-8")
+    except Exception:
+        return UNINSPECTABLE_VALUE, False
     if len(encoded) <= max_bytes:
         return text, False
     return encoded[:max_bytes].decode("utf-8", errors="ignore"), True
