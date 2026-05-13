@@ -117,8 +117,11 @@ def _response_output_items(response: Any) -> list[Any]:
 
 def _response_final_text(response: Any, output: list[Any]) -> str:
     output_text = _read_attr(response, "output_text", "")
-    if output_text:
-        return _bounded_final_text(str(output_text))
+    if isinstance(output_text, str):
+        if output_text:
+            return _bounded_final_text(output_text)
+    elif output_text is not None:
+        return _bounded_final_text(_safe_text(output_text))
 
     parts: list[str] = []
     for item in output:
