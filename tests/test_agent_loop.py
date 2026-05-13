@@ -3023,3 +3023,45 @@ def test_loop_sanitizes_unstringable_conversation_message_fields(
 
     assert state.final_status == "completed"
     assert seen_conversation == [[("<uninspectable>", "<uninspectable>", {})]]
+
+
+def test_loop_sanitizes_uninspectable_conversation_metadata(
+    tmp_path: Path,
+) -> None:
+    class ExplodingMetadata(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("metadata length unavailable")
+
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("metadata items unavailable")
+
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in state.conversation
+                ]
+            )
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+    ).run(
+        "continue",
+        conversation=[
+            {
+                "role": "user",
+                "content": "remember",
+                "metadata": ExplodingMetadata({"api_key": "sk-secret123"}),
+            }
+        ],
+    )
+
+    assert state.final_status == "completed"
+    assert seen_conversation == [[("user", "remember", {})]]

@@ -274,7 +274,7 @@ class AgentLoop:
                 _conversation_message(
                     turn.get("role", "user"),
                     turn.get("content", ""),
-                    turn.get("metadata") or {},
+                    turn.get("metadata"),
                 )
             )
         return normalized
@@ -1019,10 +1019,11 @@ def _conversation_message(
     content: object,
     metadata: object,
 ) -> ConversationMessage:
+    safe_metadata = _bounded_json_log_safe(metadata)
     return ConversationMessage(
         role=_safe_text(role),
         content=_safe_text(content),
-        metadata=metadata if isinstance(metadata, dict) else {},
+        metadata=safe_metadata if isinstance(safe_metadata, dict) else {},
     )
 
 
