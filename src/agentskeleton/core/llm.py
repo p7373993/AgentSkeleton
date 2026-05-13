@@ -142,15 +142,27 @@ def _message_content_text_parts(content: Any) -> list[str]:
     if isinstance(content, str):
         return [content]
     if isinstance(content, list | tuple):
-        item_limit = _message_content_part_limit(len(content))
-        text_parts = [
-            text
-            for part in content[:item_limit]
-            if (text := _message_content_part_text(part)) is not None
-        ]
-        omitted = len(content) - item_limit
-        if omitted > 0:
+        text_parts = []
+        pending_text = None
+        has_pending_text = False
+        omitted = 0
+        for index, part in enumerate(content):
+            text = _message_content_part_text(part)
+            if index < MAX_MESSAGE_CONTENT_PARTS - 1:
+                if text is not None:
+                    text_parts.append(text)
+                continue
+            if index == MAX_MESSAGE_CONTENT_PARTS - 1:
+                pending_text = text
+                has_pending_text = text is not None
+                continue
+            if omitted == 0:
+                omitted += 1
+            omitted += 1
+        if omitted:
             text_parts.append(f"[truncated {omitted} content parts]")
+        elif has_pending_text:
+            text_parts.append(pending_text)
         return text_parts
     text = _message_content_part_text(content)
     return [] if text is None else [text]
@@ -169,12 +181,6 @@ def _message_content_part_text(part: Any) -> str | None:
     if part_type in (None, "output_text", "text"):
         return text
     return None
-
-
-def _message_content_part_limit(total_items: int) -> int:
-    if total_items <= MAX_MESSAGE_CONTENT_PARTS:
-        return total_items
-    return MAX_MESSAGE_CONTENT_PARTS - 1
 
 
 class LLMClient:
