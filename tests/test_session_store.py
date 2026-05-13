@@ -11,6 +11,11 @@ class UnencodableString(str):
         raise RuntimeError("cannot encode")
 
 
+class UnstringableValue:
+    def __str__(self) -> str:
+        raise RuntimeError("cannot stringify")
+
+
 def test_session_store_returns_empty_session_when_missing(tmp_path) -> None:
     session = SessionStore(tmp_path).load("default")
 
@@ -885,6 +890,17 @@ def test_session_store_sanitizes_session_names(tmp_path) -> None:
     session = store.load("../bad name")
     assert [turn.content for turn in session.transcript] == ["safe"]
     assert not (tmp_path.parent / "bad name" / "transcript.jsonl").exists()
+
+
+def test_session_store_sanitizes_uninspectable_session_names(tmp_path) -> None:
+    store = SessionStore(tmp_path)
+    raw_name = UnstringableValue()
+
+    store.append_transcript(raw_name, "user", "safe")  # type: ignore[arg-type]
+
+    session = store.load(raw_name)  # type: ignore[arg-type]
+    assert [turn.content for turn in session.transcript] == ["safe"]
+    assert (tmp_path / "sessions" / "default" / "transcript.jsonl").is_file()
 
 
 @pytest.mark.parametrize(

@@ -329,7 +329,10 @@ class SessionStore:
         return session_dir
 
     def _safe_name(self, name: str) -> str:
-        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")
+        name_text = _safe_text(name)
+        if name_text == _UNINSPECTABLE_VALUE:
+            name_text = "default"
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name_text).strip("._")
         safe_name = safe_name or "default"
         if len(safe_name) > _MAX_SESSION_DIR_NAME_LENGTH:
             digest = hashlib.sha256(safe_name.encode("utf-8")).hexdigest()[:12]
