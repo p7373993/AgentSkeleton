@@ -1147,6 +1147,15 @@ def test_load_tools_from_module_reports_missing_module() -> None:
         load_tools_from_modules(["missing_tools"])
 
 
+def test_load_tools_from_module_reports_unstringable_missing_module_name() -> None:
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("module name unavailable")
+
+    with pytest.raises(ValueError, match="Tool module not found: missing_tools"):
+        load_tools_from_modules([UnstringableString("missing_tools")])
+
+
 def test_load_tools_from_module_rejects_non_string_module_name() -> None:
     with pytest.raises(ValueError, match="Tool module name must be a string"):
         load_tools_from_modules([123])

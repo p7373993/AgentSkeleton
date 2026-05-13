@@ -47,8 +47,8 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     names = module_names or []
     if len(names) > MAX_TOOL_MODULES:
         raise ValueError(f"Cannot load more than {MAX_TOOL_MODULES} tool modules")
-    for module_name in names:
-        _validate_module_name(module_name)
+    for raw_module_name in names:
+        module_name = _validate_module_name(raw_module_name)
         try:
             _evict_tool_module_cache(module_name)
             module = importlib.import_module(module_name)
@@ -103,7 +103,7 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     return tools
 
 
-def _validate_module_name(module_name: object) -> None:
+def _validate_module_name(module_name: object) -> str:
     if not isinstance(module_name, str):
         raise ValueError("Tool module name must be a string")
     module_name_bytes = _utf8_size(module_name)
@@ -123,6 +123,7 @@ def _validate_module_name(module_name: object) -> None:
         raise ValueError("Tool module name cannot contain whitespace")
     if any(not part.isidentifier() for part in parts):
         raise ValueError("Tool module name must be a dotted Python module path")
+    return str.__str__(module_name)
 
 
 def _evict_tool_module_cache(module_name: str) -> None:
