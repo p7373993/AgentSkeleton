@@ -999,9 +999,9 @@ def _duplicate_batch_call_id(tool_calls: list[object]) -> str | None:
         normalized_call_id = _safe_stripped_text(call_id)
         if normalized_call_id is None or not normalized_call_id:
             continue
-        if call_id in seen:
+        if normalized_call_id in seen:
             return call_id
-        seen.add(call_id)
+        seen.add(normalized_call_id)
     return None
 
 

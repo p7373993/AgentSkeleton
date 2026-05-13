@@ -1401,6 +1401,38 @@ def test_loop_rejects_unstringable_duplicate_batch_call_id_without_raising(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_unhashable_duplicate_batch_call_id_without_raising(
+    tmp_path: Path,
+) -> None:
+    class UnhashableString(str):
+        def __hash__(self) -> int:
+            raise RuntimeError("call id hash unavailable")
+
+    logger = MemoryLogger()
+    call_id = UnhashableString("call-1")
+    try:
+        state = make_loop(
+            tmp_path,
+            [
+                ToolCallBatchAction(
+                    tool_calls=[
+                        ToolCallAction("record", {"value": "x"}, call_id),
+                        ToolCallAction("record", {"value": "y"}, call_id),
+                    ]
+                )
+            ],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording invalid batch: {exc!r}")
+
+    reason = "Model returned invalid tool call batch: duplicate call_id: call-1"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.observations == []
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_rejects_batch_tool_call_metadata_before_duplicate_check(
     tmp_path: Path,
 ) -> None:
