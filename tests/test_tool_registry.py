@@ -825,6 +825,36 @@ def test_load_tools_from_module_reports_register_tools_failures(
         load_tools_from_modules(["failing_register_tools"])
 
 
+def test_load_tools_from_module_reports_unstringable_register_tools_failures(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    module_path = tmp_path / "unstringable_register_tools.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "class UnstringableError(Exception):",
+                "    def __str__(self):",
+                "        raise RuntimeError('message unavailable')",
+                "",
+                "def register_tools(registry):",
+                "    raise UnstringableError()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Tool module unstringable_register_tools register_tools failed: "
+            "UnstringableError"
+        ),
+    ):
+        load_tools_from_modules(["unstringable_register_tools"])
+
+
 def test_load_tools_from_module_requires_tool_provider(tmp_path, monkeypatch) -> None:
     module_path = tmp_path / "empty_tools.py"
     module_path.write_text("VALUE = 1\n", encoding="utf-8")

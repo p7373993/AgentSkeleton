@@ -10,6 +10,13 @@ MAX_TOOL_MODULE_NAME_BYTES = 512
 MAX_LOADED_TOOLS = 128
 
 
+def _exception_text(exc: BaseException) -> str:
+    try:
+        return str(exc)
+    except Exception:
+        return type(exc).__name__
+
+
 def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
     tools: list[Tool] = []
     names = module_names or []
@@ -32,12 +39,13 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
             ) from exc
         except ImportError as exc:
             raise ValueError(
-                f"Tool module {module_name} could not be imported: {exc}"
+                f"Tool module {module_name} could not be imported: "
+                f"{_exception_text(exc)}"
             ) from exc
         except Exception as exc:
             raise ValueError(
                 f"Tool module {module_name} could not be imported: "
-                f"{type(exc).__name__}: {exc}"
+                f"{type(exc).__name__}: {_exception_text(exc)}"
             ) from exc
 
         module_tools = getattr(module, "TOOLS", None)
@@ -63,7 +71,7 @@ def load_tools_from_modules(module_names: list[str] | None) -> list[Tool]:
             except Exception as exc:
                 raise ValueError(
                     f"Tool module {module_name} register_tools failed: "
-                    f"{type(exc).__name__}: {exc}"
+                    f"{type(exc).__name__}: {_exception_text(exc)}"
                 ) from exc
             _append_loaded_tools(tools, registry.all())
 
