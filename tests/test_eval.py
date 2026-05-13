@@ -353,6 +353,38 @@ def test_run_scenario_preserves_lf_newlines_in_declared_files(
     )
 
 
+def test_eval_scenario_text_coercion_handles_unstringable_values() -> None:
+    class UnstringableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+    value = UnstringableValue()
+
+    assert eval_module._parse_file_content("data/input.txt", value) == (
+        "<uninspectable>"
+    )
+    assert eval_module._parse_files({value: value}) == {
+        "<uninspectable>": "<uninspectable>"
+    }
+    assert eval_module._parse_user_answers([value]) == ["<uninspectable>"]
+    assert eval_module._parse_string_list([value], "Scenario contents") == [
+        "<uninspectable>"
+    ]
+
+    conversation = eval_module._parse_conversation(
+        [{"role": value, "content": value}]
+    )
+    assert conversation[0].role == "<uninspectable>"
+    assert conversation[0].content == "<uninspectable>"
+
+    final_action = eval_module._parse_action(
+        {"type": "final", "text": value, "status": value},
+        0,
+    )
+    assert final_action.text == "<uninspectable>"
+    assert final_action.status == "<uninspectable>"
+
+
 def test_run_scenario_reports_failed_expectations(tmp_path: Path) -> None:
     scenario_path = tmp_path / "mismatch.yaml"
     scenario_path.write_text(

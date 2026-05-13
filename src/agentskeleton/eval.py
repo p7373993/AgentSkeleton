@@ -26,6 +26,7 @@ from agentskeleton.tools.registry import ToolRegistry
 RegistryFactory = Callable[[RunConfig], ToolRegistry]
 SUITE_MANIFEST_NAMES = {"suite.yaml", "suite.yml"}
 MAX_SCENARIO_FILE_BYTES = 2_097_152
+UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
 @dataclass(frozen=True)
@@ -240,8 +241,8 @@ def load_scenario(path: Path) -> Scenario:
     conversation = _parse_conversation(raw.get("conversation", []))
     name = raw.get("name") or path.stem
     return Scenario(
-        name=str(name),
-        domain=str(raw.get("domain") or "general"),
+        name=_safe_text(name),
+        domain=_safe_text(raw.get("domain") or "general"),
         goal=goal,
         actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],
         expect=expect,
@@ -391,7 +392,7 @@ def _parse_required_domains(raw: object) -> list[str]:
         raise ValueError("Suite required_domains must be a list")
     domains: list[str] = []
     for item in raw:
-        domain = str(item)
+        domain = _safe_text(item)
         if not domain.strip():
             raise ValueError("Suite required_domains cannot contain empty names")
         domains.append(domain)
@@ -401,15 +402,16 @@ def _parse_required_domains(raw: object) -> list[str]:
 def _parse_files(raw: object) -> dict[str, str]:
     if not isinstance(raw, dict):
         raise ValueError("Scenario files must be a mapping")
-    return {
-        str(path): _parse_file_content(str(path), content)
-        for path, content in raw.items()
-    }
+    files: dict[str, str] = {}
+    for path, content in raw.items():
+        path_text = _safe_text(path)
+        files[path_text] = _parse_file_content(path_text, content)
+    return files
 
 
 def _parse_file_content(path: str, raw: object) -> str:
     if not isinstance(raw, dict):
-        return str(raw)
+        return _safe_text(raw)
     repeat = raw.get("repeat")
     count = raw.get("count")
     if not isinstance(repeat, str):
@@ -436,7 +438,7 @@ def _parse_user_answers(raw: object) -> list[str]:
         return []
     if not isinstance(raw, list):
         raise ValueError("Scenario user_answers must be a list")
-    return [str(answer) for answer in raw]
+    return [_safe_text(answer) for answer in raw]
 
 
 def _parse_conversation(raw: object) -> list[ConversationMessage]:
@@ -458,8 +460,8 @@ def _parse_conversation(raw: object) -> list[ConversationMessage]:
             )
         conversation.append(
             ConversationMessage(
-                role=str(role),
-                content=str(content),
+                role=_safe_text(role),
+                content=_safe_text(content),
                 metadata=dict(metadata),
             )
         )
@@ -516,7 +518,7 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
         try:
             target = resolve_workspace_path(workspace, requested_path)
         except PathSecurityError as exc:
-            raise ValueError(str(exc)) from exc
+            raise ValueError(_safe_text(exc)) from exc
         try:
             parent_exists = target.parent.exists()
         except OSError as exc:
@@ -572,7 +574,7 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
     if action_type == "final":
         text = raw.get("text", "")
         status = raw.get("status", "completed")
-        return FinalAction(text=str(text), status=str(status))
+        return FinalAction(text=_safe_text(text), status=_safe_text(status))
 
     if action_type == "tool":
         return _parse_tool_call(raw, f"Scenario action {index + 1}", index + 1)
@@ -604,10 +606,12 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
         )
 
     if action_type == "error":
-        return ScriptedModelError(message=str(raw.get("message", "")))
+        return ScriptedModelError(message=_safe_text(raw.get("message", "")))
 
     if action_type == "invalid":
-        return ScriptedInvalidAction(type_name=str(raw.get("type_name", "unexpected")))
+        return ScriptedInvalidAction(
+            type_name=_safe_text(raw.get("type_name", "unexpected"))
+        )
 
     if action_type == "assert_conversation":
         return ScriptedConversationAssertion(
@@ -623,7 +627,7 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
 def _parse_string_list(raw: object, label: str) -> list[str]:
     if not isinstance(raw, list):
         raise ValueError(f"{label} must be a list")
-    return [str(item) for item in raw]
+    return [_safe_text(item) for item in raw]
 
 
 def _assert_conversation_contents(
@@ -656,7 +660,7 @@ def _parse_tool_call(
     return ToolCallAction(
         tool_name=tool_name,
         arguments=dict(arguments),
-        call_id=str(call_id),
+        call_id=_safe_text(call_id),
     )
 
 
@@ -709,11 +713,11 @@ def _expect_files(
         return
 
     for requested_path, expected_content in raw_files.items():
-        path_text = str(requested_path)
+        path_text = _safe_text(requested_path)
         try:
             target = resolve_workspace_path(workspace, path_text)
         except PathSecurityError as exc:
-            failures.append(str(exc))
+            failures.append(_safe_text(exc))
             continue
         try:
             target_exists = target.exists()
@@ -754,7 +758,7 @@ def _expect_files(
                 f"file {path_text} exceeds {MAX_SCENARIO_FILE_BYTES} bytes"
             )
             continue
-        expected_text = str(expected_content)
+        expected_text = _safe_text(expected_content)
         if actual_content != expected_text:
             failures.append(
                 f"file {path_text} expected {expected_text!r} "
@@ -974,3 +978,10 @@ def _mapping_contains(
         elif actual_value != expected_value:
             return False
     return True
+
+
+def _safe_text(value: object) -> str:
+    try:
+        return str(value)
+    except Exception:
+        return UNINSPECTABLE_VALUE
