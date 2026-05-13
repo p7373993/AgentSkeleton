@@ -61,7 +61,7 @@ class ConsoleTraceSink:
         if name == "llm_request":
             instructions = payload.get("instructions_preview")
             lines = []
-            if instructions:
+            if _has_trace_value(instructions):
                 instructions_text = preview(instructions)
                 if instructions_text != self._last_instructions:
                     self._last_instructions = instructions_text

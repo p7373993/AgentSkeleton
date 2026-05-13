@@ -202,6 +202,30 @@ def test_console_trace_sink_preserves_lengthless_session_payload() -> None:
     assert "sk-secret123" not in output
 
 
+def test_console_trace_sink_preserves_lengthless_instruction_preview() -> None:
+    class ExplodingInstructionPreview(str):
+        def __len__(self) -> int:
+            raise RuntimeError("instructions length unavailable")
+
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "llm_request",
+        {
+            "instructions_preview": ExplodingInstructionPreview(
+                "Use only registered tools."
+            ),
+            "input_preview": "hello",
+            "tool_names": [],
+        },
+    )
+
+    output = console.export_text()
+    assert "[llm sys] Use only registered tools." in output
+    assert "[llm ->]" in output
+
+
 def test_console_trace_sink_bounds_large_llm_tool_list() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)
