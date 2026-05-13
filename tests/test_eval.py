@@ -17,6 +17,11 @@ from agentskeleton.tools.registry import ToolRegistry
 from agentskeleton.tools.user import AskUserTool
 
 
+class UnencodableString(str):
+    def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot encode")
+
+
 def test_run_scenario_executes_scripted_actions_and_checks_expectations(
     tmp_path: Path,
 ) -> None:
@@ -1692,6 +1697,55 @@ def test_load_scenario_rejects_yaml_that_grows_after_stat(
         assert str(exc) == f"Scenario file exceeds 10 bytes: {scenario_path}"
     else:
         raise AssertionError("Expected scenario file growth to fail")
+
+
+def test_load_scenario_reports_unencodable_yaml_text(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "unencodable.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    original_read_text = Path.read_text
+
+    def unencodable_read_text(path: Path, *args, **kwargs) -> str:
+        if path == scenario_path:
+            return UnencodableString("goal: finish\n")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", unencodable_read_text)
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == f"Scenario file could not be inspected: {scenario_path}"
+    else:
+        raise AssertionError("Expected unencodable scenario text to fail")
+
+
+def test_load_scenario_rejects_unencodable_repeated_workspace_file() -> None:
+    try:
+        eval_module._parse_file_content(  # noqa: SLF001
+            "data/input.txt",
+            {"repeat": UnencodableString("x"), "count": 1},
+        )
+    except ValueError as exc:
+        assert str(exc) == (
+            "Scenario file data/input.txt repeat could not be inspected"
+        )
+    else:
+        raise AssertionError("Expected unencodable repeated fixture to fail")
 
 
 def test_load_scenario_requires_expectations(tmp_path: Path) -> None:

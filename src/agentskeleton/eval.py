@@ -191,6 +191,13 @@ def _path_is_file_or_error(path: Path, label: str) -> bool:
         raise ValueError(f"{label} could not be checked: {path}") from exc
 
 
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
+
+
 def _load_yaml_document(path: Path, label: str) -> object:
     if not _path_is_file_or_error(path, label):
         raise ValueError(f"{label} must be a file: {path}")
@@ -206,7 +213,10 @@ def _load_yaml_document(path: Path, label: str) -> object:
         raise ValueError(f"{label} could not be read as UTF-8: {path}") from exc
     except OSError as exc:
         raise ValueError(f"{label} could not be read: {path}") from exc
-    if len(text.encode("utf-8")) > MAX_SCENARIO_FILE_BYTES:
+    text_bytes = _utf8_size(text)
+    if text_bytes is None:
+        raise ValueError(f"{label} could not be inspected: {path}")
+    if text_bytes > MAX_SCENARIO_FILE_BYTES:
         raise ValueError(f"{label} exceeds {MAX_SCENARIO_FILE_BYTES} bytes: {path}")
     try:
         return yaml.safe_load(text) or {}
@@ -420,7 +430,10 @@ def _parse_file_content(path: str, raw: object) -> str:
         raise ValueError(
             f"Scenario file {path} count must be a non-negative integer"
         )
-    if len(repeat.encode("utf-8")) * count > MAX_SCENARIO_FILE_BYTES:
+    repeat_bytes = _utf8_size(repeat)
+    if repeat_bytes is None:
+        raise ValueError(f"Scenario file {path} repeat could not be inspected")
+    if repeat_bytes * count > MAX_SCENARIO_FILE_BYTES:
         raise ValueError(
             f"Scenario file {path} exceeds {MAX_SCENARIO_FILE_BYTES} bytes"
         )
