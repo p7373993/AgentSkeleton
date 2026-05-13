@@ -638,7 +638,8 @@ def _assert_conversation_contents(
     if actual_contents != expected_contents:
         raise RuntimeError(
             "Conversation assertion failed: "
-            f"expected {expected_contents!r} but got {actual_contents!r}"
+            f"expected {_safe_repr(expected_contents)} "
+            f"but got {_safe_repr(actual_contents)}"
         )
 
 
@@ -683,7 +684,8 @@ def _compare_expectations(
     if "observations" in expect and expect["observations"] != len(state.observations):
         failures.append(
             "observations expected "
-            f"{expect['observations']!r} but got {len(state.observations)!r}"
+            f"{_safe_repr(expect['observations'])} "
+            f"but got {_safe_repr(len(state.observations))}"
         )
     _expect_observations(failures, expect.get("observations_detail"), state)
     _expect_files(failures, expect.get("files"), workspace)
@@ -698,7 +700,10 @@ def _expect_equal(
     actual: object,
 ) -> None:
     if key in expect and expect[key] != actual:
-        failures.append(f"{key} expected {expect[key]!r} but got {actual!r}")
+        failures.append(
+            f"{key} expected {_safe_repr(expect[key])} "
+            f"but got {_safe_repr(actual)}"
+        )
 
 
 def _expect_files(
@@ -761,8 +766,8 @@ def _expect_files(
         expected_text = _safe_text(expected_content)
         if actual_content != expected_text:
             failures.append(
-                f"file {path_text} expected {expected_text!r} "
-                f"but got {actual_content!r}"
+                f"file {path_text} expected {_safe_repr(expected_text)} "
+                f"but got {_safe_repr(actual_content)}"
             )
 
 
@@ -834,7 +839,7 @@ def _expect_observation_field(
     if field_name in expected and expected[field_name] != actual:
         failures.append(
             f"observation {number} {field_name} expected "
-            f"{expected[field_name]!r} but got {actual!r}"
+            f"{_safe_repr(expected[field_name])} but got {_safe_repr(actual)}"
         )
 
 
@@ -853,8 +858,8 @@ def _expect_payload(
         actual_value = observation.result.payload.get(key)
         if actual_value != expected_value:
             failures.append(
-                f"observation {number} payload.{key} expected "
-                f"{expected_value!r} but got {actual_value!r}"
+                f"observation {number} payload.{_safe_text(key)} expected "
+                f"{_safe_repr(expected_value)} but got {_safe_repr(actual_value)}"
             )
 
 
@@ -885,7 +890,8 @@ def _expect_events(
                 break
         if not found:
             failures.append(
-                f"event {number} expected {raw_expected!r} but was not found"
+                f"event {number} expected {_safe_repr(raw_expected)} "
+                "but was not found"
             )
 
 
@@ -983,5 +989,50 @@ def _mapping_contains(
 def _safe_text(value: object) -> str:
     try:
         return str(value)
+    except Exception:
+        return UNINSPECTABLE_VALUE
+
+
+def _safe_repr(value: object) -> str:
+    return _safe_repr_inner(value, set())
+
+
+def _safe_repr_inner(value: object, seen: set[int]) -> str:
+    if isinstance(value, dict):
+        value_id = id(value)
+        if value_id in seen:
+            return "{...}"
+        seen.add(value_id)
+        try:
+            items = ", ".join(
+                f"{_safe_repr_inner(key, seen)}: {_safe_repr_inner(item, seen)}"
+                for key, item in value.items()
+            )
+        finally:
+            seen.remove(value_id)
+        return f"{{{items}}}"
+    if isinstance(value, list):
+        value_id = id(value)
+        if value_id in seen:
+            return "[...]"
+        seen.add(value_id)
+        try:
+            items = ", ".join(_safe_repr_inner(item, seen) for item in value)
+        finally:
+            seen.remove(value_id)
+        return f"[{items}]"
+    if isinstance(value, tuple):
+        value_id = id(value)
+        if value_id in seen:
+            return "(...)"
+        seen.add(value_id)
+        try:
+            items = [_safe_repr_inner(item, seen) for item in value]
+        finally:
+            seen.remove(value_id)
+        suffix = "," if len(items) == 1 else ""
+        return f"({', '.join(items)}{suffix})"
+    try:
+        return repr(value)
     except Exception:
         return UNINSPECTABLE_VALUE

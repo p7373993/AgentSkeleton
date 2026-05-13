@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import agentskeleton.eval as eval_module
 from agentskeleton.config import RunConfig
@@ -383,6 +384,52 @@ def test_eval_scenario_text_coercion_handles_unstringable_values() -> None:
     )
     assert final_action.text == "<uninspectable>"
     assert final_action.status == "<uninspectable>"
+
+
+def test_eval_expectation_failures_handle_unreprable_values(tmp_path: Path) -> None:
+    class UnreprableValue:
+        def __repr__(self) -> str:
+            raise RuntimeError("cannot repr")
+
+    expected = UnreprableValue()
+    actual = UnreprableValue()
+
+    failures: list[str] = []
+    eval_module._expect_equal(failures, "answer", {"answer": expected}, actual)
+    assert failures == [
+        "answer expected <uninspectable> but got <uninspectable>"
+    ]
+
+    failures = []
+    eval_module._expect_observation_field(
+        failures,
+        1,
+        "summary",
+        {"summary": expected},
+        actual,
+    )
+    assert failures == [
+        "observation 1 summary expected <uninspectable> "
+        "but got <uninspectable>"
+    ]
+
+    failures = []
+    observation = SimpleNamespace(
+        result=SimpleNamespace(payload={"answer": actual})
+    )
+    eval_module._expect_payload(failures, 1, {"answer": expected}, observation)
+    assert failures == [
+        "observation 1 payload.answer expected <uninspectable> "
+        "but got <uninspectable>"
+    ]
+
+    failures = []
+    log_path = tmp_path / "events.jsonl"
+    log_path.write_text("", encoding="utf-8")
+    eval_module._expect_events(failures, [{"payload": expected}], log_path)
+    assert failures == [
+        "event 1 expected {'payload': <uninspectable>} but was not found"
+    ]
 
 
 def test_run_scenario_reports_failed_expectations(tmp_path: Path) -> None:
