@@ -493,6 +493,7 @@ def _bounded_metadata_string(value: str) -> str | dict[str, object]:
     encoded_size = _utf8_size(value)
     if encoded_size is None:
         return _UNINSPECTABLE_VALUE
+    value = str.__str__(value)
     if len(value) <= _MAX_TRANSCRIPT_METADATA_VALUE_CHARS:
         return value
     return {
