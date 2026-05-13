@@ -3990,7 +3990,14 @@ def test_resume_run_continues_from_run_snapshot(monkeypatch, tmp_path) -> None:
     assert seen_goal == ["continue from snapshot"]
     assert [turn.content for turn in seen_conversation[0]] == [
         "finish the report",
-        "Run stopped with status max_steps. Reason: Reached max_steps limit: 2",
+        (
+            "Run stopped with status max_steps. "
+            "Reason: Reached max_steps limit: 2 "
+            'Last run snapshot: {"observations":[{"call_id":"call-1",'
+            '"policy_decision":"allow","result":{"error":null,'
+            '"payload":{"content":"alpha"},"success":true,'
+            '"summary":"read file"},"tool_name":"read_file"}],"step_count":1}'
+        ),
     ]
     assert seen_conversation[0][1].metadata["last_snapshot"] == snapshot
     assert "Run id: resumed-run-fixed" in result.stdout
