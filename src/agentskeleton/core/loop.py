@@ -912,11 +912,17 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
     if not isinstance(action.tool_name, str) or not action.tool_name.strip():
         return "tool_name must be a non-empty string"
-    if len(action.tool_name.encode("utf-8")) > MAX_TOOL_ACTION_METADATA_BYTES:
+    tool_name_bytes = _utf8_size(action.tool_name)
+    if tool_name_bytes is None:
+        return "tool_name could not be inspected"
+    if tool_name_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
         return f"tool_name exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
     if not isinstance(action.call_id, str) or not action.call_id.strip():
         return "call_id must be a non-empty string"
-    if len(action.call_id.encode("utf-8")) > MAX_TOOL_ACTION_METADATA_BYTES:
+    call_id_bytes = _utf8_size(action.call_id)
+    if call_id_bytes is None:
+        return "call_id could not be inspected"
+    if call_id_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
         return f"call_id exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
     return None
 
@@ -940,9 +946,19 @@ def _validate_final_action_metadata(action: FinalAction) -> str | None:
         return "text must be a string"
     if not isinstance(action.status, str) or not action.status.strip():
         return "status must be a non-empty string"
-    if len(action.status.encode("utf-8")) > MAX_FINAL_ACTION_STATUS_BYTES:
+    status_bytes = _utf8_size(action.status)
+    if status_bytes is None:
+        return "status could not be inspected"
+    if status_bytes > MAX_FINAL_ACTION_STATUS_BYTES:
         return f"status exceeds {MAX_FINAL_ACTION_STATUS_BYTES} bytes"
     return None
+
+
+def _utf8_size(value: str) -> int | None:
+    try:
+        return len(value.encode("utf-8"))
+    except Exception:
+        return None
 
 
 def _validate_tool_result_metadata(result: ToolResult) -> list[str]:

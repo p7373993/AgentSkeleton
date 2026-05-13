@@ -777,6 +777,36 @@ def test_loop_rejects_oversized_final_status_before_logging(
     ) in logger.events
 
 
+def test_loop_rejects_unencodable_final_status_before_logging(
+    tmp_path: Path,
+) -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    logger = MemoryLogger()
+
+    state = make_loop(
+        tmp_path,
+        [FinalAction(text="done", status=UnencodableString("completed"))],
+        logger,
+    ).run("finish")
+
+    reason = "Model returned invalid final action: status could not be inspected"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_final_action",
+            "error": reason,
+        },
+    ) in logger.events
+
+
 @pytest.mark.parametrize(
     ("action", "reason"),
     [
@@ -848,6 +878,54 @@ def test_loop_rejects_malformed_tool_call_metadata(
         },
     )
     assert not any(event[0] == "tool_started" for event in logger.events)
+
+
+def test_loop_rejects_unencodable_tool_call_metadata(
+    tmp_path: Path,
+) -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    cases = [
+        (
+            ToolCallAction(
+                tool_name=UnencodableString("record"),
+                arguments={"value": "x"},
+                call_id="call-1",
+            ),
+            "Model returned invalid tool call: tool_name could not be inspected",
+        ),
+        (
+            ToolCallAction(
+                tool_name="record",
+                arguments={"value": "x"},
+                call_id=UnencodableString("call-1"),
+            ),
+            "Model returned invalid tool call: call_id could not be inspected",
+        ),
+    ]
+    for action, reason in cases:
+        logger = MemoryLogger()
+        try:
+            state = make_loop(tmp_path, [action], logger).run("record")
+        except Exception as exc:
+            pytest.fail(f"loop raised instead of recording invalid action: {exc!r}")
+
+        assert state.final_status == "invalid_action"
+        assert state.final_reason == reason
+        assert state.final_answer is None
+        assert state.observations == []
+        assert (
+            "run_error",
+            1,
+            {
+                "status": "invalid_action",
+                "error_type": "invalid_tool_call",
+                "error": reason,
+            },
+        ) in logger.events
+        assert not any(event[0] == "tool_started" for event in logger.events)
 
 
 def test_loop_executes_tool_and_feeds_observation(tmp_path: Path) -> None:
