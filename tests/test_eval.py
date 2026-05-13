@@ -323,6 +323,32 @@ def test_run_scenario_reports_declared_file_path_stat_failure(
         raise AssertionError("Expected scenario file stat failure to fail")
 
 
+def test_run_scenario_reports_unencodable_declared_file_content(
+    tmp_path: Path,
+) -> None:
+    scenario = eval_module.Scenario(
+        name="fixture-unencodable",
+        domain="filesystem",
+        goal="prepare fixture",
+        files={"data/input.txt": UnencodableString("fixture")},
+        actions=[eval_module.FinalAction(text="unreachable")],
+        expect={"status": "completed"},
+    )
+
+    try:
+        run_scenario(
+            scenario,
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == (
+            "Scenario file data/input.txt content could not be inspected"
+        )
+    else:
+        raise AssertionError("Expected unencodable scenario file content to fail")
+
+
 def test_run_scenario_preserves_lf_newlines_in_declared_files(
     tmp_path: Path,
 ) -> None:
@@ -1498,6 +1524,50 @@ def test_run_scenario_reports_expected_file_type_stat_failure(
 
     assert result.passed is False
     assert result.failures == ["file reports/summary.txt could not be checked"]
+
+
+def test_run_scenario_reports_unencodable_expected_file_content(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report_path = tmp_path / "reports" / "summary.txt"
+    report_path.parent.mkdir()
+    report_path.write_text("summary", encoding="utf-8")
+    scenario_path = tmp_path / "report-unencodable.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: report-unencodable",
+                "goal: inspect report",
+                "actions:",
+                "  - type: final",
+                "    text: checked",
+                "expect:",
+                "  status: completed",
+                "  files:",
+                "    reports/summary.txt: summary",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scenario = load_scenario(scenario_path)
+    original_read_text = Path.read_text
+
+    def unencodable_report_text(path: Path, *args, **kwargs) -> str:
+        if path == report_path:
+            return UnencodableString("summary")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", unencodable_report_text)
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is False
+    assert result.failures == ["file reports/summary.txt could not be inspected"]
 
 
 def test_load_scenario_rejects_missing_file(tmp_path: Path) -> None:

@@ -192,8 +192,15 @@ def _path_is_file_or_error(path: Path, label: str) -> bool:
 
 
 def _utf8_size(value: str) -> int | None:
+    encoded = _utf8_bytes(value)
+    if encoded is None:
+        return None
+    return len(encoded)
+
+
+def _utf8_bytes(value: str) -> bytes | None:
     try:
-        return len(value.encode("utf-8"))
+        return value.encode("utf-8")
     except Exception:
         return None
 
@@ -570,8 +577,13 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
                 ) from exc
             if not target_is_file:
                 raise ValueError(f"Scenario file path is not a file: {requested_path}")
+        content_bytes = _utf8_bytes(content)
+        if content_bytes is None:
+            raise ValueError(
+                f"Scenario file {requested_path} content could not be inspected"
+            )
         try:
-            target.write_bytes(content.encode("utf-8"))
+            target.write_bytes(content_bytes)
         except OSError as exc:
             raise ValueError(
                 f"Scenario file could not be written: {requested_path}"
@@ -771,7 +783,11 @@ def _expect_files(
         except UnicodeDecodeError:
             failures.append(f"file {path_text} could not be decoded as UTF-8")
             continue
-        if len(actual_content.encode("utf-8")) > MAX_SCENARIO_FILE_BYTES:
+        actual_content_bytes = _utf8_bytes(actual_content)
+        if actual_content_bytes is None:
+            failures.append(f"file {path_text} could not be inspected")
+            continue
+        if len(actual_content_bytes) > MAX_SCENARIO_FILE_BYTES:
             failures.append(
                 f"file {path_text} exceeds {MAX_SCENARIO_FILE_BYTES} bytes"
             )
