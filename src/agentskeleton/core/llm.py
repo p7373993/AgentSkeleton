@@ -491,11 +491,14 @@ def _safe_conversation_role(role: object) -> str:
         normalized = role.strip().lower()
     except Exception:
         return "user"
+    if not isinstance(normalized, str):
+        return "user"
+    normalized = str.__str__(normalized)
     if len(normalized) > MAX_CONVERSATION_ROLE_CHARS:
         return "user"
     if normalized not in ALLOWED_CONVERSATION_ROLES:
         return "user"
-    return str.__str__(normalized)
+    return normalized
 
 
 def _trim_response_context_items(
