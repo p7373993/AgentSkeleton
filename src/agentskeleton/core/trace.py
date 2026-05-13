@@ -73,8 +73,8 @@ class ConsoleTraceSink:
             )
             return "\n".join(lines)
         if name == "llm_response":
-            calls = payload.get("function_calls") or []
-            if calls:
+            calls = payload.get("function_calls")
+            if calls is not None and _has_trace_value(calls):
                 return f"[llm <-] tool_calls={_compact_json(calls)}"
             return (
                 "[llm <-] "
@@ -124,3 +124,10 @@ def _compact_json(value: Any) -> str:
         return text
     omitted = len(text) - MAX_TRACE_JSON_CHARS
     return f"{text[:MAX_TRACE_JSON_CHARS]}... [truncated {omitted} characters]"
+
+
+def _has_trace_value(value: Any) -> bool:
+    try:
+        return bool(value)
+    except Exception:
+        return True

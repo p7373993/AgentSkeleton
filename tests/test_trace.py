@@ -215,6 +215,28 @@ def test_console_trace_sink_bounds_large_llm_tool_call_list() -> None:
     assert "..." in output
 
 
+def test_console_trace_sink_handles_uninspectable_llm_tool_call_list() -> None:
+    class ExplodingCalls(list):
+        def __len__(self) -> int:
+            raise RuntimeError("calls length unavailable")
+
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "llm_response",
+        {
+            "function_calls": ExplodingCalls([{"api_key": "sk-secret123"}]),
+            "final_preview": "done",
+        },
+    )
+
+    output = console.export_text()
+    assert "[llm <-] tool_calls=" in output
+    assert "<uninspectable>" in output
+    assert "sk-secret123" not in output
+
+
 def test_console_trace_sink_bounds_large_direct_llm_text_fields() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)
