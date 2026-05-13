@@ -122,6 +122,30 @@ def test_shell_tool_rejects_unencodable_command(
     assert result.payload == {}
 
 
+def test_shell_tool_rejects_uninspectable_command(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class UninspectableString(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot inspect")
+
+    def fake_run(*args, **kwargs):
+        raise AssertionError("subprocess.run should not be called")
+
+    monkeypatch.setattr("agentskeleton.tools.shell.subprocess.run", fake_run)
+
+    result = ShellTool().execute(
+        {"command": UninspectableString("echo test")},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Command invalid"
+    assert result.summary == "Command invalid: command could not be inspected"
+    assert result.payload == {}
+
+
 def test_shell_tool_serializes_unencodable_process_output(
     tmp_path: Path,
     monkeypatch,

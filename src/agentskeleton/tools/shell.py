@@ -22,6 +22,13 @@ def _utf8_size(value: str) -> int | None:
         return None
 
 
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
+
+
 def _truncate(text: str | bytes | None, max_bytes: int) -> tuple[str, bool]:
     if text is None:
         text = ""
@@ -61,7 +68,14 @@ class ShellTool(Tool):
                 error="Command invalid",
             )
         command = raw_command
-        if not command.strip():
+        stripped_command = _safe_strip(command)
+        if stripped_command is None:
+            return ToolResult(
+                success=False,
+                summary="Command invalid: command could not be inspected",
+                error="Command invalid",
+            )
+        if not stripped_command:
             return ToolResult(
                 success=False,
                 summary="Command invalid: command cannot be blank",
