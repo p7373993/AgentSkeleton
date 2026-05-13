@@ -958,6 +958,50 @@ def test_run_bounds_large_final_answer_output(monkeypatch, tmp_path) -> None:
     assert large_answer not in result.stdout
 
 
+def test_run_output_handles_uninspectable_final_answer(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+
+    class UninspectableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "completed",
+                    "final_answer": UninspectableValue(),
+                    "final_reason": None,
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "finish"])
+
+    assert result.exit_code == 0
+    assert "<uninspectable>" in result.stdout
+
+
 def test_run_refreshes_session_summary_for_long_transcript(
     monkeypatch,
     tmp_path,
@@ -1755,6 +1799,50 @@ def test_chat_bounds_large_final_reason_output(monkeypatch, tmp_path) -> None:
     assert "r" * 40 in result.stdout
     assert "[truncated" in result.stdout
     assert large_reason not in result.stdout
+
+
+def test_chat_output_handles_uninspectable_final_reason(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+
+    class UninspectableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("cannot stringify")
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            pass
+
+        def run(
+            self,
+            goal: str,
+            conversation=None,
+            trace_context: dict[str, object] | None = None,
+        ):
+            return type(
+                "State",
+                (),
+                {
+                    "final_status": "model_error",
+                    "final_answer": None,
+                    "final_reason": UninspectableValue(),
+                },
+            )()
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"], input="first\n/exit\n")
+
+    assert result.exit_code == 0
+    assert "Reason: <uninspectable>" in result.stdout
 
 
 def test_chat_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:
