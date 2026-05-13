@@ -699,7 +699,7 @@ def _parse_tool_call(
         raise ValueError(f"{context} arguments must be a mapping")
     call_id = raw.get("call_id") or _default_call_id(action_number, call_number)
     return ToolCallAction(
-        tool_name=tool_name,
+        tool_name=stripped_tool_name,
         arguments=dict(arguments),
         call_id=_safe_text(call_id),
     )
@@ -1039,16 +1039,20 @@ def _safe_text(value: object) -> str:
 
 def _inspect_text(value: object) -> str | None:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return None
+    if isinstance(text, str):
+        return str.__str__(text)
+    return None
 
 
 def _safe_strip(value: str) -> str | None:
     try:
-        return value.strip()
+        stripped = value.strip()
     except Exception:
         return None
+    return str.__str__(stripped)
 
 
 def _safe_repr(value: object) -> str:

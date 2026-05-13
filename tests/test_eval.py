@@ -463,6 +463,22 @@ def test_eval_rejects_uninspectable_required_domains() -> None:
         raise AssertionError("Expected uninspectable required domain to fail")
 
 
+def test_eval_normalizes_required_domain_text_subclasses() -> None:
+    class StickyString(str):
+        def __str__(self) -> str:
+            return self
+
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return self
+
+    domains = eval_module._parse_required_domains(  # noqa: SLF001
+        [StickyString("reliability")]
+    )
+
+    assert domains == ["reliability"]
+    assert type(domains[0]) is str
+
+
 def test_eval_rejects_uninspectable_tool_names() -> None:
     try:
         eval_module._parse_tool_call(  # noqa: SLF001
@@ -477,6 +493,27 @@ def test_eval_rejects_uninspectable_tool_names() -> None:
         assert str(exc) == "Scenario action 1 tool could not be inspected"
     else:
         raise AssertionError("Expected uninspectable tool name to fail")
+
+
+def test_eval_normalizes_tool_name_text_subclasses() -> None:
+    class StickyString(str):
+        def __str__(self) -> str:
+            return self
+
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return self
+
+    action = eval_module._parse_tool_call(  # noqa: SLF001
+        {
+            "tool": StickyString("read_file"),
+            "arguments": {},
+        },
+        "Scenario action 1",
+        1,
+    )
+
+    assert action.tool_name == "read_file"
+    assert type(action.tool_name) is str
 
 
 def test_eval_expectation_failures_handle_unreprable_values(tmp_path: Path) -> None:
