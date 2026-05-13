@@ -910,14 +910,24 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 
 
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
-    if not isinstance(action.tool_name, str) or not action.tool_name.strip():
+    if not isinstance(action.tool_name, str):
+        return "tool_name must be a non-empty string"
+    normalized_tool_name = _safe_stripped_text(action.tool_name)
+    if normalized_tool_name is None:
+        return "tool_name could not be inspected"
+    if not normalized_tool_name:
         return "tool_name must be a non-empty string"
     tool_name_bytes = _utf8_size(action.tool_name)
     if tool_name_bytes is None:
         return "tool_name could not be inspected"
     if tool_name_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
         return f"tool_name exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
-    if not isinstance(action.call_id, str) or not action.call_id.strip():
+    if not isinstance(action.call_id, str):
+        return "call_id must be a non-empty string"
+    normalized_call_id = _safe_stripped_text(action.call_id)
+    if normalized_call_id is None:
+        return "call_id could not be inspected"
+    if not normalized_call_id:
         return "call_id must be a non-empty string"
     call_id_bytes = _utf8_size(action.call_id)
     if call_id_bytes is None:
@@ -933,7 +943,10 @@ def _duplicate_batch_call_id(tool_calls: list[object]) -> str | None:
         if not isinstance(tool_call, ToolCallAction):
             continue
         call_id = tool_call.call_id
-        if not isinstance(call_id, str) or not call_id.strip():
+        if not isinstance(call_id, str):
+            continue
+        normalized_call_id = _safe_stripped_text(call_id)
+        if normalized_call_id is None or not normalized_call_id:
             continue
         if call_id in seen:
             return call_id
@@ -944,7 +957,12 @@ def _duplicate_batch_call_id(tool_calls: list[object]) -> str | None:
 def _validate_final_action_metadata(action: FinalAction) -> str | None:
     if not isinstance(action.text, str):
         return "text must be a string"
-    if not isinstance(action.status, str) or not action.status.strip():
+    if not isinstance(action.status, str):
+        return "status must be a non-empty string"
+    normalized_status = _safe_stripped_text(action.status)
+    if normalized_status is None:
+        return "status could not be inspected"
+    if not normalized_status:
         return "status must be a non-empty string"
     status_bytes = _utf8_size(action.status)
     if status_bytes is None:
@@ -957,6 +975,13 @@ def _validate_final_action_metadata(action: FinalAction) -> str | None:
 def _utf8_size(value: str) -> int | None:
     try:
         return len(value.encode("utf-8"))
+    except Exception:
+        return None
+
+
+def _safe_stripped_text(value: str) -> str | None:
+    try:
+        return value.strip()
     except Exception:
         return None
 
