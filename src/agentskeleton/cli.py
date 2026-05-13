@@ -886,10 +886,16 @@ def list_runs(
     for summary in summaries:
         started_at = summary.get("started_at")
         finished_at = summary.get("finished_at")
+        duration_seconds = summary.get("duration_seconds")
         if started_at and finished_at:
+            duration_text = (
+                f" duration: {duration_seconds}s"
+                if duration_seconds is not None
+                else ""
+            )
             console.print(
                 f"Run {summary['run_id']} started: {started_at} "
-                f"finished: {finished_at}",
+                f"finished: {finished_at}{duration_text}",
                 soft_wrap=True,
             )
         elif started_at:

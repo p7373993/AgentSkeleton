@@ -4001,7 +4001,7 @@ def test_list_runs_prints_run_event_timestamps(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert (
         "Run run-1 started: 2026-05-11T10:00:00+00:00 "
-        "finished: 2026-05-11T10:05:00+00:00"
+        "finished: 2026-05-11T10:05:00+00:00 duration: 300.0s"
     ) in result.stdout
 
 
