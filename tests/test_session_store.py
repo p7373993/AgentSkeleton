@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
+from agentskeleton.core import session as session_module
 from agentskeleton.core.session import SessionStore
+from agentskeleton.core.state import ConversationMessage
 
 
 class UnencodableString(str):
@@ -398,6 +400,19 @@ def test_session_store_limits_summary_to_recent_older_turns(tmp_path) -> None:
     store.refresh_summary("default", keep_turns=2, summary_turns=2)
 
     assert store.load("default").summary == "- user: old user\n- assistant: old answer"
+
+
+def test_session_summary_sanitizes_uninspectable_turn_fields() -> None:
+    summary = session_module._summarize_transcript(  # noqa: SLF001
+        [
+            ConversationMessage(
+                role=UnstringableValue(),  # type: ignore[arg-type]
+                content=UnstringableValue(),  # type: ignore[arg-type]
+            )
+        ]
+    )
+
+    assert summary == "- <uninspectable>: <uninspectable>"
 
 
 def test_session_store_lists_saved_sessions(tmp_path) -> None:

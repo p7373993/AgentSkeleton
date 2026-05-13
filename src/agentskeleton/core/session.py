@@ -350,10 +350,10 @@ def _summarize_transcript(
 ) -> str:
     lines = []
     for turn in turns:
-        content = re.sub(r"\s+", " ", turn.content).strip()
+        content = re.sub(r"\s+", " ", _safe_text(turn.content)).strip()
         if len(content) > max_turn_chars:
             content = f"{content[: max_turn_chars - 1]}..."
-        lines.append(f"- {turn.role}: {content}")
+        lines.append(f"- {_safe_text(turn.role)}: {content}")
     return "\n".join(lines)
 
 
@@ -369,9 +369,10 @@ def _bounded_transcript_content(content: str) -> str:
 
 def _safe_text(value: object) -> str:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return _UNINSPECTABLE_VALUE
+    return str.__str__(text)
 
 
 def _utf8_size(value: str) -> int | None:
