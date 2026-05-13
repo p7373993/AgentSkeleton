@@ -2655,6 +2655,40 @@ def test_show_run_prints_run_event_timestamps(monkeypatch, tmp_path) -> None:
     assert "Duration: 300.0s" in result.stdout
 
 
+def test_show_run_omits_negative_run_duration(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "timestamp": "2026-05-11T10:05:00+00:00",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {"goal": "finish"},
+        },
+        {
+            "type": "run_finished",
+            "timestamp": "2026-05-11T10:00:00+00:00",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["duration_seconds"] is None
+
+
 def test_show_run_summarizes_latest_run_snapshot_as_json(
     monkeypatch,
     tmp_path,

@@ -1138,7 +1138,8 @@ def _run_duration_seconds(started_at: object, finished_at: object) -> float | No
         finished = datetime.fromisoformat(finished_at)
     except ValueError:
         return None
-    return (finished - started).total_seconds()
+    duration = (finished - started).total_seconds()
+    return duration if duration >= 0 else None
 
 
 def _run_log_text_value(value: object) -> object:
