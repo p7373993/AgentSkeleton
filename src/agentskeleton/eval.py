@@ -239,7 +239,12 @@ def load_scenario(path: Path) -> Scenario:
         raise ValueError(f"Scenario file must contain a mapping: {path}")
 
     goal = raw.get("goal")
-    if not isinstance(goal, str) or not goal.strip():
+    if not isinstance(goal, str):
+        raise ValueError("Scenario must define a non-empty goal")
+    stripped_goal = _safe_strip(goal)
+    if stripped_goal is None:
+        raise ValueError("Scenario goal could not be inspected")
+    if not stripped_goal:
         raise ValueError("Scenario must define a non-empty goal")
 
     raw_actions = raw.get("actions")
@@ -409,8 +414,13 @@ def _parse_required_domains(raw: object) -> list[str]:
         raise ValueError("Suite required_domains must be a list")
     domains: list[str] = []
     for item in raw:
-        domain = _safe_text(item)
-        if not domain.strip():
+        domain = _inspect_text(item)
+        if domain is None:
+            raise ValueError("Suite required_domains entries could not be inspected")
+        stripped_domain = _safe_strip(domain)
+        if stripped_domain is None:
+            raise ValueError("Suite required_domains entries could not be inspected")
+        if not stripped_domain:
             raise ValueError("Suite required_domains cannot contain empty names")
         domains.append(domain)
     return domains
@@ -677,7 +687,12 @@ def _parse_tool_call(
     if not isinstance(raw, dict):
         raise ValueError(f"{context} must be a mapping")
     tool_name = raw.get("tool") or raw.get("tool_name")
-    if not isinstance(tool_name, str) or not tool_name.strip():
+    if not isinstance(tool_name, str):
+        raise ValueError(f"{context} must define tool")
+    stripped_tool_name = _safe_strip(tool_name)
+    if stripped_tool_name is None:
+        raise ValueError(f"{context} tool could not be inspected")
+    if not stripped_tool_name:
         raise ValueError(f"{context} must define tool")
     arguments = raw.get("arguments", {})
     if not isinstance(arguments, dict):
@@ -1016,10 +1031,24 @@ def _mapping_contains(
 
 
 def _safe_text(value: object) -> str:
+    text = _inspect_text(value)
+    if text is None:
+        return UNINSPECTABLE_VALUE
+    return text
+
+
+def _inspect_text(value: object) -> str | None:
     try:
         return str(value)
     except Exception:
-        return UNINSPECTABLE_VALUE
+        return None
+
+
+def _safe_strip(value: str) -> str | None:
+    try:
+        return value.strip()
+    except Exception:
+        return None
 
 
 def _safe_repr(value: object) -> str:

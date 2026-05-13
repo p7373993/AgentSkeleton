@@ -22,6 +22,16 @@ class UnencodableString(str):
         raise RuntimeError("cannot encode")
 
 
+class UninspectableString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot strip")
+
+
+class UnstringableValue:
+    def __str__(self) -> str:
+        raise RuntimeError("cannot stringify")
+
+
 def test_run_scenario_executes_scripted_actions_and_checks_expectations(
     tmp_path: Path,
 ) -> None:
@@ -415,6 +425,58 @@ def test_eval_scenario_text_coercion_handles_unstringable_values() -> None:
     )
     assert final_action.text == "<uninspectable>"
     assert final_action.status == "<uninspectable>"
+
+
+def test_load_scenario_rejects_uninspectable_goal(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "uninspectable-goal.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "goal": UninspectableString("finish"),
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": {"status": "completed"},
+        },
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario goal could not be inspected"
+    else:
+        raise AssertionError("Expected uninspectable scenario goal to fail")
+
+
+def test_eval_rejects_uninspectable_required_domains() -> None:
+    try:
+        eval_module._parse_required_domains(  # noqa: SLF001
+            [UnstringableValue()]
+        )
+    except ValueError as exc:
+        assert str(exc) == "Suite required_domains entries could not be inspected"
+    else:
+        raise AssertionError("Expected uninspectable required domain to fail")
+
+
+def test_eval_rejects_uninspectable_tool_names() -> None:
+    try:
+        eval_module._parse_tool_call(  # noqa: SLF001
+            {
+                "tool": UninspectableString("read_file"),
+                "arguments": {},
+            },
+            "Scenario action 1",
+            1,
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario action 1 tool could not be inspected"
+    else:
+        raise AssertionError("Expected uninspectable tool name to fail")
 
 
 def test_eval_expectation_failures_handle_unreprable_values(tmp_path: Path) -> None:
