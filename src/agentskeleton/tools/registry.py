@@ -58,7 +58,7 @@ class ToolRegistry:
         if TOOL_NAME_PATTERN.fullmatch(name) is None:
             raise ValueError("Tool name must match [A-Za-z0-9_-]+")
         name_bytes = _utf8_size(name)
-        if name_bytes is None:
+        if name_bytes is None or _safe_text(name) == "<uninspectable>":
             raise ValueError("Tool name could not be inspected")
         if name_bytes > MAX_TOOL_NAME_BYTES:
             raise ValueError("Tool name exceeds maximum size")
@@ -71,7 +71,10 @@ class ToolRegistry:
                 f"Tool {name} description cannot contain surrounding whitespace"
             )
         description_bytes = _utf8_size(tool.description)
-        if description_bytes is None:
+        if (
+            description_bytes is None
+            or _safe_text(tool.description) == "<uninspectable>"
+        ):
             raise ValueError(f"Tool {name} description could not be inspected")
         if description_bytes > MAX_TOOL_DESCRIPTION_BYTES:
             raise ValueError(f"Tool {name} description exceeds maximum size")
@@ -81,6 +84,9 @@ class ToolRegistry:
             raise ValueError(f"Tool {name} risk cannot be empty")
         if tool.risk.strip() != tool.risk:
             raise ValueError(f"Tool {name} risk cannot contain whitespace")
+        risk_bytes = _utf8_size(tool.risk)
+        if risk_bytes is None or _safe_text(tool.risk) == "<uninspectable>":
+            raise ValueError(f"Tool {name} risk could not be inspected")
         if tool.risk not in SUPPORTED_TOOL_RISKS:
             raise ValueError(
                 f"Tool {name} risk must be one of: "

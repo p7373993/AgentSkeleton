@@ -135,6 +135,23 @@ def test_registry_rejects_unencodable_tool_names() -> None:
         registry.register(UnencodableNameTool())
 
 
+def test_registry_rejects_unstringable_tool_names() -> None:
+    class UnstringableString(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return self
+
+        def __str__(self) -> str:
+            raise RuntimeError("name unavailable")
+
+    class UnstringableNameTool(EchoTool):
+        name = UnstringableString("echo")
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool name could not be inspected"):
+        registry.register(UnstringableNameTool())
+
+
 def test_registry_rejects_non_string_tool_descriptions() -> None:
     class InvalidDescriptionTool(EchoTool):
         description = 123
@@ -193,6 +210,23 @@ def test_registry_rejects_unencodable_tool_descriptions() -> None:
         registry.register(UnencodableDescriptionTool())
 
 
+def test_registry_rejects_unstringable_tool_descriptions() -> None:
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("description unavailable")
+
+    class UnstringableDescriptionTool(EchoTool):
+        description = UnstringableString("Echo text.")
+
+    registry = ToolRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="Tool echo description could not be inspected",
+    ):
+        registry.register(UnstringableDescriptionTool())
+
+
 @pytest.mark.parametrize(
     ("risk", "error"),
     [
@@ -217,6 +251,27 @@ def test_registry_rejects_invalid_tool_risk_metadata(
 
     with pytest.raises(ValueError, match=error):
         registry.register(InvalidRiskTool())
+
+
+def test_registry_rejects_uninspectable_tool_risk_metadata() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("risk unavailable")
+
+    cases = [UnencodableString("read"), UnstringableString("read")]
+    for risk in cases:
+        class InvalidRiskTool(EchoTool):
+            pass
+
+        InvalidRiskTool.risk = risk
+        registry = ToolRegistry()
+
+        with pytest.raises(ValueError, match="Tool echo risk could not be inspected"):
+            registry.register(InvalidRiskTool())
 
 
 @pytest.mark.parametrize(
