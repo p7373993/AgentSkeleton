@@ -161,12 +161,12 @@ def _merge_required_domains(
 
 
 def _assistant_transcript_content(state) -> str | None:
-    if state.final_answer:
+    if state.final_answer is not None:
         return _display_text(state.final_answer)
 
-    if state.final_status:
+    if state.final_status is not None:
         content = f"Run stopped with status {_display_text(state.final_status)}."
-        if getattr(state, "final_reason", None):
+        if getattr(state, "final_reason", None) is not None:
             content = f"{content} Reason: {_display_text(state.final_reason)}"
         return _bounded_display_text(content)
 
@@ -178,7 +178,7 @@ def _assistant_transcript_metadata(run_id: str, state) -> dict[str, object]:
         "run_id": run_id,
         "status": state.final_status,
     }
-    if getattr(state, "final_reason", None):
+    if getattr(state, "final_reason", None) is not None:
         metadata["reason"] = _display_text(state.final_reason)
     return metadata
 
@@ -433,10 +433,10 @@ def run(
             _exit_session_error(exc)
     console.print(f"Run id: {run_id}")
     console.print(f"Status: {state.final_status}")
-    if getattr(state, "final_reason", None):
+    if getattr(state, "final_reason", None) is not None:
         reason = _display_text(state.final_reason)
         console.print(f"Reason: {reason}")
-    if state.final_answer:
+    if state.final_answer is not None:
         console.print(_display_text(state.final_answer))
     console.print(f"Run log: {logger.path}")
 
@@ -544,11 +544,11 @@ def chat(
             except ValueError as exc:
                 _exit_session_error(exc)
 
-        if state.final_answer:
+        if state.final_answer is not None:
             console.print(f"assistant> {_display_text(state.final_answer)}")
         else:
             console.print(f"Status: {state.final_status}")
-            if getattr(state, "final_reason", None):
+            if getattr(state, "final_reason", None) is not None:
                 reason = _display_text(state.final_reason)
                 console.print(f"Reason: {reason}")
         if trace:
@@ -901,6 +901,7 @@ def _display_text(value: object) -> str:
         text = str(value)
     except Exception:
         text = "<uninspectable>"
+    text = str.__str__(text)
     return _bounded_display_text(text)
 
 
