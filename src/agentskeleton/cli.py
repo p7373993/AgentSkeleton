@@ -64,7 +64,8 @@ def build_default_registry(
 
     by_name = {tool.name: tool for tool in registry.all()}
     selected = []
-    for name in enabled_tools:
+    for raw_name in enabled_tools:
+        name = _enabled_tool_name(raw_name)
         try:
             selected.append(by_name[name])
         except KeyError as exc:
@@ -900,6 +901,12 @@ def _display_text(value: object) -> str:
     except Exception:
         text = "<uninspectable>"
     return _bounded_display_text(text)
+
+
+def _enabled_tool_name(value: object) -> str:
+    if isinstance(value, str):
+        return str.__str__(value)
+    return _display_text(value)
 
 
 def _bounded_run_log_event(value: Any, depth: int = 0) -> Any:

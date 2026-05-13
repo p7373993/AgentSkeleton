@@ -764,6 +764,19 @@ def test_default_registry_rejects_unknown_enabled_tool() -> None:
         raise AssertionError("Expected unknown enabled tool to fail")
 
 
+def test_default_registry_rejects_unstringable_unknown_enabled_tool() -> None:
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("tool name unavailable")
+
+    try:
+        build_default_registry([UnstringableString("missing")])
+    except ValueError as exc:
+        assert str(exc) == "Unknown enabled tool: missing"
+    else:
+        raise AssertionError("Expected unknown enabled tool to fail")
+
+
 def test_default_registry_rejects_duplicate_tool_names_before_filtering(
     tmp_path,
     monkeypatch,
