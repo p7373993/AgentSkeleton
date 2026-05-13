@@ -416,26 +416,36 @@ def _json_safe_mapping(
     seen: set[int],
     depth: int,
 ) -> dict[str, Any] | str:
-    try:
-        total_items = len(value)
-        raw_items = value.items()
-    except Exception:
-        return _UNINSPECTABLE_VALUE
     safe_items: dict[str, Any] = {}
-    item_limit = _metadata_item_limit(total_items)
+    pending_key = ""
+    pending_item: Any = None
+    has_pending_item = False
+    omitted_after_pending = 0
+    total_items = 0
     try:
-        for index, (key, item) in enumerate(raw_items):
-            if index >= item_limit:
+        for index, (key, item) in enumerate(value.items()):
+            total_items = index + 1
+            safe_key = _safe_text(key)
+            safe_item = _json_safe(item, seen, depth + 1)
+            if index < _MAX_TRANSCRIPT_METADATA_ITEMS - 1:
+                safe_items[safe_key] = safe_item
                 continue
-            safe_items[_safe_text(key)] = _json_safe(item, seen, depth + 1)
+            if index == _MAX_TRANSCRIPT_METADATA_ITEMS - 1:
+                pending_key = safe_key
+                pending_item = safe_item
+                has_pending_item = True
+                continue
+            omitted_after_pending += 1
     except Exception:
         return _UNINSPECTABLE_VALUE
-    omitted = total_items - item_limit
-    if omitted:
+    if omitted_after_pending:
+        omitted = omitted_after_pending + int(has_pending_item)
         safe_items[_TRUNCATED_ITEMS_KEY] = _truncated_items_marker(
             total_items,
             omitted,
         )
+    elif has_pending_item:
+        safe_items[pending_key] = pending_item
     return safe_items
 
 
@@ -444,26 +454,31 @@ def _json_safe_sequence(
     seen: set[int],
     depth: int,
 ) -> list[Any] | str:
+    safe_items: list[Any] = []
+    pending_item: Any = None
+    has_pending_item = False
+    omitted_after_pending = 0
+    total_items = 0
     try:
-        total_items = len(value)
-        item_limit = _metadata_item_limit(total_items)
-        limited_items = value[:item_limit]
+        for index, item in enumerate(value):
+            total_items = index + 1
+            safe_item = _json_safe(item, seen, depth + 1)
+            if index < _MAX_TRANSCRIPT_METADATA_ITEMS - 1:
+                safe_items.append(safe_item)
+                continue
+            if index == _MAX_TRANSCRIPT_METADATA_ITEMS - 1:
+                pending_item = safe_item
+                has_pending_item = True
+                continue
+            omitted_after_pending += 1
     except Exception:
         return _UNINSPECTABLE_VALUE
-    try:
-        safe_items = [_json_safe(item, seen, depth + 1) for item in limited_items]
-    except Exception:
-        return _UNINSPECTABLE_VALUE
-    omitted = total_items - item_limit
-    if omitted > 0:
+    if omitted_after_pending:
+        omitted = omitted_after_pending + int(has_pending_item)
         safe_items.append(_truncated_items_marker(total_items, omitted))
+    elif has_pending_item:
+        safe_items.append(pending_item)
     return safe_items
-
-
-def _metadata_item_limit(total_items: int) -> int:
-    if total_items <= _MAX_TRANSCRIPT_METADATA_ITEMS:
-        return total_items
-    return _MAX_TRANSCRIPT_METADATA_ITEMS - 1
 
 
 def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]:

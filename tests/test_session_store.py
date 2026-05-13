@@ -188,6 +188,34 @@ def test_session_store_bounds_wide_transcript_metadata_values(
     assert "key_249" not in raw
 
 
+def test_session_store_preserves_iterable_metadata_without_length(
+    tmp_path: Path,
+) -> None:
+    class ExplodingMetadataItems(list):
+        def __len__(self) -> int:
+            raise RuntimeError("metadata length unavailable")
+
+    store = SessionStore(tmp_path)
+
+    store.append_transcript(
+        "default",
+        "assistant",
+        "answer",
+        metadata={
+            "items": ExplodingMetadataItems(
+                [{"name": "first"}, {"name": "second"}]
+            )
+        },
+    )
+
+    session = store.load("default")
+
+    assert session.transcript[0].metadata["items"] == [
+        {"name": "first"},
+        {"name": "second"},
+    ]
+
+
 def test_session_store_serializes_uninspectable_transcript_metadata_values(
     tmp_path: Path,
 ) -> None:
