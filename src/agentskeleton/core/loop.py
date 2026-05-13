@@ -169,7 +169,8 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
-                if not action.tool_calls:
+                tool_calls = _bounded_batch_tool_calls(action.tool_calls)
+                if not tool_calls:
                     self._record_invalid_action(
                         state,
                         action,
@@ -179,7 +180,7 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
-                if len(action.tool_calls) > MAX_TOOL_CALL_BATCH_SIZE:
+                if len(tool_calls) > MAX_TOOL_CALL_BATCH_SIZE:
                     self._record_invalid_action(
                         state,
                         action,
@@ -193,7 +194,7 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
-                for tool_call in action.tool_calls:
+                for tool_call in tool_calls:
                     if not isinstance(tool_call, ToolCallAction):
                         self._record_invalid_action(state, tool_call)
                         if state.final_status is not None:
@@ -214,7 +215,7 @@ class AgentLoop:
                         if state.final_status is not None:
                             self._log_run_finished(state)
                             return state
-                duplicate_call_id = _duplicate_batch_call_id(action.tool_calls)
+                duplicate_call_id = _duplicate_batch_call_id(tool_calls)
                 if duplicate_call_id is not None:
                     self._record_invalid_action(
                         state,
@@ -228,7 +229,7 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
-                for tool_call in action.tool_calls:
+                for tool_call in tool_calls:
                     self._execute_tool_action(state, tool_call)
                     if state.final_status is not None:
                         break
@@ -764,6 +765,15 @@ def _safe_text(value: object) -> str:
     except Exception:
         return UNINSPECTABLE_VALUE
     return str.__str__(text)
+
+
+def _bounded_batch_tool_calls(tool_calls: list[object]) -> list[object]:
+    bounded = []
+    for index, tool_call in enumerate(tool_calls):
+        if index > MAX_TOOL_CALL_BATCH_SIZE:
+            break
+        bounded.append(tool_call)
+    return bounded
 
 
 def _bounded_stored_tool_result(result: ToolResult) -> ToolResult:

@@ -1243,6 +1243,36 @@ def test_loop_executes_all_tool_calls_in_batch(tmp_path: Path) -> None:
     ]
 
 
+def test_loop_executes_iterable_tool_call_batch_without_length(
+    tmp_path: Path,
+) -> None:
+    class ExplodingToolCalls(list):
+        def __len__(self) -> int:
+            raise RuntimeError("tool call length unavailable")
+
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallBatchAction(
+                tool_calls=ExplodingToolCalls(
+                    [
+                        ToolCallAction(
+                            tool_name="record",
+                            arguments={"value": "x"},
+                            call_id="call-1",
+                        )
+                    ]
+                )
+            ),
+            FinalAction(text="done"),
+        ],
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].call_id == "call-1"
+    assert state.observations[0].result.payload["value"] == "x"
+
+
 def test_loop_handles_empty_tool_call_batch_as_invalid_action(
     tmp_path: Path,
 ) -> None:
