@@ -268,6 +268,34 @@ def test_run_logger_bounds_wide_payload_values(tmp_path: Path) -> None:
     assert "key_249" not in raw
 
 
+def test_run_logger_preserves_and_redacts_iterable_payload_without_length(
+    tmp_path: Path,
+) -> None:
+    class ExplodingPayloadItems(list):
+        def __len__(self) -> int:
+            raise RuntimeError("payload length unavailable")
+
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={
+            "items": ExplodingPayloadItems(
+                [{"api_key": "abc123"}, {"name": "visible"}]
+            )
+        },
+    )
+
+    raw = logger.path.read_text(encoding="utf-8")
+    event = json.loads(raw.splitlines()[0])
+    assert event["payload"]["items"] == [
+        {"api_key": "[REDACTED]"},
+        {"name": "visible"},
+    ]
+    assert "abc123" not in raw
+
+
 def test_run_logger_serializes_non_json_payload_values(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
     marker = object()

@@ -215,7 +215,7 @@ def test_console_trace_sink_bounds_large_llm_tool_call_list() -> None:
     assert "..." in output
 
 
-def test_console_trace_sink_handles_uninspectable_llm_tool_call_list() -> None:
+def test_console_trace_sink_preserves_lengthless_llm_tool_call_list() -> None:
     class ExplodingCalls(list):
         def __len__(self) -> int:
             raise RuntimeError("calls length unavailable")
@@ -233,7 +233,7 @@ def test_console_trace_sink_handles_uninspectable_llm_tool_call_list() -> None:
 
     output = console.export_text()
     assert "[llm <-] tool_calls=" in output
-    assert "<uninspectable>" in output
+    assert '"api_key": "[REDACTED]"' in output
     assert "sk-secret123" not in output
 
 
