@@ -549,6 +549,17 @@ def test_eval_suite_command_uses_manifest_required_domains(
     assert payload["coverage_failures"] == ["required domain writing has no scenarios"]
 
 
+def test_merge_required_domains_accepts_option_domains_without_length() -> None:
+    class ExplodingDomainList(list):
+        def __len__(self) -> int:
+            raise RuntimeError("domain count unavailable")
+
+    assert cli_module._merge_required_domains(  # noqa: SLF001
+        ["finance"],
+        ExplodingDomainList(["finance", "writing"]),
+    ) == ["finance", "writing"]
+
+
 def test_eval_command_uses_scenario_tool_modules(
     monkeypatch,
     tmp_path,

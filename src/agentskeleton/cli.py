@@ -151,11 +151,12 @@ def _merge_required_domains(
 ) -> list[str]:
     merged: list[str] = []
     seen: set[str] = set()
-    for domain in [*manifest_domains, *(option_domains or [])]:
-        if domain in seen:
-            continue
-        merged.append(domain)
-        seen.add(domain)
+    for domains in (manifest_domains, () if option_domains is None else option_domains):
+        for domain in domains:
+            if domain in seen:
+                continue
+            merged.append(domain)
+            seen.add(domain)
     return merged
 
 
