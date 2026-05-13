@@ -1,6 +1,8 @@
 name: model-error
 domain: reliability
 goal: Handle a scripted model failure as observable run state.
+config:
+  model_retry_attempts: 1
 actions:
   - type: error
     message: model unavailable

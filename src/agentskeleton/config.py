@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MAX_CONFIG_FILE_BYTES = 2_097_152
 MAX_CONFIG_MAX_STEPS = 200
+MAX_CONFIG_MODEL_RETRY_ATTEMPTS = 10
 MAX_CONFIG_TOOL_LIST_ITEMS = 128
 MAX_CONFIG_TOOL_NAME_BYTES = 512
 
@@ -149,6 +150,11 @@ class RunConfig(BaseModel):
     reasoning_effort: str = "low"
     text_verbosity: str = "low"
     max_steps: int = Field(default=20, gt=0, le=MAX_CONFIG_MAX_STEPS)
+    model_retry_attempts: int = Field(
+        default=2,
+        gt=0,
+        le=MAX_CONFIG_MODEL_RETRY_ATTEMPTS,
+    )
     session_context_turns: int = Field(default=20, gt=0)
     session_summary_turns: int = Field(default=40, gt=0)
     workspace: Path = Path(".")

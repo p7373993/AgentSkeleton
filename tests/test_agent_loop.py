@@ -660,6 +660,66 @@ def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:
     )
 
 
+def test_loop_retries_transient_model_error_before_returning_action(
+    tmp_path: Path,
+) -> None:
+    class FlakyLLM:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def next_action(self, state, registry):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("temporary model outage")
+            return FinalAction(text="recovered")
+
+    logger = MemoryLogger()
+    llm = FlakyLLM()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path, model_retry_attempts=2),
+        llm=llm,
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("finish")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert state.step_count == 1
+    assert llm.calls == 2
+    assert (
+        "model_retry",
+        1,
+        {
+            "attempt": 1,
+            "next_attempt": 2,
+            "max_attempts": 2,
+            "error_type": "RuntimeError",
+            "error": "temporary model outage",
+        },
+    ) in logger.events
+    assert not any(event[0] == "run_error" for event in logger.events)
+
+
+def test_loop_returns_model_error_after_retry_attempts_are_exhausted(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path, model_retry_attempts=2),
+        llm=FailingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("finish")
+
+    assert state.final_status == "model_error"
+    assert state.final_reason == "Model call failed: RuntimeError"
+    assert [
+        event[0]
+        for event in logger.events
+        if event[0] in {"model_retry", "run_error"}
+    ] == ["model_retry", "run_error"]
+
+
 def test_loop_logs_unstringable_model_error_and_returns_state(tmp_path: Path) -> None:
     class UnstringableException(Exception):
         def __str__(self) -> str:

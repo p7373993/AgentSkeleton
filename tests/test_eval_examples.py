@@ -38,7 +38,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     ]
     assert suite_config.min_scenarios_per_required_domain == 2
     assert result.passed is True
-    assert result.total == 50
+    assert result.total == 51
     assert result.failed_count == 0
     assert "artifact-from-input" in {item.scenario for item in result.results}
     assert "coding-edit-test" in {item.scenario for item in result.results}
@@ -47,6 +47,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         item.scenario for item in result.results
     }
     assert "invalid-tool-result" in {item.scenario for item in result.results}
+    assert "model-retry-recovery" in {item.scenario for item in result.results}
     assert "tool-pack-coding-domain" in {
         item.scenario for item in result.results
     }
@@ -57,7 +58,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "data": {"passed": 2, "failed": 0, "total": 2},
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
         "interactive": {"passed": 2, "failed": 0, "total": 2},
-        "reliability": {"passed": 34, "failed": 0, "total": 34},
+        "reliability": {"passed": 35, "failed": 0, "total": 35},
         "tool_packs": {"passed": 2, "failed": 0, "total": 2},
         "writing": {"passed": 2, "failed": 0, "total": 2},
     }

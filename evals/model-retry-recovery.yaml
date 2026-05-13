@@ -1,0 +1,20 @@
+name: model-retry-recovery
+domain: reliability
+goal: recover from a transient model call failure
+config:
+  model_retry_attempts: 2
+actions:
+  - type: error
+    message: temporary model outage
+  - type: final
+    text: model retry recovered
+expect:
+  status: completed
+  answer: model retry recovered
+  events:
+    - type: model_retry
+      payload:
+        attempt: 1
+        next_attempt: 2
+        max_attempts: 2
+        error_type: RuntimeError

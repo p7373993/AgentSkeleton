@@ -97,6 +97,7 @@ model: gpt-5.5
 reasoning_effort: low
 text_verbosity: low
 max_steps: 20
+model_retry_attempts: 2
 ```
 
 The current OpenAI guidance says GPT-5.5 works best through the Responses API,
@@ -399,6 +400,7 @@ model: gpt-5.5
 reasoning_effort: low
 text_verbosity: low
 max_steps: 20
+model_retry_attempts: 2
 workspace: "."
 confirm_risky_actions: true
 logs_dir: "runs"

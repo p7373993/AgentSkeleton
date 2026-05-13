@@ -122,18 +122,43 @@ class AgentLoop:
                 state.step_count,
                 {"goal": _logged_text(normalized_goal)},
             )
-            try:
-                action = self.llm.next_action(state, self.registry)
-            except Exception as exc:
+            action = None
+            for attempt in range(1, self.config.model_retry_attempts + 1):
+                try:
+                    action = self.llm.next_action(state, self.registry)
+                    break
+                except Exception as exc:
+                    error_payload = {
+                        "error_type": type(exc).__name__,
+                        "error": _logged_text(_exception_text(exc)),
+                    }
+                    if attempt < self.config.model_retry_attempts:
+                        retry_payload = {
+                            "attempt": attempt,
+                            "next_attempt": attempt + 1,
+                            "max_attempts": self.config.model_retry_attempts,
+                            **error_payload,
+                        }
+                        self._log_event(
+                            "model_retry",
+                            state.step_count,
+                            retry_payload,
+                        )
+                        self._emit_trace("model_retry", retry_payload)
+                        continue
+                    state.final_status = "model_error"
+                    state.final_reason = f"Model call failed: {type(exc).__name__}"
+                    run_error_payload = {
+                        "status": state.final_status,
+                        **error_payload,
+                    }
+                    self._log_event("run_error", state.step_count, run_error_payload)
+                    self._emit_trace("run_error", run_error_payload)
+                    self._log_run_finished(state)
+                    return state
+            if action is None:
                 state.final_status = "model_error"
-                state.final_reason = f"Model call failed: {type(exc).__name__}"
-                error_payload = {
-                    "status": state.final_status,
-                    "error_type": type(exc).__name__,
-                    "error": _logged_text(_exception_text(exc)),
-                }
-                self._log_event("run_error", state.step_count, error_payload)
-                self._emit_trace("run_error", error_payload)
+                state.final_reason = "Model call failed without returning an action"
                 self._log_run_finished(state)
                 return state
 

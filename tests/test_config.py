@@ -41,6 +41,7 @@ def test_default_config_uses_current_directory(tmp_path: Path) -> None:
     assert config.logs_dir == Path("runs")
     assert config.shell_timeout_seconds == 30
     assert config.shell_max_output_bytes == 20000
+    assert config.model_retry_attempts == 2
     assert config.session_context_turns == 20
     assert config.session_summary_turns == 40
     assert config.tool_modules == []
@@ -58,6 +59,7 @@ def test_load_config_merges_yaml_and_overrides(tmp_path: Path) -> None:
                 "model: gpt-5.4-mini",
                 "reasoning_effort: medium",
                 "max_steps: 7",
+                "model_retry_attempts: 3",
                 "session_context_turns: 5",
                 "session_summary_turns: 9",
                 "base_url: https://example.openai.azure.com/openai/v1/",
@@ -78,6 +80,7 @@ def test_load_config_merges_yaml_and_overrides(tmp_path: Path) -> None:
     assert config.model == "gpt-5.4-mini"
     assert config.reasoning_effort == "medium"
     assert config.max_steps == 3
+    assert config.model_retry_attempts == 3
     assert config.session_context_turns == 5
     assert config.session_summary_turns == 9
     assert config.base_url == "https://example.openai.azure.com/openai/v1/"
