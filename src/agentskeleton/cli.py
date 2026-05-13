@@ -881,6 +881,19 @@ def list_runs(
         )
     console.print(table)
     for summary in summaries:
+        started_at = summary.get("started_at")
+        finished_at = summary.get("finished_at")
+        if started_at and finished_at:
+            console.print(
+                f"Run {summary['run_id']} started: {started_at} "
+                f"finished: {finished_at}",
+                soft_wrap=True,
+            )
+        elif started_at:
+            console.print(
+                f"Run {summary['run_id']} started: {started_at}",
+                soft_wrap=True,
+            )
         resumed_run_id = summary.get("resumed_run_id")
         if resumed_run_id:
             console.print(f"Run {summary['run_id']} resumed from: {resumed_run_id}")

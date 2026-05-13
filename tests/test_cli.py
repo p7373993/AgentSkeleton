@@ -3961,6 +3961,46 @@ def test_list_runs_prints_resumed_source_run_id(monkeypatch, tmp_path) -> None:
     assert "Run run-2 resumed from: run-1" in result.stdout
 
 
+def test_list_runs_prints_run_event_timestamps(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    (log_dir / "run-1.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "type": "run_started",
+                        "timestamp": "2026-05-11T10:00:00+00:00",
+                        "run_id": "run-1",
+                        "step": 0,
+                        "payload": {"goal": "finish"},
+                    }
+                ),
+                json.dumps(
+                    {
+                        "type": "run_finished",
+                        "timestamp": "2026-05-11T10:05:00+00:00",
+                        "run_id": "run-1",
+                        "step": 1,
+                        "payload": {"status": "completed", "answer": "done"},
+                    }
+                ),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs"])
+
+    assert result.exit_code == 0
+    assert (
+        "Run run-1 started: 2026-05-11T10:00:00+00:00 "
+        "finished: 2026-05-11T10:05:00+00:00"
+    ) in result.stdout
+
+
 def test_list_runs_prints_tool_failure_counts(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
