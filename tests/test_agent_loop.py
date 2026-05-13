@@ -255,6 +255,30 @@ def test_loop_bounds_logged_final_answer(tmp_path: Path) -> None:
     assert answer not in str(logger.events)
 
 
+def test_loop_logs_unstringable_final_answer_without_raising(
+    tmp_path: Path,
+) -> None:
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("answer unavailable")
+
+    logger = MemoryLogger()
+    try:
+        state = make_loop(
+            tmp_path,
+            [FinalAction(text=UnstringableString("done"))],
+            logger,
+        ).run("finish")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of finishing run: {exc!r}")
+
+    logged_answer = next(
+        event[2]["answer"] for event in logger.events if event[0] == "run_finished"
+    )
+    assert state.final_status == "completed"
+    assert logged_answer == "<uninspectable>"
+
+
 def test_loop_rejects_blank_goal_before_model_call(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(
@@ -928,6 +952,35 @@ def test_loop_rejects_unencodable_tool_call_metadata(
         assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_recovers_when_tool_name_stringification_fails_after_validation(
+    tmp_path: Path,
+) -> None:
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("tool name unavailable")
+
+    logger = MemoryLogger()
+    try:
+        state = make_loop(
+            tmp_path,
+            [
+                ToolCallAction(
+                    tool_name=UnstringableString("record"),
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of executing tool call: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert state.observations[0].result.success is True
+
+
 def test_loop_executes_tool_and_feeds_observation(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = make_loop(
@@ -1107,6 +1160,49 @@ def test_loop_rejects_duplicate_batch_call_ids_before_execution(
             "reason": reason,
         },
     )
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
+def test_loop_rejects_unstringable_duplicate_batch_call_id_without_raising(
+    tmp_path: Path,
+) -> None:
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("call id unavailable")
+
+    logger = MemoryLogger()
+    call_id = UnstringableString("call-1")
+    try:
+        state = make_loop(
+            tmp_path,
+            [
+                ToolCallBatchAction(
+                    tool_calls=[
+                        ToolCallAction("record", {"value": "x"}, call_id),
+                        ToolCallAction("record", {"value": "y"}, call_id),
+                    ]
+                )
+            ],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording invalid batch: {exc!r}")
+
+    reason = (
+        "Model returned invalid tool call batch: duplicate call_id: <uninspectable>"
+    )
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_batch",
+            "error": reason,
+        },
+    ) in logger.events
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 

@@ -221,7 +221,7 @@ class AgentLoop:
                         action,
                         reason=(
                             "Model returned invalid tool call batch: "
-                            f"duplicate call_id: {duplicate_call_id}"
+                            f"duplicate call_id: {_safe_text(duplicate_call_id)}"
                         ),
                         error_type="invalid_tool_batch",
                     )
@@ -680,7 +680,7 @@ def _action_fingerprint(action: ToolCallAction) -> str:
         ).encode("utf-8")
     except (TypeError, ValueError):
         arguments = repr(action.arguments).encode("utf-8", errors="replace")
-    return f"{action.tool_name}:{hashlib.sha256(arguments).hexdigest()}"
+    return f"{_safe_text(action.tool_name)}:{hashlib.sha256(arguments).hexdigest()}"
 
 
 def _logged_arguments(arguments: object) -> object:
@@ -708,7 +708,7 @@ def _logged_arguments(arguments: object) -> object:
 
 
 def _logged_text(value: object) -> object:
-    text = str(value)
+    text = _safe_text(value)
     encoded = text.encode("utf-8", errors="replace")
     if len(encoded) <= MAX_LOGGED_TEXT_BYTES:
         return text
