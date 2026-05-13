@@ -17,6 +17,17 @@ class UnstringableValue:
         raise RuntimeError("cannot stringify")
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+    def lower(self) -> str:
+        return self
+
+
 def test_run_logger_writes_jsonl_event(tmp_path: Path) -> None:
     logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
 
@@ -156,6 +167,25 @@ def test_run_logger_redacts_secret_mapping_values(tmp_path: Path) -> None:
     assert "hunter2" not in raw
     assert "token123" not in raw
     assert raw.count("[REDACTED]") == 3
+
+
+def test_run_logger_normalizes_secret_key_text_subclasses(tmp_path: Path) -> None:
+    class StickySecretKey(StickyString):
+        def replace(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("key unavailable")
+
+    logger = RunLogger(logs_dir=tmp_path, run_id="run-1")
+
+    logger.log(
+        "tool_finished",
+        step=1,
+        payload={StickySecretKey("api-key"): "abc123", "normal": "visible"},
+    )
+
+    raw = logger.path.read_text(encoding="utf-8")
+    event = json.loads(raw.splitlines()[0])
+    assert event["payload"] == {"api-key": "[REDACTED]", "normal": "visible"}
+    assert "abc123" not in raw
 
 
 def test_run_logger_redacts_common_token_and_secret_names(tmp_path: Path) -> None:

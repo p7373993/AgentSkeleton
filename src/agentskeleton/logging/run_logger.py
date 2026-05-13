@@ -93,7 +93,7 @@ def redact(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
     if isinstance(value, str):
         if _utf8_size(value) is None:
             return _UNINSPECTABLE_VALUE
-        redacted = value
+        redacted = str.__str__(value)
         for pattern in SECRET_PATTERNS:
             if pattern.groups:
                 redacted = pattern.sub(r"\1[REDACTED]", redacted)
@@ -175,6 +175,7 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 def _bounded_log_string(value: str) -> str:
     if _utf8_size(value) is None:
         return _UNINSPECTABLE_VALUE
+    value = str.__str__(value)
     if len(value) <= _MAX_LOG_STRING_CHARS:
         return value
     omitted = len(value) - _MAX_LOG_STRING_CHARS
@@ -190,9 +191,10 @@ def _utf8_size(value: str) -> int | None:
 
 def _safe_text(value: object) -> str:
     try:
-        return str(value)
+        text = str(value)
     except Exception:
         return _UNINSPECTABLE_VALUE
+    return str.__str__(text)
 
 
 def _is_secret_key(key: object) -> bool:
