@@ -1997,6 +1997,35 @@ def test_llm_client_sends_transcript_context(
     ]
 
 
+def test_llm_client_sends_transcript_context_without_length(
+    tmp_path,
+) -> None:
+    class ExplodingConversationList(list):
+        def __len__(self) -> int:
+            raise RuntimeError("conversation length unavailable")
+
+    response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-2",
+        workspace=tmp_path,
+        goal="what next?",
+        conversation=ExplodingConversationList(
+            [ConversationMessage(role="user", content="remember alpha")]
+        ),
+    )
+
+    LLMClient(RunConfig(workspace=tmp_path), client=fake_client).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    assert fake_client.responses.calls[0]["input"] == [
+        {"role": "user", "content": "remember alpha"},
+        {"role": "user", "content": "what next?"},
+    ]
+
+
 def test_llm_client_serializes_unencodable_transcript_context(
     tmp_path,
 ) -> None:

@@ -295,7 +295,7 @@ class LLMClient:
             return state.response_context_items
 
         conversation = getattr(state, "conversation", [])
-        if conversation:
+        if _has_items(conversation):
             return _trim_response_context_items(self._conversation_items(state))
         return state.goal
 
