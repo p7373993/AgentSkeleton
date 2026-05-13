@@ -696,7 +696,9 @@ def _json_exceeds_depth(value: Any, max_depth: int) -> bool:
 def _json_safe(value: Any, seen: set[int] | None = None, depth: int = 0) -> Any:
     if depth > MAX_JSON_SAFE_DEPTH:
         return MAX_DEPTH_EXCEEDED
-    if value is None or isinstance(value, str | int | float | bool):
+    if isinstance(value, str):
+        return value if _utf8_size(value) is not None else UNINSPECTABLE_VALUE
+    if value is None or isinstance(value, int | float | bool):
         return value
 
     seen = seen or set()

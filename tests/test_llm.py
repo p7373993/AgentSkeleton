@@ -62,6 +62,11 @@ class FakeSequenceClient:
         self.responses = FakeResponsesSequence(responses)
 
 
+class UnencodableString(str):
+    def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("cannot encode")
+
+
 class FailingTrace:
     def emit(self, name: str, payload: dict[str, object]) -> None:
         raise OSError("trace sink unavailable")
@@ -1321,6 +1326,43 @@ def test_llm_client_serializes_unstringable_tool_observation_payloads(
     assert observation_output["payload"] == {
         "<uninspectable>": "<uninspectable>"
     }
+
+
+def test_llm_client_serializes_unencodable_tool_observation_payloads(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="done", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-1",
+        workspace=tmp_path,
+        goal="read",
+        observations=[
+            ToolObservation(
+                call_id="call-1",
+                tool_name="read_file",
+                policy_decision="allow",
+                result=ToolResult.model_construct(
+                    success=True,
+                    payload={"content": UnencodableString("sk-secret123")},
+                    summary="ok",
+                    error=None,
+                ),
+            )
+        ],
+    )
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=fake_client,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    call = fake_client.responses.calls[0]
+    output = call["input"][1]["output"]
+    observation_output = json.loads(output)
+    assert isinstance(action, FinalAction)
+    assert observation_output["payload"] == {"content": "<uninspectable>"}
+    assert "sk-secret123" not in output
 
 
 def test_llm_client_serializes_recursive_tool_observation_payloads(tmp_path) -> None:
