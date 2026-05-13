@@ -483,7 +483,9 @@ def _parse_conversation(raw: object) -> list[ConversationMessage]:
             raise ValueError(f"Scenario conversation turn {index} must be a mapping")
         role = item.get("role", "user")
         content = item.get("content", "")
-        metadata = item.get("metadata") or {}
+        metadata = item.get("metadata")
+        if metadata is None:
+            metadata = {}
         if not isinstance(metadata, dict):
             raise ValueError(
                 f"Scenario conversation turn {index} metadata must be a mapping"

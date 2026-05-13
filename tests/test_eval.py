@@ -427,6 +427,27 @@ def test_eval_scenario_text_coercion_handles_unstringable_values() -> None:
     assert final_action.status == "<uninspectable>"
 
 
+def test_eval_scenario_avoids_truthiness_checks_for_conversation_metadata() -> None:
+    class ExplodingMetadata(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("metadata length unavailable")
+
+        def items(self):  # type: ignore[override]
+            raise RuntimeError("metadata items unavailable")
+
+    conversation = eval_module._parse_conversation(
+        [
+            {
+                "role": "user",
+                "content": "remember",
+                "metadata": ExplodingMetadata({"source": "fixture"}),
+            }
+        ]
+    )
+
+    assert conversation[0].metadata == {"source": "fixture"}
+
+
 def test_load_scenario_rejects_uninspectable_goal(
     tmp_path: Path,
     monkeypatch,
