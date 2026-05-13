@@ -1,0 +1,54 @@
+name: coding-edit-test
+domain: coding
+goal: Fix a small Python function and verify it with a shell test.
+config:
+  permission_profile: trusted
+files:
+  src/math_ops.py: |
+    def add(left, right):
+        return left - right
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-math-ops
+    arguments:
+      path: src/math_ops.py
+  - type: tool
+    tool: write_file
+    call_id: fix-add-function
+    arguments:
+      path: src/math_ops.py
+      content: |
+        def add(left, right):
+            return left + right
+  - type: tool
+    tool: shell
+    call_id: run-add-test
+    arguments:
+      command: python -c "from pathlib import Path; ns = {}; exec(Path('src/math_ops.py').read_text(encoding='utf-8'), ns); assert ns['add'](2, 3) == 5; print('coding edit ok')"
+  - type: final
+    text: coding edit test ok
+expect:
+  status: completed
+  answer: coding edit test ok
+  observations: 3
+  observations_detail:
+    - tool: read_file
+      success: true
+      payload:
+        path: src/math_ops.py
+    - tool: write_file
+      success: true
+      payload:
+        path: src/math_ops.py
+    - tool: shell
+      success: true
+      summary: Command exited with 0
+      payload:
+        exit_code: 0
+        timed_out: false
+        stdout: "coding edit ok\n"
+  files:
+    src/math_ops.py: |
+      def add(left, right):
+          return left + right
