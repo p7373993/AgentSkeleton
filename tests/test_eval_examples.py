@@ -21,6 +21,9 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
             config.tool_modules,
         ),
         required_domains=suite_config.required_domains,
+        min_scenarios_per_required_domain=(
+            suite_config.min_scenarios_per_required_domain
+        ),
     )
 
     assert suite_config.required_domains == [
@@ -33,6 +36,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "tool_packs",
         "writing",
     ]
+    assert suite_config.min_scenarios_per_required_domain == 2
     assert result.passed is True
     assert result.total == 50
     assert result.failed_count == 0

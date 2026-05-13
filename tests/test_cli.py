@@ -549,6 +549,51 @@ def test_eval_suite_command_uses_manifest_required_domains(
     assert payload["coverage_failures"] == ["required domain writing has no scenarios"]
 
 
+def test_eval_suite_command_uses_manifest_min_required_domain_count(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "suite.yaml").write_text(
+        "\n".join(
+            [
+                "required_domains:",
+                "  - finance",
+                "min_scenarios_per_required_domain: 2",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (suite_dir / "alpha.yaml").write_text(
+        "\n".join(
+            [
+                "name: alpha",
+                "domain: finance",
+                "goal: alpha",
+                "actions:",
+                "  - type: final",
+                "    text: alpha done",
+                "expect:",
+                "  status: completed",
+                "  answer: alpha done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval-suite", str(suite_dir), "--json"])
+
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["min_scenarios_per_required_domain"] == 2
+    assert payload["coverage_failures"] == [
+        "required domain finance has 1 scenario, minimum is 2"
+    ]
+
+
 def test_merge_required_domains_accepts_option_domains_without_length() -> None:
     class ExplodingDomainList(list):
         def __len__(self) -> int:

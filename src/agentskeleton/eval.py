@@ -32,6 +32,7 @@ UNINSPECTABLE_VALUE = "<uninspectable>"
 @dataclass(frozen=True)
 class ScenarioSuiteConfig:
     required_domains: list[str] = field(default_factory=list)
+    min_scenarios_per_required_domain: int = 0
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,7 @@ class ScenarioResult:
 class ScenarioSuiteResult:
     results: list[ScenarioResult]
     required_domains: list[str] = field(default_factory=list)
+    min_scenarios_per_required_domain: int = 0
 
     @property
     def total(self) -> int:
@@ -144,6 +146,14 @@ class ScenarioSuiteResult:
                 failures.append(f"required domain {domain} has no scenarios")
             elif stats["failed"] > 0:
                 failures.append(f"required domain {domain} has failing scenarios")
+            if stats is not None and (
+                stats["total"] < self.min_scenarios_per_required_domain
+            ):
+                failures.append(
+                    f"required domain {domain} has "
+                    f"{_scenario_count_text(stats['total'])}, "
+                    f"minimum is {self.min_scenarios_per_required_domain}"
+                )
         return failures
 
     def to_dict(self) -> dict[str, object]:
@@ -154,6 +164,9 @@ class ScenarioSuiteResult:
             "failed_count": self.failed_count,
             "domains": self.domains,
             "required_domains": self.required_domains,
+            "min_scenarios_per_required_domain": (
+                self.min_scenarios_per_required_domain
+            ),
             "coverage_failures": self.coverage_failures,
             "results": [result.to_dict() for result in self.results],
         }
@@ -292,6 +305,11 @@ def load_scenario_suite_config(path: Path) -> ScenarioSuiteConfig:
         raise ValueError(f"Suite manifest must contain a mapping: {manifest}")
     return ScenarioSuiteConfig(
         required_domains=_parse_required_domains(raw.get("required_domains", [])),
+        min_scenarios_per_required_domain=(
+            _parse_min_scenarios_per_required_domain(
+                raw.get("min_scenarios_per_required_domain")
+            )
+        ),
     )
 
 
@@ -352,6 +370,7 @@ def run_scenario_suite(
     registry: ToolRegistry | None = None,
     registry_factory: RegistryFactory | None = None,
     required_domains: list[str] | None = None,
+    min_scenarios_per_required_domain: int = 0,
 ) -> ScenarioSuiteResult:
     return ScenarioSuiteResult(
         results=[
@@ -364,6 +383,7 @@ def run_scenario_suite(
             for scenario in scenarios
         ],
         required_domains=required_domains or [],
+        min_scenarios_per_required_domain=min_scenarios_per_required_domain,
     )
 
 
@@ -424,6 +444,21 @@ def _parse_required_domains(raw: object) -> list[str]:
             raise ValueError("Suite required_domains cannot contain empty names")
         domains.append(domain)
     return domains
+
+
+def _parse_min_scenarios_per_required_domain(raw: object) -> int:
+    if raw is None:
+        return 0
+    if type(raw) is not int or raw < 0:
+        raise ValueError(
+            "Suite min_scenarios_per_required_domain must be a non-negative integer"
+        )
+    return raw
+
+
+def _scenario_count_text(count: int) -> str:
+    suffix = "" if count == 1 else "s"
+    return f"{count} scenario{suffix}"
 
 
 def _parse_files(raw: object) -> dict[str, str]:

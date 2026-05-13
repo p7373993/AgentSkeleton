@@ -2090,6 +2090,7 @@ def test_load_scenario_suite_config_reads_manifest_required_domains(
                 "required_domains:",
                 "  - finance",
                 "  - writing",
+                "min_scenarios_per_required_domain: 2",
             ]
         ),
         encoding="utf-8",
@@ -2115,7 +2116,34 @@ def test_load_scenario_suite_config_reads_manifest_required_domains(
     scenarios = load_scenario_suite(suite_dir)
 
     assert config.required_domains == ["finance", "writing"]
+    assert config.min_scenarios_per_required_domain == 2
     assert [scenario.name for scenario in scenarios] == ["alpha"]
+
+
+def test_load_scenario_suite_config_rejects_invalid_min_required_domain_count(
+    tmp_path: Path,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "suite.yaml").write_text(
+        "\n".join(
+            [
+                "required_domains:",
+                "  - finance",
+                "min_scenarios_per_required_domain: -1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario_suite_config(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == (
+            "Suite min_scenarios_per_required_domain must be a non-negative integer"
+        )
+    else:
+        raise AssertionError("Expected invalid minimum domain count to fail")
 
 
 def test_load_scenario_suite_config_reports_malformed_manifest(
@@ -2311,6 +2339,34 @@ def test_run_scenario_suite_fails_when_required_domain_has_failures(
 
     assert suite.passed is False
     assert suite.coverage_failures == ["required domain finance has failing scenarios"]
+
+
+def test_run_scenario_suite_fails_when_required_domain_is_below_minimum(
+    tmp_path: Path,
+) -> None:
+    scenario = load_scenario(
+        _write_final_scenario(
+            tmp_path,
+            "passing",
+            "ok",
+            "ok",
+            domain="finance",
+        )
+    )
+
+    suite = run_scenario_suite(
+        [scenario],
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+        required_domains=["finance"],
+        min_scenarios_per_required_domain=2,
+    )
+
+    assert suite.passed is False
+    assert suite.coverage_failures == [
+        "required domain finance has 1 scenario, minimum is 2"
+    ]
+    assert suite.to_dict()["min_scenarios_per_required_domain"] == 2
 
 
 def _write_final_scenario(

@@ -7,3 +7,4 @@ required_domains:
   - reliability
   - tool_packs
   - writing
+min_scenarios_per_required_domain: 2

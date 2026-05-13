@@ -308,6 +308,9 @@ def eval_suite(
                 suite_config.required_domains,
                 require_domain,
             ),
+            min_scenarios_per_required_domain=(
+                suite_config.min_scenarios_per_required_domain
+            ),
         )
     except ValueError as exc:
         console.print(f"Scenario error: {exc}", soft_wrap=True)
