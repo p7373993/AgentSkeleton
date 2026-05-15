@@ -34,6 +34,9 @@ def test_tools_command_lists_default_tools() -> None:
     assert "write_file" in result.stdout
     assert "shell" in result.stdout
     assert "ask_user" in result.stdout
+    assert "Schema" in result.stdout
+    assert "Implementation" in result.stdout
+    assert "ReadFileTool" in result.stdout
 
 
 def test_tools_command_uses_enabled_tools_from_config(monkeypatch, tmp_path) -> None:

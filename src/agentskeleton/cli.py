@@ -136,6 +136,10 @@ def _tool_implementation(tool: object) -> str:
     return f"{tool_type.__module__}.{tool_type.__qualname__}"
 
 
+def _tool_implementation_label(tool: object) -> str:
+    return type(tool).__qualname__
+
+
 def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
     try:
         return RunLogger(logs_dir, run_id)
@@ -278,12 +282,16 @@ def tools(
     table.add_column("Name")
     table.add_column("Description")
     table.add_column("Risk")
+    table.add_column("Schema")
+    table.add_column("Implementation")
 
     for registered_tool in registry.all():
         table.add_row(
             registered_tool.name,
             registered_tool.description,
             registered_tool.risk,
+            _args_schema_hash(registered_tool.args_schema)[:12],
+            _tool_implementation_label(registered_tool),
         )
 
     console.print(table)
