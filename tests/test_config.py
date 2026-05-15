@@ -424,6 +424,31 @@ def test_config_rejects_blank_model_settings(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, text_verbosity="   ")
 
 
+@pytest.mark.parametrize("field_name", ["model", "reasoning_effort", "text_verbosity"])
+def test_config_rejects_uninspectable_model_settings(
+    tmp_path: Path,
+    field_name: str,
+) -> None:
+    with pytest.raises(ValueError, match=f"{field_name} could not be inspected"):
+        RunConfig(workspace=tmp_path, **{field_name: InvalidStripString("gpt-5.5")})
+
+
+def test_config_normalizes_model_setting_text_subclasses(tmp_path: Path) -> None:
+    config = RunConfig(
+        workspace=tmp_path,
+        model=StickyString("gpt-5.5"),
+        reasoning_effort=StickyString("low"),
+        text_verbosity=StickyString("low"),
+    )
+
+    assert config.model == "gpt-5.5"
+    assert type(config.model) is str
+    assert config.reasoning_effort == "low"
+    assert type(config.reasoning_effort) is str
+    assert config.text_verbosity == "low"
+    assert type(config.text_verbosity) is str
+
+
 def test_config_rejects_whitespace_in_enabled_tools(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="enabled_tools cannot contain whitespace"):
         RunConfig(workspace=tmp_path, enabled_tools=[" read_file"])

@@ -177,12 +177,17 @@ class RunConfig(BaseModel):
         except OSError as exc:
             raise ValueError(f"workspace path could not be resolved: {value}") from exc
 
-    @field_validator("model", "reasoning_effort", "text_verbosity")
+    @field_validator("model", "reasoning_effort", "text_verbosity", mode="before")
     @classmethod
-    def reject_blank_model_settings(cls, value: str, info) -> str:
-        if not value.strip():
+    def reject_blank_model_settings(cls, value: object, info) -> object:
+        if not isinstance(value, str):
+            return value
+        stripped = _safe_strip(value)
+        if stripped is None:
+            raise ValueError(f"{info.field_name} could not be inspected")
+        if not stripped:
             raise ValueError(f"{info.field_name} cannot be blank")
-        return value
+        return str.__str__(value)
 
     @field_validator("logs_dir")
     @classmethod
