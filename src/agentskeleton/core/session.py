@@ -238,7 +238,8 @@ class SessionStore:
                 continue
             if not isinstance(row, dict):
                 continue
-            metadata = row.get("metadata") or {}
+            raw_metadata = row.get("metadata")
+            metadata = raw_metadata if raw_metadata is not None else {}
             safe_metadata = _json_safe(metadata) if isinstance(metadata, dict) else {}
             transcript.append(
                 ConversationMessage(

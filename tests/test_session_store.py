@@ -402,6 +402,33 @@ def test_session_store_serializes_unstringable_persisted_transcript_fields_on_lo
     assert session.transcript[0].content == "<uninspectable>"
 
 
+def test_session_store_loads_persisted_metadata_without_truthiness(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class TruthlessMetadata(dict):
+        def __bool__(self) -> bool:
+            raise RuntimeError("metadata truthiness unavailable")
+
+    store = SessionStore(tmp_path)
+    transcript_path = tmp_path / "sessions" / "default" / "transcript.jsonl"
+    transcript_path.parent.mkdir(parents=True)
+    transcript_path.write_text("{}\n", encoding="utf-8")
+
+    def fake_loads(_line: str) -> dict[str, object]:
+        return {
+            "role": "assistant",
+            "content": "answer",
+            "metadata": TruthlessMetadata({"run_id": "run-1"}),
+        }
+
+    monkeypatch.setattr(json, "loads", fake_loads)
+
+    session = store.load("default")
+
+    assert session.transcript[0].metadata == {"run_id": "run-1"}
+
+
 def test_session_store_serializes_recursive_metadata_values(tmp_path: Path) -> None:
     store = SessionStore(tmp_path)
     metadata = {}
