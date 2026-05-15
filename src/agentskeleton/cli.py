@@ -12,6 +12,7 @@ from rich.table import Table
 from agentskeleton.config import load_config
 from agentskeleton.core.llm import LLMClient, MissingAPIKeyError
 from agentskeleton.core.loop import AgentLoop
+from agentskeleton.core.runtime import runtime_metadata as build_runtime_metadata
 from agentskeleton.core.session import SessionStore
 from agentskeleton.core.state import ConversationMessage
 from agentskeleton.core.trace import ConsoleTraceSink, NullTraceSink
@@ -27,7 +28,6 @@ from agentskeleton.policy.permissions import PermissionDecision
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
 from agentskeleton.tools.loading import load_tools_from_modules
 from agentskeleton.tools.provenance import (
-    registered_tool_inventory,
     registered_tool_provenance,
     tool_schema_hash,
 )
@@ -201,21 +201,6 @@ def _assistant_transcript_metadata(
     if runtime:
         metadata["runtime"] = runtime
     return metadata
-
-
-def _runtime_metadata(config, registry: ToolRegistry) -> dict[str, object]:
-    return {
-        "model": config.model,
-        "reasoning_effort": config.reasoning_effort,
-        "text_verbosity": config.text_verbosity,
-        "max_steps": config.max_steps,
-        "model_retry_attempts": config.model_retry_attempts,
-        "permission_profile": config.permission_profile,
-        "confirm_risky_actions": config.confirm_risky_actions,
-        "enabled_tools": config.enabled_tools,
-        "tool_modules": config.tool_modules,
-        "registered_tools": registered_tool_inventory(registry),
-    }
 
 
 def _summary_assistant_metadata(
@@ -558,7 +543,7 @@ def run(
                 _assistant_transcript_metadata(
                     run_id,
                     state,
-                    _runtime_metadata(loaded, registry),
+                    build_runtime_metadata(loaded, registry),
                 ),
             )
         except ValueError as exc:
@@ -679,7 +664,7 @@ def chat(
                     _assistant_transcript_metadata(
                         run_id,
                         state,
-                        _runtime_metadata(loaded, registry),
+                        build_runtime_metadata(loaded, registry),
                     ),
                 )
             except ValueError as exc:

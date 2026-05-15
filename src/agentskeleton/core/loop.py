@@ -11,11 +11,11 @@ from agentskeleton.core.actions import (
     ToolCallAction,
     ToolCallBatchAction,
 )
+from agentskeleton.core.runtime import runtime_metadata
 from agentskeleton.core.state import ConversationMessage, RunState, ToolObservation
 from agentskeleton.core.trace import NullTraceSink, TraceSink
 from agentskeleton.policy.permissions import PermissionDecision, PermissionPolicy
 from agentskeleton.tools.base import ToolContext, ToolResult
-from agentskeleton.tools.provenance import registered_tool_inventory
 from agentskeleton.tools.registry import ToolRegistry
 
 
@@ -93,16 +93,7 @@ class AgentLoop:
         start_payload = {
             **_trace_context(trace_context),
             "goal": _logged_text(normalized_goal),
-            "model": self.config.model,
-            "reasoning_effort": self.config.reasoning_effort,
-            "text_verbosity": self.config.text_verbosity,
-            "max_steps": self.config.max_steps,
-            "model_retry_attempts": self.config.model_retry_attempts,
-            "permission_profile": self.config.permission_profile,
-            "confirm_risky_actions": self.config.confirm_risky_actions,
-            "enabled_tools": self.config.enabled_tools,
-            "tool_modules": self.config.tool_modules,
-            "registered_tools": registered_tool_inventory(self.registry),
+            **runtime_metadata(self.config, self.registry),
             "workspace": str(state.workspace),
             "resumed": bool(state.conversation),
             "conversation_turns": len(state.conversation),
