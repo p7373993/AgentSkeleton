@@ -2156,6 +2156,35 @@ def test_chat_output_includes_run_id_status_and_log_path(monkeypatch, tmp_path) 
     assert "Run log:" in result.stdout
 
 
+def test_chat_rejects_uninspectable_prompt_goal(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
+    prompts = iter([InvalidStripString("continue"), "/exit"])
+
+    def fake_prompt(_label):
+        return next(prompts)
+
+    class FakeLoop:
+        def __init__(self, **kwargs) -> None:
+            raise AssertionError("agent loop should not run for invalid prompt text")
+
+    monkeypatch.setattr("agentskeleton.cli.typer.prompt", fake_prompt)
+    monkeypatch.setattr(
+        "agentskeleton.cli.LLMClient",
+        lambda config, **kwargs: object(),
+    )
+    monkeypatch.setattr("agentskeleton.cli.AgentLoop", FakeLoop)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["chat"])
+
+    assert result.exit_code == 0
+    assert "Goal error: Goal could not be inspected" in result.stdout
+
+
 def test_chat_reuses_session_transcript_between_inputs(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")

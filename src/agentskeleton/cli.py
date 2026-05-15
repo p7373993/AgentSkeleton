@@ -633,10 +633,15 @@ def chat(
             console.print()
             break
 
-        if goal.strip().lower() in {"/exit", "/quit", "exit", "quit"}:
-            break
-        if not goal.strip():
+        stripped_goal = _safe_strip_text(goal)
+        if stripped_goal is None:
+            console.print("Goal error: Goal could not be inspected")
             continue
+        if stripped_goal.lower() in {"/exit", "/quit", "exit", "quit"}:
+            break
+        if not stripped_goal:
+            continue
+        goal = str.__str__(goal)
 
         run_id = str(uuid4())
         logger = _create_run_logger_or_exit(loaded.logs_dir, run_id)
