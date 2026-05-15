@@ -1,4 +1,3 @@
-import hashlib
 import json
 import sys
 from datetime import datetime
@@ -27,6 +26,10 @@ from agentskeleton.logging.run_logger import RunLogger
 from agentskeleton.policy.permissions import PermissionDecision
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
 from agentskeleton.tools.loading import load_tools_from_modules
+from agentskeleton.tools.provenance import (
+    registered_tool_provenance,
+    tool_schema_hash,
+)
 from agentskeleton.tools.registry import ToolRegistry
 from agentskeleton.tools.shell import ShellTool
 from agentskeleton.tools.user import AskUserTool
@@ -121,33 +124,12 @@ def _print_json(payload: object) -> None:
     )
 
 
-def _args_schema_hash(schema: object) -> str:
-    encoded = json.dumps(
-        schema,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _tool_implementation(tool: object) -> str:
-    tool_type = type(tool)
-    return f"{tool_type.__module__}.{tool_type.__qualname__}"
-
-
 def _tool_implementation_label(tool: object) -> str:
     return type(tool).__qualname__
 
 
 def _tool_provenance(registered_tool) -> dict[str, object]:
-    return {
-        "name": registered_tool.name,
-        "description": registered_tool.description,
-        "risk": registered_tool.risk,
-        "args_schema_hash": _args_schema_hash(registered_tool.args_schema),
-        "implementation": _tool_implementation(registered_tool),
-    }
+    return registered_tool_provenance(registered_tool)
 
 
 def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
@@ -294,7 +276,7 @@ def tools(
             registered_tool.name,
             registered_tool.description,
             registered_tool.risk,
-            _args_schema_hash(registered_tool.args_schema)[:12],
+            tool_schema_hash(registered_tool.args_schema)[:12],
             _tool_implementation_label(registered_tool),
         )
 

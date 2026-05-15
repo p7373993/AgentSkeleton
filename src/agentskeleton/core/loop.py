@@ -15,6 +15,7 @@ from agentskeleton.core.state import ConversationMessage, RunState, ToolObservat
 from agentskeleton.core.trace import NullTraceSink, TraceSink
 from agentskeleton.policy.permissions import PermissionDecision, PermissionPolicy
 from agentskeleton.tools.base import ToolContext, ToolResult
+from agentskeleton.tools.provenance import registered_tool_inventory
 from agentskeleton.tools.registry import ToolRegistry
 
 
@@ -48,34 +49,6 @@ MAX_VALIDATION_ERRORS = 50
 MAX_STORED_TOOL_RESULT_PAYLOAD_BYTES = 1_048_576
 MAX_STORED_TOOL_RESULT_PAYLOAD_PREVIEW_CHARS = 200
 MAX_STORED_TOOL_RESULT_TEXT_CHARS = 4_096
-
-
-def _registered_tool_inventory(registry: ToolRegistry) -> list[dict[str, str]]:
-    return [
-        {
-            "name": tool.name,
-            "description": tool.description,
-            "risk": tool.risk,
-            "args_schema_hash": _args_schema_hash(tool.args_schema),
-            "implementation": _tool_implementation(tool),
-        }
-        for tool in registry.all()
-    ]
-
-
-def _tool_implementation(tool: object) -> str:
-    tool_type = type(tool)
-    return f"{tool_type.__module__}.{tool_type.__qualname__}"
-
-
-def _args_schema_hash(schema: object) -> str:
-    encoded = json.dumps(
-        schema,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 class AgentLoop:
@@ -129,7 +102,7 @@ class AgentLoop:
             "confirm_risky_actions": self.config.confirm_risky_actions,
             "enabled_tools": self.config.enabled_tools,
             "tool_modules": self.config.tool_modules,
-            "registered_tools": _registered_tool_inventory(self.registry),
+            "registered_tools": registered_tool_inventory(self.registry),
             "workspace": str(state.workspace),
             "resumed": bool(state.conversation),
             "conversation_turns": len(state.conversation),
