@@ -634,7 +634,7 @@ def _resolve_registry(
 
 
 def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Path:
-    if not scenario.files:
+    if not _has_items(scenario.files):
         return config.workspace.resolve()
 
     workspace = (config.logs_dir / "workspaces" / run_id).expanduser().resolve()

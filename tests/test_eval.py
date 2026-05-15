@@ -366,6 +366,48 @@ def test_run_scenario_reports_unencodable_declared_file_content(
         raise AssertionError("Expected unencodable scenario file content to fail")
 
 
+def test_run_scenario_accepts_declared_files_without_length(tmp_path: Path) -> None:
+    class LengthlessFiles(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("file count unavailable")
+
+    scenario = eval_module.Scenario(
+        name="fixture-lengthless",
+        domain="filesystem",
+        goal="read fixture file",
+        files=LengthlessFiles({"data/input.txt": "fixture content"}),
+        actions=[
+            eval_module.ToolCallAction(
+                tool_name="read_file",
+                call_id="read-input",
+                arguments={"path": "data/input.txt"},
+            ),
+            eval_module.FinalAction(text="fixture ok"),
+        ],
+        expect={
+            "status": "completed",
+            "answer": "fixture ok",
+            "observations": 1,
+            "observations_detail": [
+                {
+                    "tool": "read_file",
+                    "success": True,
+                    "payload": {"content": "fixture content"},
+                }
+            ],
+        },
+    )
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
 def test_run_scenario_preserves_lf_newlines_in_declared_files(
     tmp_path: Path,
 ) -> None:
