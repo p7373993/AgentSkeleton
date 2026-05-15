@@ -32,6 +32,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "data",
         "finance",
         "filesystem",
+        "general",
         "interactive",
         "reliability",
         "tool_packs",
@@ -39,7 +40,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     ]
     assert suite_config.min_scenarios_per_required_domain == 2
     assert result.passed is True
-    assert result.total == 54
+    assert result.total == 56
     assert result.failed_count == 0
     assert "artifact-from-input" in {item.scenario for item in result.results}
     assert "blank-goal" in {item.scenario for item in result.results}
@@ -47,6 +48,8 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     assert "data-csv-report-artifact" in {item.scenario for item in result.results}
     assert "finance-invoice-read" in {item.scenario for item in result.results}
     assert "finance-ledger-artifact" in {item.scenario for item in result.results}
+    assert "general-final-answer" in {item.scenario for item in result.results}
+    assert "general-note-read" in {item.scenario for item in result.results}
     assert "interactive-answer-artifact" in {
         item.scenario for item in result.results
     }
@@ -62,6 +65,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "data": {"passed": 2, "failed": 0, "total": 2},
         "finance": {"passed": 2, "failed": 0, "total": 2},
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
+        "general": {"passed": 2, "failed": 0, "total": 2},
         "interactive": {"passed": 2, "failed": 0, "total": 2},
         "reliability": {"passed": 36, "failed": 0, "total": 36},
         "tool_packs": {"passed": 2, "failed": 0, "total": 2},

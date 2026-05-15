@@ -1,0 +1,26 @@
+name: general-note-read
+domain: general
+goal: Read a small general note and answer.
+files:
+  notes/info.txt: |
+    remember the blue marker
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-general-note
+    arguments:
+      path: notes/info.txt
+  - type: final
+    text: general note read ok
+expect:
+  status: completed
+  answer: general note read ok
+  observations: 1
+  observations_detail:
+    - tool: read_file
+      success: true
+      summary: Read 25 characters from notes/info.txt
+      payload:
+        path: notes/info.txt
+        content: |
+          remember the blue marker

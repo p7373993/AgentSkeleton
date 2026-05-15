@@ -1,0 +1,25 @@
+name: general-final-answer
+domain: general
+goal: Answer a simple general request without tools.
+actions:
+  - type: final
+    text: general answer ok
+expect:
+  status: completed
+  answer: general answer ok
+  observations: 0
+  events:
+    - type: run_started
+      payload:
+        goal: Answer a simple general request without tools.
+        resumed: false
+        conversation_turns: 0
+    - type: run_snapshot
+      payload:
+        final_status: completed
+        final_answer: general answer ok
+        observations: []
+    - type: run_finished
+      payload:
+        status: completed
+        answer: general answer ok

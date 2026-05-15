@@ -4,6 +4,7 @@ required_domains:
   - data
   - finance
   - filesystem
+  - general
   - interactive
   - reliability
   - tool_packs
