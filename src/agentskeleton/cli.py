@@ -279,6 +279,13 @@ def doctor(
     tool_names = [registered_tool.name for registered_tool in registry.all()]
     payload = {
         "status": "ok",
+        "model": loaded.model,
+        "reasoning_effort": loaded.reasoning_effort,
+        "text_verbosity": loaded.text_verbosity,
+        "max_steps": loaded.max_steps,
+        "model_retry_attempts": loaded.model_retry_attempts,
+        "permission_profile": loaded.permission_profile,
+        "confirm_risky_actions": loaded.confirm_risky_actions,
         "workspace": str(loaded.workspace),
         "logs_dir": str(loaded.logs_dir),
         "tool_count": len(tool_names),
