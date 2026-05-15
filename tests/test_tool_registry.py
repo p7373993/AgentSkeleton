@@ -896,6 +896,35 @@ def test_registry_rejects_invalid_nested_args_schema_members(
         registry.register(InvalidSchemaTool())
 
 
+def test_registry_rejects_uninspectable_string_enum_values() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnstringableString(str):
+        def __str__(self) -> str:
+            raise RuntimeError("enum unavailable")
+
+    cases = [UnencodableString("fast"), UnstringableString("fast")]
+    for enum_value in cases:
+        class InvalidEnumTool(EchoTool):
+            args_schema = {
+                "type": "object",
+                "properties": {
+                    "mode": {"type": "string", "enum": [enum_value]},
+                },
+                "required": ["mode"],
+                "additionalProperties": False,
+            }
+
+        registry = ToolRegistry()
+        with pytest.raises(
+            ValueError,
+            match="schema property mode enum values could not be inspected",
+        ):
+            registry.register(InvalidEnumTool())
+
+
 def test_registry_exports_openai_function_schemas() -> None:
     registry = ToolRegistry([EchoTool()])
 

@@ -251,6 +251,12 @@ def _validate_schema_node_content(
         raise ValueError(f"Tool {tool_name} {label} enum must be a list")
     if isinstance(enum, list) and not _has_items(enum):
         raise ValueError(f"Tool {tool_name} {label} enum cannot be empty")
+    if isinstance(enum, list) and any(
+        isinstance(item, str) and _is_uninspectable_text(item) for item in enum
+    ):
+        raise ValueError(
+            f"Tool {tool_name} {label} enum values could not be inspected"
+        )
     if isinstance(enum, list) and not all(
         _matches_schema_type(item, schema_type) for item in enum
     ):
