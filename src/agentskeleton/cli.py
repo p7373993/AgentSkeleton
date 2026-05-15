@@ -140,6 +140,16 @@ def _tool_implementation_label(tool: object) -> str:
     return type(tool).__qualname__
 
 
+def _tool_provenance(registered_tool) -> dict[str, object]:
+    return {
+        "name": registered_tool.name,
+        "description": registered_tool.description,
+        "risk": registered_tool.risk,
+        "args_schema_hash": _args_schema_hash(registered_tool.args_schema),
+        "implementation": _tool_implementation(registered_tool),
+    }
+
+
 def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
     try:
         return RunLogger(logs_dir, run_id)
@@ -263,14 +273,8 @@ def tools(
             {
                 "tools": [
                     {
-                        "name": registered_tool.name,
-                        "description": registered_tool.description,
-                        "risk": registered_tool.risk,
+                        **_tool_provenance(registered_tool),
                         "args_schema": registered_tool.args_schema,
-                        "args_schema_hash": _args_schema_hash(
-                            registered_tool.args_schema
-                        ),
-                        "implementation": _tool_implementation(registered_tool),
                     }
                     for registered_tool in registry.all()
                 ]
@@ -321,6 +325,9 @@ def doctor(
         "logs_dir": str(loaded.logs_dir),
         "tool_count": len(tool_names),
         "tools": tool_names,
+        "registered_tools": [
+            _tool_provenance(registered_tool) for registered_tool in registry.all()
+        ],
     }
 
     if as_json:
