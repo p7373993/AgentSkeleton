@@ -116,6 +116,34 @@ def test_llm_client_emits_request_and_response_trace(tmp_path: Path) -> None:
     assert trace.events[1].payload["final_preview"] == "done"
 
 
+def test_memory_trace_sink_captures_payload_snapshots() -> None:
+    trace = MemoryTraceSink()
+    payload = {"tool_names": ["read_file"], "metadata": {"attempt": 1}}
+
+    trace.emit("llm_request", payload)
+    payload["tool_names"].append("write_file")  # type: ignore[index, union-attr]
+    payload["metadata"]["attempt"] = 2  # type: ignore[index]
+
+    assert trace.events[0].payload == {
+        "tool_names": ["read_file"],
+        "metadata": {"attempt": 1},
+    }
+
+
+def test_memory_trace_sink_preserves_uncopyable_payload_values() -> None:
+    class UncopyableValue:
+        def __deepcopy__(self, memo):
+            raise RuntimeError("copy unavailable")
+
+    value = UncopyableValue()
+    trace = MemoryTraceSink()
+
+    trace.emit("tool_started", {"value": value, "metadata": {"attempt": 1}})
+
+    assert trace.events[0].payload["value"] is value
+    assert trace.events[0].payload["metadata"] == {"attempt": 1}
+
+
 def test_console_trace_sink_prints_readable_flow() -> None:
     console = Console(record=True, width=120)
     trace = ConsoleTraceSink(console)

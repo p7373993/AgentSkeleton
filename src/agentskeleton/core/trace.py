@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -32,7 +33,7 @@ class MemoryTraceSink:
         self.events: list[TraceEvent] = []
 
     def emit(self, name: str, payload: dict[str, Any]) -> None:
-        self.events.append(TraceEvent(name=name, payload=payload))
+        self.events.append(TraceEvent(name=name, payload=_snapshot_payload(payload)))
 
 
 class ConsoleTraceSink:
@@ -131,3 +132,20 @@ def _has_trace_value(value: Any) -> bool:
         return bool(value)
     except Exception:
         return True
+
+
+def _snapshot_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return deepcopy(payload)
+    except Exception:
+        return {
+            _copy_or_original(key): _copy_or_original(value)
+            for key, value in payload.items()
+        }
+
+
+def _copy_or_original(value: Any) -> Any:
+    try:
+        return deepcopy(value)
+    except Exception:
+        return value
