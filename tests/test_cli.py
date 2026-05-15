@@ -261,6 +261,29 @@ def test_doctor_prints_runtime_settings(monkeypatch, tmp_path) -> None:
     assert "Tool modules: none" in result.stdout
 
 
+def test_doctor_prints_registered_tool_provenance(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "enabled_tools:",
+                "  - read_file",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Tools: 1" in result.stdout
+    assert "Registered tools: 1" in result.stdout
+    assert "read_file (read, schema " in result.stdout
+    assert "impl agentskeleton.tools.filesystem.ReadFileTool" in result.stdout
+
+
 def test_eval_command_runs_scenario_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("hello", encoding="utf-8")

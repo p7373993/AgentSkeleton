@@ -354,6 +354,11 @@ def doctor(
     console.print(f"Workspace: {payload['workspace']}", soft_wrap=True)
     console.print(f"Logs: {payload['logs_dir']}", soft_wrap=True)
     console.print(f"Tools: {payload['tool_count']}")
+    console.print(f"Registered tools: {len(payload['registered_tools'])}")
+    for registered_tool in payload["registered_tools"]:
+        tool_text = _registered_tool_text(registered_tool)
+        if tool_text:
+            console.print(f"  {tool_text}", soft_wrap=True)
 
 
 @app.command(name="eval")
