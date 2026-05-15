@@ -117,6 +117,29 @@ def test_policy_blocks_uninspectable_shell_command_arguments() -> None:
         assert decision.reason == "Shell command invalid"
 
 
+def test_policy_blocks_shell_command_when_text_helpers_return_invalid_types() -> None:
+    class InvalidStripCommand(str):
+        def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            return []
+
+    class InvalidLowerCommand(str):
+        def lower(self):  # type: ignore[no-untyped-def]
+            return []
+
+    for command in [
+        InvalidStripCommand("Get-ChildItem"),
+        InvalidLowerCommand("Get-ChildItem"),
+    ]:
+        decision = PermissionPolicy(profile="trusted").decide(
+            "shell",
+            {"command": command},
+            "shell",
+        )
+
+        assert decision.outcome == "block"
+        assert decision.reason == "Shell command invalid"
+
+
 def test_policy_normalizes_shell_command_subclass_outputs_before_inspection() -> None:
     class UnreplaceableCommand(str):
         def lower(self) -> str:

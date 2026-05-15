@@ -236,6 +236,8 @@ def _safe_strip(value: str) -> str | None:
         stripped = value.strip()
     except Exception:
         return None
+    if not isinstance(stripped, str):
+        return None
     return str.__str__(stripped)
 
 
@@ -243,6 +245,8 @@ def _safe_lower(value: str) -> str | None:
     try:
         lowered = value.lower()
     except Exception:
+        return None
+    if not isinstance(lowered, str):
         return None
     return str.__str__(lowered)
 
