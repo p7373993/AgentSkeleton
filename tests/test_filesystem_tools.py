@@ -15,6 +15,11 @@ class StickyString(str):
         return self
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+
 def test_resolve_workspace_path_blocks_parent_escape(tmp_path: Path) -> None:
     with pytest.raises(PathSecurityError):
         resolve_workspace_path(tmp_path, "../outside.txt")
@@ -212,6 +217,25 @@ def test_filesystem_tools_reject_uninspectable_paths(
         (
             WriteFileTool(),
             {"path": UninspectablePath("out.txt"), "content": "hello"},
+        ),
+    ]:
+        result = tool.execute(args, ToolContext(workspace=tmp_path))
+
+        assert result.success is False
+        assert result.error == "Path invalid"
+        assert result.summary == "Path invalid: path could not be inspected"
+        assert result.payload == {}
+
+
+def test_filesystem_tools_reject_paths_when_strip_returns_invalid_type(
+    tmp_path: Path,
+) -> None:
+    for tool, args in [
+        (ListDirTool(), {"path": InvalidStripString("missing")}),
+        (ReadFileTool(), {"path": InvalidStripString("missing.txt")}),
+        (
+            WriteFileTool(),
+            {"path": InvalidStripString("out.txt"), "content": "hello"},
         ),
     ]:
         result = tool.execute(args, ToolContext(workspace=tmp_path))
@@ -606,6 +630,21 @@ def test_write_file_rejects_unencodable_content(tmp_path: Path) -> None:
 
     result = WriteFileTool().execute(
         {"path": "out.txt", "content": UnencodableString("hello")},
+        ToolContext(workspace=tmp_path),
+    )
+
+    assert result.success is False
+    assert result.error == "Content invalid"
+    assert result.summary == "Content invalid: content could not be inspected"
+    assert result.payload == {}
+    assert not (tmp_path / "out.txt").exists()
+
+
+def test_write_file_rejects_content_when_strip_returns_invalid_type(
+    tmp_path: Path,
+) -> None:
+    result = WriteFileTool().execute(
+        {"path": "out.txt", "content": InvalidStripString("hello")},
         ToolContext(workspace=tmp_path),
     )
 

@@ -12,6 +12,11 @@ class StickyString(str):
         return self
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+
 def test_ask_user_tool_returns_callback_answer(tmp_path: Path) -> None:
     result = AskUserTool().execute(
         {"question": "Continue?"},
@@ -153,6 +158,23 @@ def test_ask_user_tool_rejects_uninspectable_question(tmp_path: Path) -> None:
 
     result = AskUserTool().execute(
         {"question": UninspectableQuestion("Continue?")},
+        ToolContext(workspace=tmp_path, ask_user=fail_if_called),
+    )
+
+    assert result.success is False
+    assert result.error == "Question invalid"
+    assert result.summary == "Question invalid: question could not be inspected"
+    assert result.payload == {}
+
+
+def test_ask_user_tool_rejects_question_when_strip_returns_invalid_type(
+    tmp_path: Path,
+) -> None:
+    def fail_if_called(question: str) -> str:
+        raise AssertionError("ask_user callback should not be called")
+
+    result = AskUserTool().execute(
+        {"question": InvalidStripString("Continue?")},
         ToolContext(workspace=tmp_path, ask_user=fail_if_called),
     )
 
