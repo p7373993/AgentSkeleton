@@ -1145,6 +1145,8 @@ def _safe_strip(value: str) -> str | None:
         stripped = value.strip()
     except Exception:
         return None
+    if not isinstance(stripped, str):
+        return None
     return str.__str__(stripped)
 
 

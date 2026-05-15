@@ -11,9 +11,19 @@ class UninspectableString(str):
         raise RuntimeError("cannot strip")
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+
 class UnlowerableString(str):
     def lower(self) -> str:
         raise RuntimeError("cannot lower")
+
+
+class InvalidLowerString(str):
+    def lower(self) -> object:
+        return object()
 
 
 def test_classify_domain_detects_finance_terms(tmp_path: Path) -> None:
@@ -114,6 +124,8 @@ def test_classify_domain_rejects_invalid_text(
     [
         UninspectableString("Please reconcile this invoice"),
         UnlowerableString("Please reconcile this invoice"),
+        InvalidStripString("Please reconcile this invoice"),
+        InvalidLowerString("Please reconcile this invoice"),
     ],
 )
 def test_classify_domain_rejects_uninspectable_text(

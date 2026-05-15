@@ -27,6 +27,11 @@ class UninspectableString(str):
         raise RuntimeError("cannot strip")
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+
 class UnstringableValue:
     def __str__(self) -> str:
         raise RuntimeError("cannot stringify")
@@ -475,6 +480,31 @@ def test_load_scenario_rejects_uninspectable_goal(
         raise AssertionError("Expected uninspectable scenario goal to fail")
 
 
+def test_load_scenario_rejects_goal_when_strip_returns_invalid_type(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "invalid-strip-goal.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "goal": InvalidStripString("finish"),
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": {"status": "completed"},
+        },
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario goal could not be inspected"
+    else:
+        raise AssertionError("Expected invalid-strip scenario goal to fail")
+
+
 def test_eval_rejects_uninspectable_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001
@@ -516,6 +546,22 @@ def test_eval_rejects_uninspectable_tool_names() -> None:
         assert str(exc) == "Scenario action 1 tool could not be inspected"
     else:
         raise AssertionError("Expected uninspectable tool name to fail")
+
+
+def test_eval_rejects_tool_names_when_strip_returns_invalid_type() -> None:
+    try:
+        eval_module._parse_tool_call(  # noqa: SLF001
+            {
+                "tool": InvalidStripString("read_file"),
+                "arguments": {},
+            },
+            "Scenario action 1",
+            1,
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario action 1 tool could not be inspected"
+    else:
+        raise AssertionError("Expected invalid-strip tool name to fail")
 
 
 def test_eval_normalizes_tool_name_text_subclasses() -> None:

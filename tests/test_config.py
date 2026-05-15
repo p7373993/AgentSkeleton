@@ -17,6 +17,11 @@ class UninspectableString(str):
         raise RuntimeError("cannot strip")
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+
 class UnsplittableString(str):
     def split(self, *args, **kwargs):  # type: ignore[no-untyped-def]
         raise RuntimeError("cannot split")
@@ -513,6 +518,17 @@ def test_config_name_list_rejects_uninspectable_entries() -> None:
         )
 
 
+def test_config_name_list_rejects_entries_when_strip_returns_invalid_type() -> None:
+    with pytest.raises(
+        ValueError,
+        match="enabled_tools entries could not be inspected",
+    ):
+        config_module._reject_invalid_name_list(  # noqa: SLF001
+            [InvalidStripString("read_file")],
+            "enabled_tools",
+        )
+
+
 def test_config_name_lists_normalize_text_subclasses(tmp_path: Path) -> None:
     enabled_tools = config_module._reject_invalid_name_list(  # noqa: SLF001
         [StickyString("read_file")],
@@ -564,6 +580,17 @@ def test_config_module_list_rejects_unsplittable_entries() -> None:
     ):
         config_module._reject_invalid_module_list(  # noqa: SLF001
             [UnsplittableString("custom_tools")],
+            "tool_modules",
+        )
+
+
+def test_config_module_list_rejects_entries_when_strip_returns_invalid_type() -> None:
+    with pytest.raises(
+        ValueError,
+        match="tool_modules entries could not be inspected",
+    ):
+        config_module._reject_invalid_module_list(  # noqa: SLF001
+            [InvalidStripString("custom_tools")],
             "tool_modules",
         )
 
