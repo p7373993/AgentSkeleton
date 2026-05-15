@@ -849,6 +849,41 @@ def test_run_scenario_uses_scripted_user_answers(tmp_path: Path) -> None:
     assert result.failures == []
 
 
+def test_run_scenario_accepts_user_answers_without_length(tmp_path: Path) -> None:
+    class LengthlessUserAnswers(list):
+        def __len__(self) -> int:
+            raise RuntimeError("user answer count unavailable")
+
+    scenario = eval_module.Scenario(
+        name="interactive",
+        domain="interactive",
+        goal="clarify the customer segment",
+        actions=[
+            eval_module.ToolCallAction(
+                tool_name="ask_user",
+                call_id="ask-segment",
+                arguments={"question": "Which customer segment?"},
+            ),
+            eval_module.FinalAction(text="interactive ok"),
+        ],
+        expect={
+            "status": "completed",
+            "answer": "interactive ok",
+            "observations": 1,
+        },
+        user_answers=LengthlessUserAnswers(["enterprise"]),
+    )
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([AskUserTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
 def test_run_scenario_starts_with_declared_conversation(tmp_path: Path) -> None:
     scenario_path = tmp_path / "resume-context.yaml"
     scenario_path.write_text(

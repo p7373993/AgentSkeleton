@@ -379,7 +379,7 @@ def run_scenario(
         trace=NullTraceSink(),
         ask_user=(
             _scripted_user_answers(scenario.user_answers)
-            if scenario.user_answers
+            if _has_items(scenario.user_answers)
             else None
         ),
     )
@@ -602,6 +602,12 @@ def _scripted_user_answers(answers: list[str]) -> Callable[[str], str]:
             raise RuntimeError("Scenario user answers exhausted") from exc
 
     return ask_user
+
+
+def _has_items(items: list[object]) -> bool:
+    for _item in items:
+        return True
+    return False
 
 
 def _apply_config_overrides(
