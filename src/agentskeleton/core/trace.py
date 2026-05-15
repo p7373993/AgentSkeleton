@@ -55,7 +55,7 @@ class ConsoleTraceSink:
                 if _has_trace_value(session)
                 else ""
             )
-            resumed = " resumed" if payload.get("resumed") else ""
+            resumed = " resumed" if _has_trace_value(payload.get("resumed")) else ""
             return f"[run] model={model}{session_part}{resumed}"
         if name == "step_started":
             return f"[step] {preview(payload.get('step'), max_chars=80)}"

@@ -230,6 +230,26 @@ def test_console_trace_sink_preserves_lengthless_session_payload() -> None:
     assert "sk-secret123" not in output
 
 
+def test_console_trace_sink_handles_uninspectable_resumed_flag() -> None:
+    class UninspectableResumed:
+        def __bool__(self) -> bool:
+            raise RuntimeError("resumed unavailable")
+
+    console = Console(record=True, width=120)
+    trace = ConsoleTraceSink(console)
+
+    trace.emit(
+        "run_started",
+        {
+            "model": "gpt-5.5",
+            "resumed": UninspectableResumed(),
+        },
+    )
+
+    output = console.export_text()
+    assert "[run] model=gpt-5.5 resumed" in output
+
+
 def test_console_trace_sink_preserves_lengthless_instruction_preview() -> None:
     class ExplodingInstructionPreview(str):
         def __len__(self) -> int:
