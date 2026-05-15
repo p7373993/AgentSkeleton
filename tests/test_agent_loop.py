@@ -2267,6 +2267,35 @@ def test_loop_rejects_recursive_tool_arguments_before_execution(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_nested_non_string_tool_argument_names_before_execution(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    loop = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction("object_record", {"payload": {1: "x"}}, "call-1"),
+                FinalAction(text="recovered"),
+            ]
+        ),
+        registry=ToolRegistry([ObjectRecordTool()]),
+        logger=logger,
+    )
+
+    state = loop.run("record object")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "recovered"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.result.error == "Invalid arguments"
+    assert observation.result.payload["validation_errors"] == [
+        "Tool argument names must be strings"
+    ]
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_recovers_when_tool_argument_inspection_fails(
     tmp_path: Path,
 ) -> None:

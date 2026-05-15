@@ -1178,6 +1178,8 @@ def _validate_tool_arguments_inner(
         return ["Tool argument names must be strings"]
     if _contains_recursive_json_value(arguments):
         return ["Tool arguments cannot contain recursive values"]
+    if _contains_non_string_json_object_key(arguments):
+        return ["Tool argument names must be strings"]
 
     if schema.get("type") != "object":
         return []
@@ -1228,6 +1230,20 @@ def _contains_recursive_json_value(
             stack.extend((child, False) for child in item.values())
         else:
             stack.extend((child, False) for child in item)
+    return False
+
+
+def _contains_non_string_json_object_key(value: object) -> bool:
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, Mapping):
+            for key, child in item.items():
+                if not isinstance(key, str):
+                    return True
+                stack.append(child)
+        elif isinstance(item, list | tuple):
+            stack.extend(item)
     return False
 
 
