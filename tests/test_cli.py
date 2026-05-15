@@ -170,6 +170,46 @@ def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> 
 
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
+    registered_tools = [
+        {
+            "name": "read_file",
+            "description": "Read a UTF-8 text file inside the workspace.",
+            "risk": "read",
+            "args_schema_hash": schema_hash(
+                {
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "File path.",
+                        }
+                    },
+                    "required": ["path"],
+                    "additionalProperties": False,
+                }
+            ),
+            "implementation": "agentskeleton.tools.filesystem.ReadFileTool",
+        },
+        {
+            "name": "ask_user",
+            "description": "Ask the user one direct question.",
+            "risk": "interactive",
+            "args_schema_hash": schema_hash(
+                {
+                    "type": "object",
+                    "properties": {
+                        "question": {
+                            "type": "string",
+                            "description": "A direct question to ask the user.",
+                        }
+                    },
+                    "required": ["question"],
+                    "additionalProperties": False,
+                }
+            ),
+            "implementation": "agentskeleton.tools.user.AskUserTool",
+        },
+    ]
     assert payload == {
         "status": "ok",
         "model": "gpt-5.5",
@@ -185,46 +225,19 @@ def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> 
         "logs_dir": "logs",
         "tool_count": 2,
         "tools": ["read_file", "ask_user"],
-        "registered_tools": [
-            {
-                "name": "read_file",
-                "description": "Read a UTF-8 text file inside the workspace.",
-                "risk": "read",
-                "args_schema_hash": schema_hash(
-                    {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "File path.",
-                            }
-                        },
-                        "required": ["path"],
-                        "additionalProperties": False,
-                    }
-                ),
-                "implementation": "agentskeleton.tools.filesystem.ReadFileTool",
-            },
-            {
-                "name": "ask_user",
-                "description": "Ask the user one direct question.",
-                "risk": "interactive",
-                "args_schema_hash": schema_hash(
-                    {
-                        "type": "object",
-                        "properties": {
-                            "question": {
-                                "type": "string",
-                                "description": "A direct question to ask the user.",
-                            }
-                        },
-                        "required": ["question"],
-                        "additionalProperties": False,
-                    }
-                ),
-                "implementation": "agentskeleton.tools.user.AskUserTool",
-            },
-        ],
+        "registered_tools": registered_tools,
+        "runtime": {
+            "model": "gpt-5.5",
+            "reasoning_effort": "low",
+            "text_verbosity": "low",
+            "max_steps": 20,
+            "model_retry_attempts": 2,
+            "permission_profile": "standard",
+            "confirm_risky_actions": True,
+            "enabled_tools": ["read_file", "ask_user"],
+            "tool_modules": [],
+            "registered_tools": registered_tools,
+        },
     }
 
 

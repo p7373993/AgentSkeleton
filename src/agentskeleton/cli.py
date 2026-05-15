@@ -302,24 +302,15 @@ def doctor(
     loaded = _load_config_or_exit(config, {"enabled_tools": tool})
     registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     tool_names = [registered_tool.name for registered_tool in registry.all()]
+    runtime = build_runtime_metadata(loaded, registry)
     payload = {
         "status": "ok",
-        "model": loaded.model,
-        "reasoning_effort": loaded.reasoning_effort,
-        "text_verbosity": loaded.text_verbosity,
-        "max_steps": loaded.max_steps,
-        "model_retry_attempts": loaded.model_retry_attempts,
-        "permission_profile": loaded.permission_profile,
-        "confirm_risky_actions": loaded.confirm_risky_actions,
-        "enabled_tools": loaded.enabled_tools,
-        "tool_modules": loaded.tool_modules,
+        **runtime,
         "workspace": str(loaded.workspace),
         "logs_dir": str(loaded.logs_dir),
         "tool_count": len(tool_names),
         "tools": tool_names,
-        "registered_tools": [
-            _tool_provenance(registered_tool) for registered_tool in registry.all()
-        ],
+        "runtime": runtime,
     }
 
     if as_json:
