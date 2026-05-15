@@ -1357,8 +1357,10 @@ def _summary_transcript_content(summary: dict[str, object]) -> str | None:
     if isinstance(answer, str) and answer:
         snapshot_detail = _snapshot_detail_text(summary.get("last_snapshot"))
         if snapshot_detail:
-            return f"{answer} Last run snapshot: {snapshot_detail}"
-        return answer
+            return _bounded_display_text(
+                f"{answer} Last run snapshot: {snapshot_detail}"
+            )
+        return _bounded_display_text(answer)
 
     status = summary.get("status")
     if isinstance(status, str) and status:
@@ -1375,7 +1377,7 @@ def _summary_transcript_content(summary: dict[str, object]) -> str | None:
         snapshot_detail = _snapshot_detail_text(summary.get("last_snapshot"))
         if snapshot_detail:
             content = f"{content} Last run snapshot: {snapshot_detail}"
-        return content
+        return _bounded_display_text(content)
 
     return None
 

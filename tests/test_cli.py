@@ -1658,6 +1658,52 @@ def test_assistant_transcript_metadata_handles_lengthless_reason() -> None:
     }
 
 
+def test_summary_transcript_content_bounds_answer_with_snapshot_detail() -> None:
+    large_answer = "a" * 4_000
+    large_snapshot_value = "s" * 20_000
+
+    content = cli_module._summary_transcript_content(  # noqa: SLF001
+        {
+            "answer": large_answer,
+            "last_snapshot": {
+                "step_count": 1,
+                "observations": [{"payload": large_snapshot_value}],
+            },
+        }
+    )
+
+    assert content is not None
+    assert len(content) < 5_000
+    assert content.startswith("aaaaaaaaaaaaaaaa")
+    assert "[truncated" in content
+    assert large_snapshot_value not in content
+
+
+def test_summary_transcript_content_bounds_status_details() -> None:
+    large_reason = "r" * 4_000
+    large_model_error = "m" * 20_000
+
+    content = cli_module._summary_transcript_content(  # noqa: SLF001
+        {
+            "answer": None,
+            "status": "model_error",
+            "reason": large_reason,
+            "last_model_error": {
+                "error_type": "RuntimeError",
+                "error": large_model_error,
+            },
+            "last_tool_error": None,
+            "last_snapshot": None,
+        }
+    )
+
+    assert content is not None
+    assert len(content) < 5_000
+    assert content.startswith("Run stopped with status model_error.")
+    assert "[truncated" in content
+    assert large_model_error not in content
+
+
 def test_run_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
