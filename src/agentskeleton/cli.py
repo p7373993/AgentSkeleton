@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 from datetime import datetime
@@ -118,6 +119,21 @@ def _print_json(payload: object) -> None:
         soft_wrap=True,
         markup=False,
     )
+
+
+def _args_schema_hash(schema: object) -> str:
+    encoded = json.dumps(
+        schema,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _tool_implementation(tool: object) -> str:
+    tool_type = type(tool)
+    return f"{tool_type.__module__}.{tool_type.__qualname__}"
 
 
 def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
@@ -247,6 +263,10 @@ def tools(
                         "description": registered_tool.description,
                         "risk": registered_tool.risk,
                         "args_schema": registered_tool.args_schema,
+                        "args_schema_hash": _args_schema_hash(
+                            registered_tool.args_schema
+                        ),
+                        "implementation": _tool_implementation(registered_tool),
                     }
                     for registered_tool in registry.all()
                 ]

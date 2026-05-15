@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from datetime import UTC, datetime
@@ -10,6 +11,16 @@ import agentskeleton.cli as cli_module
 from agentskeleton.cli import app, build_default_registry, configure_streams_for_unicode
 from agentskeleton.core.actions import FinalAction
 from agentskeleton.core.session import SessionStore
+
+
+def schema_hash(schema: dict[str, object]) -> str:
+    encoded = json.dumps(
+        schema,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def test_tools_command_lists_default_tools() -> None:
@@ -111,6 +122,12 @@ def test_tools_command_can_output_json(monkeypatch, tmp_path) -> None:
         "required": ["path"],
         "additionalProperties": False,
     }
+    assert payload["tools"][0]["implementation"] == (
+        "agentskeleton.tools.filesystem.ReadFileTool"
+    )
+    assert payload["tools"][0]["args_schema_hash"] == schema_hash(
+        payload["tools"][0]["args_schema"]
+    )
     assert payload["tools"][1]["args_schema"] == {
         "type": "object",
         "properties": {
@@ -122,6 +139,12 @@ def test_tools_command_can_output_json(monkeypatch, tmp_path) -> None:
         "required": ["question"],
         "additionalProperties": False,
     }
+    assert payload["tools"][1]["implementation"] == (
+        "agentskeleton.tools.user.AskUserTool"
+    )
+    assert payload["tools"][1]["args_schema_hash"] == schema_hash(
+        payload["tools"][1]["args_schema"]
+    )
 
 
 def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> None:
