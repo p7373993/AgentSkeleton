@@ -1,0 +1,24 @@
+name: runtime-tool-provenance
+domain: reliability
+goal: Record registered tool provenance at run start.
+config:
+  enabled_tools:
+    - read_file
+actions:
+  - type: final
+    text: runtime provenance ok
+expect:
+  status: completed
+  answer: runtime provenance ok
+  observations: 0
+  events:
+    - type: run_started
+      payload:
+        enabled_tools:
+          - read_file
+        registered_tools:
+          - name: read_file
+            description: Read a UTF-8 text file inside the workspace.
+            risk: read
+            args_schema_hash: c44e064e0ddeb1b7b3922190f05724cb2f4a9d1f4922ddc3ab092016ae22c72c
+            implementation: agentskeleton.tools.filesystem.ReadFileTool
