@@ -301,7 +301,7 @@ def load_config(
             raise ValueError(f"Config file must contain a mapping: {config_path}")
         data.update(loaded)
 
-    if overrides:
+    if overrides is not None:
         data.update(
             {key: value for key, value in overrides.items() if value is not None}
         )

@@ -95,6 +95,26 @@ def test_load_config_merges_yaml_and_overrides(tmp_path: Path) -> None:
     assert config.workspace == workspace.resolve()
 
 
+def test_load_config_accepts_overrides_without_length(tmp_path: Path) -> None:
+    class LengthlessOverrides(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("override count unavailable")
+
+    config = load_config(
+        overrides=LengthlessOverrides(
+            {
+                "workspace": tmp_path,
+                "model": "gpt-5.4-mini",
+                "max_steps": 3,
+            }
+        )
+    )
+
+    assert config.workspace == tmp_path.resolve()
+    assert config.model == "gpt-5.4-mini"
+    assert config.max_steps == 3
+
+
 def test_load_config_rejects_explicit_missing_file(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="Config file not found"):
         load_config(tmp_path / "missing.yaml")
