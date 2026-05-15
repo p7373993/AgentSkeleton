@@ -32,6 +32,11 @@ class StickyString(str):
         return self
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return []
+
+
 def test_registry_registers_and_executes_tool(tmp_path) -> None:
     registry = ToolRegistry()
     registry.register(EchoTool())
@@ -182,6 +187,33 @@ def test_registry_rejects_unstrippable_tool_names() -> None:
 
     with pytest.raises(ValueError, match="Tool name could not be inspected"):
         registry.register(UnstrippableNameTool())
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("name", InvalidStripString("echo"), "Tool name could not be inspected"),
+        (
+            "description",
+            InvalidStripString("Echo text."),
+            "Tool echo description could not be inspected",
+        ),
+        ("risk", InvalidStripString("read"), "Tool echo risk could not be inspected"),
+    ],
+)
+def test_registry_rejects_tool_metadata_when_strip_returns_invalid_type(
+    field: str,
+    value: object,
+    error: str,
+) -> None:
+    class InvalidMetadataTool(EchoTool):
+        pass
+
+    setattr(InvalidMetadataTool, field, value)
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match=error):
+        registry.register(InvalidMetadataTool())
 
 
 def test_registry_rejects_non_string_tool_descriptions() -> None:
