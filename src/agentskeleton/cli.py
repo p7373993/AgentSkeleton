@@ -1126,9 +1126,10 @@ def restore_run(
 
     summary = _summarize_run_log_or_exit(log_path, run_id=run_id)
     goal = summary["goal"]
-    if not isinstance(goal, str) or not goal:
+    if not isinstance(goal, str) or not _has_display_value(goal):
         console.print(f"Run log has no restorable goal: {run_id}")
         raise typer.Exit(1)
+    goal_text = _display_text(goal)
 
     store = SessionStore(loaded.logs_dir)
     try:
@@ -1142,7 +1143,7 @@ def restore_run(
         store.append_transcript(
             session,
             "user",
-            goal,
+            goal_text,
             {"run_id": run_id, "source": "run_log"},
         )
         assistant_content = _summary_transcript_content(summary)

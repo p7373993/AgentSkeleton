@@ -5447,6 +5447,56 @@ def test_restore_run_imports_run_log_into_session(monkeypatch, tmp_path) -> None
     }
 
 
+def test_restore_run_handles_lengthless_goal(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_path = tmp_path / "runs" / "20260511" / "run-1.jsonl"
+
+    class ExplodingGoal(str):
+        def __len__(self) -> int:
+            raise RuntimeError("goal length unavailable")
+
+    def fake_summarize_run_log(*_args, **_kwargs) -> dict[str, object]:
+        return {
+            "run_id": "run-1",
+            "goal": ExplodingGoal("finish the report"),
+            "workspace": None,
+            "session": None,
+            "started_at": None,
+            "finished_at": None,
+            "duration_seconds": None,
+            "resumed": None,
+            "resumed_run_id": None,
+            "conversation_turns": None,
+            "status": "completed",
+            "reason": None,
+            "answer": "done",
+            "steps": 1,
+            "model_retries": 0,
+            "last_model_retry": None,
+            "last_model_error": None,
+            "tool_calls": 0,
+            "tool_failures": 0,
+            "last_tool_error": None,
+            "last_snapshot": None,
+            "log": log_path,
+        }
+
+    monkeypatch.setattr(cli_module, "_find_run_log", lambda *_args, **_kwargs: log_path)
+    monkeypatch.setattr(
+        cli_module,
+        "_summarize_run_log_or_exit",
+        fake_summarize_run_log,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert result.exit_code == 0
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    session = SessionStore(tmp_path / "runs").load("work")
+    assert session.transcript[0].content == "finish the report"
+
+
 def test_restore_run_imports_run_snapshot_metadata(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
