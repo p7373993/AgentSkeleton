@@ -925,6 +925,39 @@ def test_registry_rejects_uninspectable_string_enum_values() -> None:
             registry.register(InvalidEnumTool())
 
 
+def test_registry_rejects_uninspectable_nested_enum_values() -> None:
+    class UnencodableString(str):
+        def encode(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            raise RuntimeError("cannot encode")
+
+    class UnstringableKey(str):
+        def __str__(self) -> str:
+            raise RuntimeError("key unavailable")
+
+    cases = [
+        ("items", {"type": "array", "enum": [[UnencodableString("fast")]]}),
+        ("settings", {"type": "object", "enum": [{UnstringableKey("mode"): "fast"}]}),
+    ]
+    for property_name, property_schema in cases:
+        class InvalidEnumTool(EchoTool):
+            args_schema = {
+                "type": "object",
+                "properties": {property_name: property_schema},
+                "required": [property_name],
+                "additionalProperties": False,
+            }
+
+        registry = ToolRegistry()
+        with pytest.raises(
+            ValueError,
+            match=(
+                f"schema property {property_name} enum values "
+                "could not be inspected"
+            ),
+        ):
+            registry.register(InvalidEnumTool())
+
+
 def test_registry_exports_openai_function_schemas() -> None:
     registry = ToolRegistry([EchoTool()])
 

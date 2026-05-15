@@ -257,6 +257,12 @@ def _validate_schema_node_content(
         raise ValueError(
             f"Tool {tool_name} {label} enum values could not be inspected"
         )
+    if isinstance(enum, list) and any(
+        _enum_value_uninspectable(item) for item in enum
+    ):
+        raise ValueError(
+            f"Tool {tool_name} {label} enum values could not be inspected"
+        )
     if isinstance(enum, list) and not all(
         _matches_schema_type(item, schema_type) for item in enum
     ):
@@ -373,4 +379,56 @@ def _matches_single_schema_type(value: object, expected_type: object) -> bool:
         return isinstance(value, Mapping)
     if expected_type == "string":
         return isinstance(value, str)
+    return True
+
+
+def _enum_value_uninspectable(
+    value: object,
+    seen: set[int] | None = None,
+    depth: int = 0,
+) -> bool:
+    if depth > MAX_TOOL_SCHEMA_DEPTH:
+        return True
+    if isinstance(value, str):
+        return _is_uninspectable_text(value)
+    if value is None or isinstance(value, int | float | bool):
+        return False
+
+    seen = seen or set()
+    if isinstance(value, Mapping):
+        marker = id(value)
+        if marker in seen:
+            return True
+        seen.add(marker)
+        try:
+            try:
+                items = list(value.items())
+            except Exception:
+                return True
+            return any(
+                not isinstance(key, str)
+                or _is_uninspectable_text(key)
+                or _enum_value_uninspectable(item, seen, depth + 1)
+                for key, item in items
+            )
+        finally:
+            seen.remove(marker)
+
+    if isinstance(value, list):
+        marker = id(value)
+        if marker in seen:
+            return True
+        seen.add(marker)
+        try:
+            try:
+                items = list(value)
+            except Exception:
+                return True
+            return any(
+                _enum_value_uninspectable(item, seen, depth + 1)
+                for item in items
+            )
+        finally:
+            seen.remove(marker)
+
     return True
