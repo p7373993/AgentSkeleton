@@ -377,6 +377,8 @@ def eval_scenario(
             for failure in payload["failures"]:
                 bounded_failure = _bounded_display_text(str(failure))
                 console.print(f"Failure: {bounded_failure}")
+        if payload.get("workspace"):
+            console.print(f"Workspace: {payload['workspace']}", soft_wrap=True)
         console.print(f"Log: {payload['log']}", soft_wrap=True)
 
     if not result.passed:

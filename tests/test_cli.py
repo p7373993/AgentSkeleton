@@ -365,6 +365,7 @@ def test_eval_command_prints_final_reason(monkeypatch, tmp_path) -> None:
     assert "Run id: eval-" in result.stdout
     assert "Status: invalid_action" in result.stdout
     assert "Reason: Model returned unsupported action: dict" in result.stdout
+    assert "Workspace:" in result.stdout
 
 
 def test_eval_command_bounds_large_reason_and_failure_output(
@@ -402,6 +403,7 @@ def test_eval_command_bounds_large_reason_and_failure_output(
                 "status": "model_error",
                 "reason": large_reason,
                 "failures": [large_failure],
+                "workspace": str(tmp_path),
                 "log": str(tmp_path / "large-output.jsonl"),
             }
 
