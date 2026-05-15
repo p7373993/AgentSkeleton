@@ -1002,6 +1002,50 @@ def test_run_scenario_applies_config_overrides(tmp_path: Path) -> None:
     assert result.failures == []
 
 
+def test_run_scenario_accepts_config_overrides_without_length(
+    tmp_path: Path,
+) -> None:
+    class LengthlessConfigOverrides(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("override count unavailable")
+
+    scenario = eval_module.Scenario(
+        name="trusted-write",
+        domain="filesystem",
+        goal="write trusted report",
+        actions=[
+            eval_module.ToolCallAction(
+                tool_name="write_file",
+                call_id="write-1",
+                arguments={
+                    "path": "reports/summary.txt",
+                    "content": "summary from raw data",
+                    "create_parent_dirs": True,
+                },
+            ),
+            eval_module.FinalAction(text="report written"),
+        ],
+        expect={
+            "status": "completed",
+            "answer": "report written",
+            "observations": 1,
+            "files": {"reports/summary.txt": "summary from raw data"},
+        },
+        config_overrides=LengthlessConfigOverrides(
+            {"permission_profile": "trusted"}
+        ),
+    )
+
+    result = run_scenario(
+        scenario,
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([WriteFileTool()]),
+    )
+
+    assert result.passed is True
+    assert result.failures == []
+
+
 def test_run_scenario_uses_registry_factory_after_config_overrides(
     tmp_path: Path,
     monkeypatch,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -604,7 +604,7 @@ def _scripted_user_answers(answers: list[str]) -> Callable[[str], str]:
     return ask_user
 
 
-def _has_items(items: list[object]) -> bool:
+def _has_items(items: Iterable[object]) -> bool:
     for _item in items:
         return True
     return False
@@ -614,7 +614,7 @@ def _apply_config_overrides(
     config: RunConfig,
     overrides: dict[str, object],
 ) -> RunConfig:
-    if not overrides:
+    if not _has_items(overrides):
         return config
     data = config.model_dump()
     data.update(overrides)
