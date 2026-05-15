@@ -422,7 +422,7 @@ def run_scenario_suite(
             )
             for scenario in scenarios
         ],
-        required_domains=required_domains or [],
+        required_domains=required_domains if required_domains is not None else [],
         min_scenarios_per_required_domain=min_scenarios_per_required_domain,
     )
 

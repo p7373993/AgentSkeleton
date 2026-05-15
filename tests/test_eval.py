@@ -2364,6 +2364,24 @@ def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> No
     ]
 
 
+def test_run_scenario_suite_accepts_required_domains_without_length(
+    tmp_path: Path,
+) -> None:
+    class LengthlessRequiredDomains(list):
+        def __len__(self) -> int:
+            raise RuntimeError("required domain count unavailable")
+
+    suite = run_scenario_suite(
+        [],
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+        required_domains=LengthlessRequiredDomains(["finance"]),
+    )
+
+    assert suite.required_domains == ["finance"]
+    assert suite.coverage_failures == ["required domain finance has no scenarios"]
+
+
 def test_run_scenario_suite_fails_when_required_domain_is_missing(
     tmp_path: Path,
 ) -> None:
