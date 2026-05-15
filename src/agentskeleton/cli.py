@@ -134,7 +134,7 @@ def _validate_goal_or_exit(goal: str) -> str:
 
 def _print_json(payload: object) -> None:
     console.print(
-        json.dumps(payload, ensure_ascii=False, indent=2),
+        json.dumps(payload, ensure_ascii=False, indent=2, default=_display_text),
         soft_wrap=True,
         markup=False,
     )

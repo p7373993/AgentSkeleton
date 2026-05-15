@@ -2872,6 +2872,38 @@ def test_sessions_command_handles_uninspectable_display_values(
     assert "<uninspectable>" in result.stdout
 
 
+def test_sessions_command_outputs_json_with_uninspectable_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    class UninspectableValue:
+        def __str__(self) -> str:
+            raise RuntimeError("display unavailable")
+
+    class FakeSummary:
+        def to_dict(self) -> dict[str, object]:
+            return {"name": UninspectableValue()}
+
+    class FakeSessionStore:
+        def __init__(self, _logs_dir: Path) -> None:
+            pass
+
+        def list_sessions(self) -> list[FakeSummary]:
+            return [FakeSummary()]
+
+    monkeypatch.setattr(cli_module, "SessionStore", FakeSessionStore)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["sessions", "--json"])
+
+    assert result.exit_code == 0
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    payload = json.loads(result.stdout)
+    assert payload == {"sessions": [{"name": "<uninspectable>"}]}
+
+
 def test_sessions_command_reports_session_read_errors(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     transcript_path = tmp_path / "runs" / "sessions" / "default" / "transcript.jsonl"
