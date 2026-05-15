@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -306,7 +306,7 @@ class LLMClient:
         sticky_candidates = [
             turn
             for turn in state.conversation
-            if turn.metadata.get("sticky_context") is True
+            if _is_sticky_context_turn(turn)
         ]
         sticky_limit = min(
             self.config.session_context_turns,
@@ -326,7 +326,7 @@ class LLMClient:
         conversation_candidates = [
             turn
             for turn in state.conversation
-            if turn.metadata.get("sticky_context") is not True
+            if not _is_sticky_context_turn(turn)
         ]
         conversation = (
             conversation_candidates[-conversation_limit:]
@@ -540,6 +540,16 @@ def _is_conversation_context_item(item: dict[str, Any]) -> bool:
         and isinstance(item.get("role"), str)
         and "content" in item
     )
+
+
+def _is_sticky_context_turn(turn: ConversationMessage) -> bool:
+    metadata = getattr(turn, "metadata", {})
+    if not isinstance(metadata, Mapping):
+        return False
+    try:
+        return metadata.get("sticky_context") is True
+    except Exception:
+        return False
 
 
 def _is_context_item(item: object) -> bool:

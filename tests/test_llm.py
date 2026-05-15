@@ -2436,6 +2436,35 @@ def test_llm_client_keeps_sticky_summary_when_limiting_transcript_context(
     ]
 
 
+def test_llm_client_ignores_invalid_transcript_metadata_for_sticky_context(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
+    fake_client = FakeClient(response)
+    state = RunState(
+        run_id="run-2",
+        workspace=tmp_path,
+        goal="current request",
+        conversation=[
+            ConversationMessage(
+                role="user",
+                content="prior note",
+                metadata=None,  # type: ignore[arg-type]
+            ),
+        ],
+    )
+
+    LLMClient(RunConfig(workspace=tmp_path), client=fake_client).next_action(
+        state,
+        ToolRegistry([DummyTool()]),
+    )
+
+    assert fake_client.responses.calls[0]["input"] == [
+        {"role": "user", "content": "prior note"},
+        {"role": "user", "content": "current request"},
+    ]
+
+
 def test_llm_client_limits_sticky_context_turns(tmp_path) -> None:
     response = SimpleNamespace(id="resp-2", output_text="continued", output=[])
     fake_client = FakeClient(response)
