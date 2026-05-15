@@ -287,6 +287,8 @@ def doctor(
         "model_retry_attempts": loaded.model_retry_attempts,
         "permission_profile": loaded.permission_profile,
         "confirm_risky_actions": loaded.confirm_risky_actions,
+        "enabled_tools": loaded.enabled_tools,
+        "tool_modules": loaded.tool_modules,
         "workspace": str(loaded.workspace),
         "logs_dir": str(loaded.logs_dir),
         "tool_count": len(tool_names),

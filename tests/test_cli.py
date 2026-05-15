@@ -153,6 +153,8 @@ def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> 
         "model_retry_attempts": 2,
         "permission_profile": "standard",
         "confirm_risky_actions": True,
+        "enabled_tools": ["read_file", "ask_user"],
+        "tool_modules": [],
         "workspace": str(tmp_path.resolve()),
         "logs_dir": "logs",
         "tool_count": 2,
