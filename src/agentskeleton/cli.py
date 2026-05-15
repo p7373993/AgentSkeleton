@@ -297,6 +297,13 @@ def doctor(
         return
 
     console.print("Status: ok")
+    console.print(f"Model: {payload['model']}")
+    console.print(f"Reasoning effort: {payload['reasoning_effort']}")
+    console.print(f"Text verbosity: {payload['text_verbosity']}")
+    console.print(f"Max steps: {payload['max_steps']}")
+    console.print(f"Model retry attempts: {payload['model_retry_attempts']}")
+    console.print(f"Permission profile: {payload['permission_profile']}")
+    console.print(f"Confirm risky actions: {payload['confirm_risky_actions']}")
     console.print(f"Workspace: {payload['workspace']}", soft_wrap=True)
     console.print(f"Logs: {payload['logs_dir']}", soft_wrap=True)
     console.print(f"Tools: {payload['tool_count']}")

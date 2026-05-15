@@ -143,6 +143,37 @@ def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> 
     }
 
 
+def test_doctor_prints_runtime_settings(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "model: gpt-5.4-mini",
+                "reasoning_effort: medium",
+                "text_verbosity: low",
+                "max_steps: 7",
+                "model_retry_attempts: 3",
+                "permission_profile: trusted",
+                "confirm_risky_actions: false",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["doctor", "--config", str(config_path)])
+
+    assert result.exit_code == 0
+    assert "Model: gpt-5.4-mini" in result.stdout
+    assert "Reasoning effort: medium" in result.stdout
+    assert "Text verbosity: low" in result.stdout
+    assert "Max steps: 7" in result.stdout
+    assert "Model retry attempts: 3" in result.stdout
+    assert "Permission profile: trusted" in result.stdout
+    assert "Confirm risky actions: False" in result.stdout
+
+
 def test_eval_command_runs_scenario_as_json(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("hello", encoding="utf-8")
