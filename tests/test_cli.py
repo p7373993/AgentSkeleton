@@ -4977,6 +4977,55 @@ def test_restore_run_imports_run_snapshot_metadata(monkeypatch, tmp_path) -> Non
     assert session.transcript[1].metadata["last_snapshot"] == snapshot
 
 
+def test_restore_run_imports_runtime_metadata(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    runtime = {
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "medium",
+        "enabled_tools": ["read_file"],
+        "registered_tools": [
+            {
+                "name": "read_file",
+                "description": "Read a UTF-8 text file inside the workspace.",
+                "risk": "read",
+                "args_schema_hash": "abc123def456",
+                "implementation": "agentskeleton.tools.filesystem.ReadFileTool",
+            }
+        ],
+    }
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {
+                "goal": "summarize",
+                **runtime,
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "summary done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert result.exit_code == 0
+    session = SessionStore(tmp_path / "runs").load("work")
+    assert session.transcript[1].metadata["runtime"] == runtime
+
+
 def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"

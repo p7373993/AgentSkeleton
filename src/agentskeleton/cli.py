@@ -213,6 +213,9 @@ def _summary_assistant_metadata(
         metadata["last_tool_error"] = summary["last_tool_error"]
     if summary["last_snapshot"]:
         metadata["last_snapshot"] = summary["last_snapshot"]
+    runtime = summary.get("runtime")
+    if runtime:
+        metadata["runtime"] = runtime
     return metadata
 
 
