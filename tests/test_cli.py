@@ -18,6 +18,14 @@ class InvalidStripString(str):
         return object()
 
 
+class StickyString(str):
+    def __str__(self) -> str:
+        return self
+
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return self
+
+
 def schema_hash(schema: dict[str, object]) -> str:
     encoded = json.dumps(
         schema,
@@ -1085,6 +1093,13 @@ def test_cli_goal_validation_rejects_uninspectable_goal(capsys) -> None:
     with pytest.raises(cli_module.typer.Exit):
         cli_module._validate_goal_or_exit(InvalidStripString("finish"))  # noqa: SLF001
     assert "Goal error: Goal could not be inspected" in capsys.readouterr().out
+
+
+def test_cli_goal_validation_normalizes_text_subclasses() -> None:
+    goal = cli_module._validate_goal_or_exit(StickyString("finish"))  # noqa: SLF001
+
+    assert goal == "finish"
+    assert type(goal) is str
 
 
 def test_run_reports_session_store_errors(tmp_path, monkeypatch) -> None:

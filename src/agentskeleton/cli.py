@@ -121,7 +121,7 @@ def _safe_strip_text(value: str) -> str | None:
     return str.__str__(stripped)
 
 
-def _validate_goal_or_exit(goal: str) -> None:
+def _validate_goal_or_exit(goal: str) -> str:
     stripped_goal = _safe_strip_text(goal)
     if stripped_goal is None:
         console.print("Goal error: Goal could not be inspected")
@@ -129,6 +129,7 @@ def _validate_goal_or_exit(goal: str) -> None:
     if not stripped_goal:
         console.print("Goal error: Goal cannot be blank")
         raise typer.Exit(1)
+    return str.__str__(goal)
 
 
 def _print_json(payload: object) -> None:
@@ -483,7 +484,7 @@ def run(
     no_session: Annotated[bool, typer.Option("--no-session")] = False,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
 ) -> None:
-    _validate_goal_or_exit(goal)
+    goal = _validate_goal_or_exit(goal)
     loaded = _load_config_or_exit(
         config,
         {
@@ -755,7 +756,7 @@ def resume_run(
     tool: Annotated[list[str] | None, typer.Option("--tool")] = None,
     quiet: Annotated[bool, typer.Option("--quiet")] = False,
 ) -> None:
-    _validate_goal_or_exit(goal)
+    goal = _validate_goal_or_exit(goal)
     loaded = _load_config_or_exit(
         config,
         {
