@@ -852,9 +852,9 @@ def sessions(
     table.add_column("Summary")
     for summary in summaries:
         table.add_row(
-            summary.name,
-            str(summary.transcript_turns),
-            summary.summary or "",
+            _display_text(summary.name),
+            _display_text(summary.transcript_turns),
+            _display_optional_text(summary.summary),
         )
     console.print(table)
 

@@ -2834,6 +2834,44 @@ def test_sessions_command_prints_sessions(monkeypatch, tmp_path) -> None:
     assert "1" in result.stdout
 
 
+def test_sessions_command_handles_uninspectable_display_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    class UninspectableValue:
+        def __bool__(self) -> bool:
+            raise RuntimeError("truth unavailable")
+
+        def __str__(self) -> str:
+            raise RuntimeError("display unavailable")
+
+    class FakeSummary:
+        name = UninspectableValue()
+        transcript_turns = UninspectableValue()
+        summary = UninspectableValue()
+
+        def to_dict(self) -> dict[str, object]:
+            return {}
+
+    class FakeSessionStore:
+        def __init__(self, _logs_dir: Path) -> None:
+            pass
+
+        def list_sessions(self) -> list[FakeSummary]:
+            return [FakeSummary()]
+
+    monkeypatch.setattr(cli_module, "SessionStore", FakeSessionStore)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["sessions"])
+
+    assert result.exit_code == 0
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    assert "<uninspectable>" in result.stdout
+
+
 def test_sessions_command_reports_session_read_errors(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     transcript_path = tmp_path / "runs" / "sessions" / "default" / "transcript.jsonl"
