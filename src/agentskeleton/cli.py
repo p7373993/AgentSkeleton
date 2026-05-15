@@ -307,6 +307,15 @@ def doctor(
     console.print(f"Model retry attempts: {payload['model_retry_attempts']}")
     console.print(f"Permission profile: {payload['permission_profile']}")
     console.print(f"Confirm risky actions: {payload['confirm_risky_actions']}")
+    enabled_tools = payload["enabled_tools"]
+    enabled_tools_text = (
+        "default"
+        if enabled_tools is None
+        else ", ".join(enabled_tools) or "none"
+    )
+    tool_modules_text = ", ".join(payload["tool_modules"]) or "none"
+    console.print(f"Enabled tools: {enabled_tools_text}")
+    console.print(f"Tool modules: {tool_modules_text}")
     console.print(f"Workspace: {payload['workspace']}", soft_wrap=True)
     console.print(f"Logs: {payload['logs_dir']}", soft_wrap=True)
     console.print(f"Tools: {payload['tool_count']}")

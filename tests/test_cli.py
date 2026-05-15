@@ -191,6 +191,8 @@ def test_doctor_prints_runtime_settings(monkeypatch, tmp_path) -> None:
     assert "Model retry attempts: 3" in result.stdout
     assert "Permission profile: trusted" in result.stdout
     assert "Confirm risky actions: False" in result.stdout
+    assert "Enabled tools: default" in result.stdout
+    assert "Tool modules: none" in result.stdout
 
 
 def test_eval_command_runs_scenario_as_json(monkeypatch, tmp_path) -> None:
