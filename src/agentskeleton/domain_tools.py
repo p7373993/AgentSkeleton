@@ -15,6 +15,7 @@ DOMAIN_KEYWORDS = (
     ("tool_packs", ("tool module", "tool pack", "custom tool", "plugin")),
     ("writing", ("write", "draft", "brief", "copy", "summary")),
 )
+CLASSIFIED_DOMAINS = tuple(domain for domain, _keywords in DOMAIN_KEYWORDS)
 
 
 class ClassifyDomainTool(Tool):

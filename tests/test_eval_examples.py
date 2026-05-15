@@ -2,6 +2,7 @@ from pathlib import Path
 
 from agentskeleton.cli import build_default_registry
 from agentskeleton.config import RunConfig
+from agentskeleton.domain_tools import CLASSIFIED_DOMAINS
 from agentskeleton.eval import (
     load_scenario_suite,
     load_scenario_suite_config,
@@ -70,4 +71,14 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "reliability": {"passed": 36, "failed": 0, "total": 36},
         "tool_packs": {"passed": 2, "failed": 0, "total": 2},
         "writing": {"passed": 2, "failed": 0, "total": 2},
+    }
+
+
+def test_eval_suite_required_domains_cover_classifier_domains() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    suite_config = load_scenario_suite_config(repo_root / "evals")
+
+    assert set(suite_config.required_domains) >= {
+        *CLASSIFIED_DOMAINS,
+        "general",
     }
