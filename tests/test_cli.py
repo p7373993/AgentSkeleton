@@ -2640,6 +2640,105 @@ def test_show_run_can_output_json(monkeypatch, tmp_path) -> None:
     }
 
 
+def test_show_run_reports_runtime_settings_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {
+                "goal": "finish",
+                "model": "gpt-5.4-mini",
+                "reasoning_effort": "medium",
+                "text_verbosity": "low",
+                "max_steps": 7,
+                "model_retry_attempts": 3,
+                "permission_profile": "trusted",
+                "confirm_risky_actions": False,
+                "enabled_tools": ["read_file"],
+                "tool_modules": ["example.tools"],
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["runtime"] == {
+        "model": "gpt-5.4-mini",
+        "reasoning_effort": "medium",
+        "text_verbosity": "low",
+        "max_steps": 7,
+        "model_retry_attempts": 3,
+        "permission_profile": "trusted",
+        "confirm_risky_actions": False,
+        "enabled_tools": ["read_file"],
+        "tool_modules": ["example.tools"],
+    }
+
+
+def test_show_run_prints_runtime_settings(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {
+                "goal": "finish",
+                "model": "gpt-5.4-mini",
+                "reasoning_effort": "medium",
+                "max_steps": 7,
+                "model_retry_attempts": 3,
+                "permission_profile": "trusted",
+                "enabled_tools": ["read_file"],
+                "tool_modules": ["example.tools"],
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert "Model: gpt-5.4-mini" in result.stdout
+    assert "Reasoning effort: medium" in result.stdout
+    assert "Max steps: 7" in result.stdout
+    assert "Model retry attempts: 3" in result.stdout
+    assert "Permission profile: trusted" in result.stdout
+    assert "Enabled tools: read_file" in result.stdout
+    assert "Tool modules: example.tools" in result.stdout
+
+
 def test_show_run_reports_run_event_timestamps_as_json(
     monkeypatch,
     tmp_path,

@@ -215,6 +215,20 @@ def make_loop(tmp_path: Path, actions, logger: MemoryLogger | None = None) -> Ag
     )
 
 
+def default_run_start_runtime() -> dict[str, object]:
+    return {
+        "model": "gpt-5.5",
+        "reasoning_effort": "low",
+        "text_verbosity": "low",
+        "max_steps": 20,
+        "model_retry_attempts": 2,
+        "permission_profile": "standard",
+        "confirm_risky_actions": True,
+        "enabled_tools": None,
+        "tool_modules": [],
+    }
+
+
 def test_loop_stops_on_final_answer(tmp_path: Path) -> None:
     state = make_loop(tmp_path, [FinalAction(text="done")]).run("finish")
 
@@ -322,12 +336,45 @@ def test_loop_logs_run_start_context(tmp_path: Path) -> None:
         0,
         {
             "goal": "continue",
+            **default_run_start_runtime(),
             "workspace": str(tmp_path),
             "resumed": True,
             "conversation_turns": 1,
             "session": "work",
         },
     )
+
+
+def test_loop_logs_runtime_settings_in_run_start(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    AgentLoop(
+        config=RunConfig(
+            workspace=tmp_path,
+            model="gpt-5.4-mini",
+            reasoning_effort="medium",
+            text_verbosity="low",
+            max_steps=7,
+            model_retry_attempts=3,
+            permission_profile="trusted",
+            confirm_risky_actions=False,
+            enabled_tools=["record"],
+            tool_modules=["example.tools"],
+        ),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("continue")
+
+    payload = logger.events[0][2]
+    assert payload["model"] == "gpt-5.4-mini"
+    assert payload["reasoning_effort"] == "medium"
+    assert payload["text_verbosity"] == "low"
+    assert payload["max_steps"] == 7
+    assert payload["model_retry_attempts"] == 3
+    assert payload["permission_profile"] == "trusted"
+    assert payload["confirm_risky_actions"] is False
+    assert payload["enabled_tools"] == ["record"]
+    assert payload["tool_modules"] == ["example.tools"]
 
 
 def test_loop_trace_context_cannot_clobber_run_start_fields(tmp_path: Path) -> None:
@@ -357,6 +404,7 @@ def test_loop_trace_context_cannot_clobber_run_start_fields(tmp_path: Path) -> N
         0,
         {
             "goal": "continue",
+            **default_run_start_runtime(),
             "workspace": str(tmp_path),
             "resumed": True,
             "conversation_turns": 1,
@@ -390,6 +438,7 @@ def test_loop_ignores_non_mapping_trace_context(tmp_path: Path) -> None:
         0,
         {
             "goal": "finish",
+            **default_run_start_runtime(),
             "workspace": str(tmp_path),
             "resumed": False,
             "conversation_turns": 0,
@@ -472,6 +521,7 @@ def test_loop_ignores_uninspectable_trace_context_mapping(tmp_path: Path) -> Non
         0,
         {
             "goal": "finish",
+            **default_run_start_runtime(),
             "workspace": str(tmp_path),
             "resumed": False,
             "conversation_turns": 0,

@@ -826,6 +826,9 @@ def show_run(
         console.print(f"Reason: {summary['reason']}")
     if summary["goal"]:
         console.print(f"Goal: {summary['goal']}", soft_wrap=True)
+    runtime = summary.get("runtime")
+    if isinstance(runtime, dict):
+        _print_run_runtime(runtime)
     if summary["session"]:
         console.print(f"Session: {summary['session']}")
     if summary["started_at"]:
@@ -864,6 +867,37 @@ def show_run(
                     soft_wrap=True,
                 )
     console.print(f"Log: {summary['log']}", soft_wrap=True)
+
+
+def _print_run_runtime(runtime: dict[object, object]) -> None:
+    labels = (
+        ("model", "Model"),
+        ("reasoning_effort", "Reasoning effort"),
+        ("text_verbosity", "Text verbosity"),
+        ("max_steps", "Max steps"),
+        ("model_retry_attempts", "Model retry attempts"),
+        ("permission_profile", "Permission profile"),
+        ("confirm_risky_actions", "Confirm risky actions"),
+    )
+    for key, label in labels:
+        if key in runtime:
+            console.print(f"{label}: {_display_text(runtime[key])}")
+    if "enabled_tools" in runtime:
+        console.print(
+            f"Enabled tools: {_runtime_list_text(runtime['enabled_tools'], 'default')}"
+        )
+    if "tool_modules" in runtime:
+        console.print(
+            f"Tool modules: {_runtime_list_text(runtime['tool_modules'], 'none')}"
+        )
+
+
+def _runtime_list_text(value: object, none_label: str) -> str:
+    if value is None:
+        return none_label
+    if isinstance(value, list):
+        return ", ".join(_display_text(item) for item in value) or "none"
+    return _display_text(value)
 
 
 @app.command(name="list-runs")
@@ -1144,9 +1178,31 @@ def _summarize_run_log(
         "last_snapshot": last_snapshot,
         "log": str(log_path.resolve()),
     }
+    runtime = _run_runtime_summary(start_payload)
+    if runtime:
+        summary["runtime"] = runtime
     if include_events:
         summary["events"] = [_bounded_run_log_event(event) for event in events]
     return summary
+
+
+def _run_runtime_summary(start_payload: dict[str, Any]) -> dict[str, object]:
+    runtime_keys = (
+        "model",
+        "reasoning_effort",
+        "text_verbosity",
+        "max_steps",
+        "model_retry_attempts",
+        "permission_profile",
+        "confirm_risky_actions",
+        "enabled_tools",
+        "tool_modules",
+    )
+    return {
+        key: _run_log_text_value(start_payload[key])
+        for key in runtime_keys
+        if key in start_payload
+    }
 
 
 def _event_payload(event: dict[str, Any] | None) -> dict[str, Any]:
