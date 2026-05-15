@@ -1,0 +1,29 @@
+name: nested-invalid-arguments-recovery
+domain: reliability
+goal: Recover after a malformed nested tool argument.
+config:
+  tool_modules:
+    - agentskeleton.eval_tools
+  enabled_tools:
+    - object_echo
+actions:
+  - type: tool
+    tool: object_echo
+    call_id: object-1
+    arguments:
+      payload:
+        1: value
+  - type: final
+    text: recovered after nested invalid args
+expect:
+  status: completed
+  answer: recovered after nested invalid args
+  observations: 1
+  observations_detail:
+    - tool: object_echo
+      success: false
+      summary: Invalid tool arguments
+      error: Invalid arguments
+      payload:
+        validation_errors:
+          - Tool argument names must be strings

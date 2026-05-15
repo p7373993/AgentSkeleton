@@ -33,4 +33,23 @@ class InvalidResultTool(Tool):
         return {"success": True, "summary": "not a model"}  # type: ignore[return-value]
 
 
-TOOLS = [ExplodingTool(), InvalidResultTool()]
+class ObjectEchoTool(Tool):
+    name: ClassVar[str] = "object_echo"
+    description: ClassVar[str] = "Echo an object payload for evals."
+    risk: ClassVar[str] = "read"
+    args_schema: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {"payload": {"type": "object"}},
+        "required": ["payload"],
+        "additionalProperties": False,
+    }
+
+    def execute(self, args: dict[str, Any], context: ToolContext) -> ToolResult:
+        return ToolResult(
+            success=True,
+            payload={"payload": args["payload"]},
+            summary="object echo ok",
+        )
+
+
+TOOLS = [ExplodingTool(), InvalidResultTool(), ObjectEchoTool()]
