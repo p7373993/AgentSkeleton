@@ -26,6 +26,8 @@ def _inspect_module_name(module_name: str) -> tuple[str, bool, bool, list[str]] 
         parts = module_name.split(".")
     except Exception:
         return None
+    if not isinstance(stripped, str):
+        return None
     if has_control_characters or has_whitespace:
         return stripped, has_control_characters, has_whitespace, parts
     try:

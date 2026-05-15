@@ -1299,6 +1299,14 @@ def test_load_tools_from_module_rejects_uninspectable_module_name(
         load_tools_from_modules([UninspectableString("custom_tools")])
 
 
+def test_load_tools_from_module_rejects_module_name_with_invalid_strip_result() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Tool module name could not be inspected",
+    ):
+        load_tools_from_modules([InvalidStripString("custom_tools")])
+
+
 def test_load_tools_from_module_rejects_blank_module_name() -> None:
     with pytest.raises(ValueError, match="Tool module name cannot be blank"):
         load_tools_from_modules(["   "])
