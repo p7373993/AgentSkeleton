@@ -896,7 +896,7 @@ def _print_run_runtime(runtime: dict[object, object]) -> None:
         for tool in registered_tools:
             tool_text = _registered_tool_text(tool)
             if tool_text:
-                console.print(f"  {tool_text}")
+                console.print(f"  {tool_text}", soft_wrap=True)
 
 
 def _runtime_list_text(value: object, none_label: str) -> str:
@@ -920,6 +920,9 @@ def _registered_tool_text(value: object) -> str | None:
     args_schema_hash = value.get("args_schema_hash")
     if args_schema_hash is not None:
         details.append(f"schema {_display_text(args_schema_hash)[:12]}")
+    implementation = value.get("implementation")
+    if implementation is not None:
+        details.append(f"impl {_display_text(implementation)}")
     return f"{_display_text(name)} ({', '.join(details)})"
 
 

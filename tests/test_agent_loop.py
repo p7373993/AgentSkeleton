@@ -24,6 +24,10 @@ def schema_hash(schema: dict[str, object]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def tool_implementation(tool_type: type[Tool]) -> str:
+    return f"{tool_type.__module__}.{tool_type.__qualname__}"
+
+
 class MemoryLogger:
     def __init__(self) -> None:
         self.path = Path("memory.jsonl")
@@ -244,6 +248,7 @@ def default_run_start_runtime() -> dict[str, object]:
                 "description": "Record a value.",
                 "risk": "read",
                 "args_schema_hash": schema_hash(RecordTool.args_schema),
+                "implementation": tool_implementation(RecordTool),
             }
         ],
     }
@@ -413,12 +418,14 @@ def test_loop_logs_registered_tool_inventory_in_run_start(tmp_path: Path) -> Non
             "description": "Record a value.",
             "risk": "read",
             "args_schema_hash": schema_hash(RecordTool.args_schema),
+            "implementation": tool_implementation(RecordTool),
         },
         {
             "name": "ask_user",
             "description": "Ask the user one direct question.",
             "risk": "interactive",
             "args_schema_hash": schema_hash(AskUserTool.args_schema),
+            "implementation": tool_implementation(AskUserTool),
         },
     ]
 

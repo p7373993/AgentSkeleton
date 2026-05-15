@@ -57,9 +57,15 @@ def _registered_tool_inventory(registry: ToolRegistry) -> list[dict[str, str]]:
             "description": tool.description,
             "risk": tool.risk,
             "args_schema_hash": _args_schema_hash(tool.args_schema),
+            "implementation": _tool_implementation(tool),
         }
         for tool in registry.all()
     ]
+
+
+def _tool_implementation(tool: object) -> str:
+    tool_type = type(tool)
+    return f"{tool_type.__module__}.{tool_type.__qualname__}"
 
 
 def _args_schema_hash(schema: object) -> str:

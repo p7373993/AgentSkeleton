@@ -2773,12 +2773,14 @@ def test_show_run_prints_runtime_settings(monkeypatch, tmp_path) -> None:
                         "description": "Read a file.",
                         "risk": "read",
                         "args_schema_hash": "abc123def4567890",
+                        "implementation": "custom.tools.ReadFileTool",
                     },
                     {
                         "name": "ask_user",
                         "description": "Ask the user one direct question.",
                         "risk": "interactive",
                         "args_schema_hash": "fedcba9876543210",
+                        "implementation": "agentskeleton.tools.user.AskUserTool",
                     },
                 ],
             },
@@ -2807,8 +2809,15 @@ def test_show_run_prints_runtime_settings(monkeypatch, tmp_path) -> None:
     assert "Enabled tools: read_file" in result.stdout
     assert "Tool modules: example.tools" in result.stdout
     assert "Registered tools: 2" in result.stdout
-    assert "read_file (read, schema abc123def456)" in result.stdout
-    assert "ask_user (interactive, schema fedcba987654)" in result.stdout
+    assert (
+        "read_file (read, schema abc123def456, impl custom.tools.ReadFileTool)"
+        in result.stdout
+    )
+    assert (
+        "ask_user (interactive, schema fedcba987654, "
+        "impl agentskeleton.tools.user.AskUserTool)"
+        in result.stdout
+    )
 
 
 def test_show_run_reports_run_event_timestamps_as_json(
