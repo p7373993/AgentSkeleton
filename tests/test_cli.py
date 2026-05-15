@@ -434,6 +434,62 @@ def test_eval_command_bounds_large_reason_and_failure_output(
     assert large_failure not in result.stdout
 
 
+def test_eval_command_handles_uninspectable_reason_and_failures(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    scenario_path = tmp_path / "uninspectable-output.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: uninspectable-output",
+                "goal: uninspectable output",
+                "actions:",
+                "  - type: final",
+                "    text: actual",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    class UninspectableValue:
+        def __bool__(self) -> bool:
+            raise RuntimeError("truth unavailable")
+
+        def __str__(self) -> str:
+            raise RuntimeError("display unavailable")
+
+    class FakeResult:
+        passed = False
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "scenario": "uninspectable-output",
+                "run_id": "eval-uninspectable-output",
+                "passed": False,
+                "status": "model_error",
+                "reason": UninspectableValue(),
+                "failures": [UninspectableValue()],
+                "workspace": str(tmp_path),
+                "log": str(tmp_path / "uninspectable-output.jsonl"),
+            }
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.run_scenario",
+        lambda *args, **kwargs: FakeResult(),
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval", str(scenario_path)])
+
+    assert result.exit_code == 1
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    assert result.stdout.count("<uninspectable>") == 2
+
+
 def test_eval_command_reports_directory_scenario_path(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     scenario_path = tmp_path / "directory.yaml"
@@ -607,6 +663,68 @@ def test_eval_suite_command_bounds_large_reason_and_failure_output(
     assert large_reason not in result.stdout
     assert large_failure not in result.stdout
     assert large_coverage_failure not in result.stdout
+
+
+def test_eval_suite_command_handles_uninspectable_output_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "uninspectable-output.yaml").write_text(
+        "\n".join(
+            [
+                "name: uninspectable-output",
+                "goal: uninspectable output",
+                "actions:",
+                "  - type: final",
+                "    text: actual",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    class UninspectableValue:
+        def __bool__(self) -> bool:
+            raise RuntimeError("truth unavailable")
+
+        def __str__(self) -> str:
+            raise RuntimeError("display unavailable")
+
+    class FakeResult:
+        passed = False
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "passed": False,
+                "passed_count": 0,
+                "total": 1,
+                "results": [
+                    {
+                        "scenario": "uninspectable-output",
+                        "passed": False,
+                        "status": "model_error",
+                        "reason": UninspectableValue(),
+                        "failures": [UninspectableValue()],
+                    }
+                ],
+                "coverage_failures": [UninspectableValue()],
+            }
+
+    monkeypatch.setattr(
+        "agentskeleton.cli.run_scenario_suite",
+        lambda *args, **kwargs: FakeResult(),
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["eval-suite", str(suite_dir)])
+
+    assert result.exit_code == 1
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    assert result.stdout.count("<uninspectable>") == 3
 
 
 def test_eval_suite_command_enforces_required_domains(monkeypatch, tmp_path) -> None:

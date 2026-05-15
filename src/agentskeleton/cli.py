@@ -385,12 +385,12 @@ def eval_scenario(
         console.print(f"Run id: {payload['run_id']}")
         console.print(f"Passed: {payload['passed']}")
         console.print(f"Status: {payload['status']}")
-        if payload["reason"]:
-            reason = _bounded_display_text(str(payload["reason"]))
+        if _has_display_value(payload["reason"]):
+            reason = _display_text(payload["reason"])
             console.print(f"Reason: {reason}")
-        if payload["failures"]:
+        if _has_display_value(payload["failures"]):
             for failure in payload["failures"]:
-                bounded_failure = _bounded_display_text(str(failure))
+                bounded_failure = _display_text(failure)
                 console.print(f"Failure: {bounded_failure}")
         if payload.get("workspace"):
             console.print(f"Workspace: {payload['workspace']}", soft_wrap=True)
@@ -445,11 +445,11 @@ def eval_suite(
                 f"{marker}: {item['scenario']} status={item['status']}"
                 f"{run_id_text}"
             )
-            if item["reason"]:
-                reason = _bounded_display_text(str(item["reason"]))
+            if _has_display_value(item["reason"]):
+                reason = _display_text(item["reason"])
                 console.print(f"Reason: {reason}")
             for failure in item["failures"]:
-                bounded_failure = _bounded_display_text(str(failure))
+                bounded_failure = _display_text(failure)
                 console.print(f"Failure: {bounded_failure}")
             if not item["passed"]:
                 if item.get("workspace"):
@@ -457,7 +457,7 @@ def eval_suite(
                 if item.get("log"):
                     console.print(f"Log: {item['log']}", soft_wrap=True)
         for failure in payload["coverage_failures"]:
-            bounded_failure = _bounded_display_text(str(failure))
+            bounded_failure = _display_text(failure)
             console.print(f"Coverage failure: {bounded_failure}")
 
     if not result.passed:
@@ -1349,6 +1349,13 @@ def _display_text(value: object) -> str:
         text = "<uninspectable>"
     text = str.__str__(text)
     return _bounded_display_text(text)
+
+
+def _has_display_value(value: object) -> bool:
+    try:
+        return bool(value)
+    except Exception:
+        return True
 
 
 def _enabled_tool_name(value: object) -> str:
