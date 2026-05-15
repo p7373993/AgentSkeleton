@@ -334,6 +334,7 @@ def test_eval_command_runs_scenario_as_json(monkeypatch, tmp_path) -> None:
     assert payload["answer"] == "read complete"
     assert payload["observations"] == 1
     assert payload["failures"] == []
+    assert payload["run_id"].startswith("eval-")
     assert payload["log"].endswith(".jsonl")
 
 
@@ -361,6 +362,7 @@ def test_eval_command_prints_final_reason(monkeypatch, tmp_path) -> None:
 
     assert result.exit_code == 0
     assert "Scenario: invalid-action" in result.stdout
+    assert "Run id: eval-" in result.stdout
     assert "Status: invalid_action" in result.stdout
     assert "Reason: Model returned unsupported action: dict" in result.stdout
 
@@ -395,6 +397,7 @@ def test_eval_command_bounds_large_reason_and_failure_output(
         def to_dict(self) -> dict[str, object]:
             return {
                 "scenario": "large-output",
+                "run_id": "eval-large-output",
                 "passed": False,
                 "status": "model_error",
                 "reason": large_reason,
@@ -462,6 +465,7 @@ def test_eval_suite_command_runs_directory_as_json(monkeypatch, tmp_path) -> Non
     assert payload["passed_count"] == 2
     assert payload["failed_count"] == 0
     assert [item["scenario"] for item in payload["results"]] == ["alpha", "beta"]
+    assert all(item["run_id"].startswith("eval-") for item in payload["results"])
 
 
 def test_eval_suite_command_prints_status_and_reason(

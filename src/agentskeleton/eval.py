@@ -75,6 +75,7 @@ class Scenario:
 class ScenarioResult:
     scenario: str
     domain: str
+    run_id: str
     passed: bool
     status: str | None
     answer: str | None
@@ -88,6 +89,7 @@ class ScenarioResult:
         return {
             "scenario": self.scenario,
             "domain": self.domain,
+            "run_id": self.run_id,
             "passed": self.passed,
             "status": self.status,
             "answer": self.answer,
@@ -353,6 +355,7 @@ def run_scenario(
     return ScenarioResult(
         scenario=scenario.name,
         domain=scenario.domain,
+        run_id=run_id,
         passed=not failures,
         status=state.final_status,
         answer=state.final_answer,

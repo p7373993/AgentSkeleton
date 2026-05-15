@@ -73,6 +73,8 @@ def test_run_scenario_executes_scripted_actions_and_checks_expectations(
     assert result.answer == "read complete"
     assert result.observations == 1
     assert result.log_path.exists()
+    assert result.run_id.startswith("eval-")
+    assert result.to_dict()["run_id"] == result.run_id
 
 
 def test_run_scenario_includes_domain_metadata(tmp_path: Path) -> None:

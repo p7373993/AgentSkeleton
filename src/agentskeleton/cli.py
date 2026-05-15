@@ -367,6 +367,7 @@ def eval_scenario(
         _print_json(payload)
     else:
         console.print(f"Scenario: {payload['scenario']}")
+        console.print(f"Run id: {payload['run_id']}")
         console.print(f"Passed: {payload['passed']}")
         console.print(f"Status: {payload['status']}")
         if payload["reason"]:
