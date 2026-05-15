@@ -34,3 +34,19 @@ def test_runtime_metadata_reports_config_and_registered_tools(tmp_path: Path) ->
         "tool_modules": ["example_tools"],
         "registered_tools": registered_tool_inventory(registry),
     }
+
+
+def test_runtime_metadata_snapshots_mutable_config_lists(tmp_path: Path) -> None:
+    config = RunConfig(
+        workspace=tmp_path,
+        enabled_tools=["read_file"],
+        tool_modules=["example_tools"],
+    )
+    registry = ToolRegistry([ReadFileTool()])
+
+    metadata = runtime_metadata(config, registry)
+    config.enabled_tools.append("ask_user")
+    config.tool_modules.append("other_tools")
+
+    assert metadata["enabled_tools"] == ["read_file"]
+    assert metadata["tool_modules"] == ["example_tools"]
