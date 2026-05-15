@@ -158,6 +158,42 @@ class ScenarioSuiteResult:
                 )
         return failures
 
+    @property
+    def coverage_failure_details(self) -> list[dict[str, object]]:
+        failures: list[dict[str, object]] = []
+        domains = self.domains
+        for domain in self.required_domains:
+            stats = domains.get(domain)
+            if stats is None:
+                failures.append(
+                    _coverage_failure_detail(
+                        domain,
+                        "missing",
+                        {"passed": 0, "failed": 0, "total": 0},
+                        self.min_scenarios_per_required_domain,
+                    )
+                )
+                continue
+            if stats["failed"] > 0:
+                failures.append(
+                    _coverage_failure_detail(
+                        domain,
+                        "failed",
+                        stats,
+                        self.min_scenarios_per_required_domain,
+                    )
+                )
+            if stats["total"] < self.min_scenarios_per_required_domain:
+                failures.append(
+                    _coverage_failure_detail(
+                        domain,
+                        "below_minimum",
+                        stats,
+                        self.min_scenarios_per_required_domain,
+                    )
+                )
+        return failures
+
     def to_dict(self) -> dict[str, object]:
         return {
             "passed": self.passed,
@@ -170,6 +206,7 @@ class ScenarioSuiteResult:
                 self.min_scenarios_per_required_domain
             ),
             "coverage_failures": self.coverage_failures,
+            "coverage_failure_details": self.coverage_failure_details,
             "results": [result.to_dict() for result in self.results],
         }
 
@@ -462,6 +499,22 @@ def _parse_min_scenarios_per_required_domain(raw: object) -> int:
 def _scenario_count_text(count: int) -> str:
     suffix = "" if count == 1 else "s"
     return f"{count} scenario{suffix}"
+
+
+def _coverage_failure_detail(
+    domain: str,
+    reason: str,
+    stats: dict[str, int],
+    minimum: int,
+) -> dict[str, object]:
+    return {
+        "domain": domain,
+        "reason": reason,
+        "passed": stats["passed"],
+        "failed": stats["failed"],
+        "total": stats["total"],
+        "minimum": minimum,
+    }
 
 
 def _parse_files(raw: object) -> dict[str, str]:

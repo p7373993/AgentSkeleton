@@ -2341,6 +2341,16 @@ def test_run_scenario_suite_fails_when_required_domain_is_missing(
     assert suite.passed is False
     assert suite.coverage_failures == ["required domain writing has no scenarios"]
     assert suite.to_dict()["coverage_failures"] == suite.coverage_failures
+    assert suite.to_dict()["coverage_failure_details"] == [
+        {
+            "domain": "writing",
+            "reason": "missing",
+            "passed": 0,
+            "failed": 0,
+            "total": 0,
+            "minimum": 0,
+        }
+    ]
 
 
 def test_run_scenario_suite_fails_when_required_domain_has_failures(
@@ -2365,6 +2375,16 @@ def test_run_scenario_suite_fails_when_required_domain_has_failures(
 
     assert suite.passed is False
     assert suite.coverage_failures == ["required domain finance has failing scenarios"]
+    assert suite.to_dict()["coverage_failure_details"] == [
+        {
+            "domain": "finance",
+            "reason": "failed",
+            "passed": 0,
+            "failed": 1,
+            "total": 1,
+            "minimum": 0,
+        }
+    ]
 
 
 def test_run_scenario_suite_fails_when_required_domain_is_below_minimum(
@@ -2393,6 +2413,16 @@ def test_run_scenario_suite_fails_when_required_domain_is_below_minimum(
         "required domain finance has 1 scenario, minimum is 2"
     ]
     assert suite.to_dict()["min_scenarios_per_required_domain"] == 2
+    assert suite.to_dict()["coverage_failure_details"] == [
+        {
+            "domain": "finance",
+            "reason": "below_minimum",
+            "passed": 1,
+            "failed": 0,
+            "total": 1,
+            "minimum": 2,
+        }
+    ]
 
 
 def _write_final_scenario(
