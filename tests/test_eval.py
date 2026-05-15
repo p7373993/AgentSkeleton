@@ -2234,6 +2234,22 @@ def test_load_scenario_suite_config_reports_malformed_manifest(
         raise AssertionError("Expected malformed suite manifest to fail")
 
 
+def test_load_scenario_suite_config_rejects_empty_sequence_manifest(
+    tmp_path: Path,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    manifest = suite_dir / "suite.yaml"
+    manifest.write_text("[]\n", encoding="utf-8")
+
+    try:
+        load_scenario_suite_config(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == f"Suite manifest must contain a mapping: {manifest}"
+    else:
+        raise AssertionError("Expected sequence suite manifest to fail")
+
+
 def test_load_scenario_suite_config_reports_invalid_utf8_manifest(
     tmp_path: Path,
 ) -> None:

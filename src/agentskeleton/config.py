@@ -292,9 +292,11 @@ def load_config(
                 f"Config file exceeds {MAX_CONFIG_FILE_BYTES} bytes: {config_path}"
             )
         try:
-            loaded = yaml.safe_load(config_text) or {}
+            loaded = yaml.safe_load(config_text)
         except (yaml.YAMLError, RecursionError) as exc:
             raise ValueError(f"Config file could not be parsed: {config_path}") from exc
+        if loaded is None:
+            loaded = {}
         if not isinstance(loaded, dict):
             raise ValueError(f"Config file must contain a mapping: {config_path}")
         data.update(loaded)

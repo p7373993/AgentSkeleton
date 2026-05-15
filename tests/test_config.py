@@ -215,6 +215,14 @@ def test_load_config_reports_malformed_yaml(tmp_path: Path) -> None:
         load_config(config_path)
 
 
+def test_load_config_rejects_empty_sequence_document(tmp_path: Path) -> None:
+    config_path = tmp_path / "agent.yaml"
+    config_path.write_text("[]\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Config file must contain a mapping"):
+        load_config(config_path)
+
+
 def test_load_config_reports_deeply_nested_yaml(tmp_path: Path) -> None:
     config_path = tmp_path / "agent.yaml"
     config_path.write_text("[" * 20_000 + "null" + "]" * 20_000, encoding="utf-8")

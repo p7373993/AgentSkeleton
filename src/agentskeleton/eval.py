@@ -278,9 +278,10 @@ def _load_yaml_document(path: Path, label: str) -> object:
     if text_bytes > MAX_SCENARIO_FILE_BYTES:
         raise ValueError(f"{label} exceeds {MAX_SCENARIO_FILE_BYTES} bytes: {path}")
     try:
-        return yaml.safe_load(text) or {}
+        loaded = yaml.safe_load(text)
     except (yaml.YAMLError, RecursionError) as exc:
         raise ValueError(f"{label} could not be parsed: {path}") from exc
+    return {} if loaded is None else loaded
 
 
 def load_scenario(path: Path) -> Scenario:
