@@ -1,0 +1,29 @@
+name: finance-invoice-read
+domain: finance
+goal: Review a finance invoice fixture before answering.
+files:
+  finance/invoices.csv: |
+    vendor,amount,status
+    Acme,1200,paid
+    Beta,950,open
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-finance-invoices
+    arguments:
+      path: finance/invoices.csv
+  - type: final
+    text: finance invoice read ok
+expect:
+  status: completed
+  answer: finance invoice read ok
+  observations: 1
+  observations_detail:
+    - tool: read_file
+      success: true
+      payload:
+        path: finance/invoices.csv
+        content: |
+          vendor,amount,status
+          Acme,1200,paid
+          Beta,950,open

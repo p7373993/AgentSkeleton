@@ -2,6 +2,7 @@ required_domains:
   - artifacts
   - coding
   - data
+  - finance
   - filesystem
   - interactive
   - reliability

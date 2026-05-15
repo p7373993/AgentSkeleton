@@ -1,0 +1,44 @@
+name: finance-ledger-artifact
+domain: finance
+goal: Produce a finance reconciliation note from a ledger fixture.
+config:
+  permission_profile: trusted
+files:
+  finance/ledger.csv: |
+    account,debit,credit
+    cash,0,500
+    revenue,500,0
+actions:
+  - type: tool
+    tool: read_file
+    call_id: read-finance-ledger
+    arguments:
+      path: finance/ledger.csv
+  - type: tool
+    tool: write_file
+    call_id: write-finance-note
+    arguments:
+      path: finance/reconciliation-note.txt
+      content: |
+        Finance reconciliation:
+        Investigate cash/revenue reversal before close.
+      create_parent_dirs: true
+  - type: final
+    text: finance ledger artifact ok
+expect:
+  status: completed
+  answer: finance ledger artifact ok
+  observations: 2
+  observations_detail:
+    - tool: read_file
+      success: true
+      payload:
+        path: finance/ledger.csv
+    - tool: write_file
+      success: true
+      payload:
+        path: finance/reconciliation-note.txt
+  files:
+    finance/reconciliation-note.txt: |
+      Finance reconciliation:
+      Investigate cash/revenue reversal before close.
