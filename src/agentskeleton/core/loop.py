@@ -56,9 +56,20 @@ def _registered_tool_inventory(registry: ToolRegistry) -> list[dict[str, str]]:
             "name": tool.name,
             "description": tool.description,
             "risk": tool.risk,
+            "args_schema_hash": _args_schema_hash(tool.args_schema),
         }
         for tool in registry.all()
     ]
+
+
+def _args_schema_hash(schema: object) -> str:
+    encoded = json.dumps(
+        schema,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 class AgentLoop:

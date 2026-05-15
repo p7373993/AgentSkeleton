@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,16 @@ from agentskeleton.core.trace import MemoryTraceSink
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 from agentskeleton.tools.registry import ToolRegistry
 from agentskeleton.tools.user import AskUserTool
+
+
+def schema_hash(schema: dict[str, object]) -> str:
+    encoded = json.dumps(
+        schema,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 class MemoryLogger:
@@ -231,6 +243,7 @@ def default_run_start_runtime() -> dict[str, object]:
                 "name": "record",
                 "description": "Record a value.",
                 "risk": "read",
+                "args_schema_hash": schema_hash(RecordTool.args_schema),
             }
         ],
     }
@@ -399,11 +412,13 @@ def test_loop_logs_registered_tool_inventory_in_run_start(tmp_path: Path) -> Non
             "name": "record",
             "description": "Record a value.",
             "risk": "read",
+            "args_schema_hash": schema_hash(RecordTool.args_schema),
         },
         {
             "name": "ask_user",
             "description": "Ask the user one direct question.",
             "risk": "interactive",
+            "args_schema_hash": schema_hash(AskUserTool.args_schema),
         },
     ]
 

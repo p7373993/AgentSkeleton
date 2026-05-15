@@ -916,7 +916,11 @@ def _registered_tool_text(value: object) -> str | None:
     risk = value.get("risk")
     if risk is None:
         return _display_text(name)
-    return f"{_display_text(name)} ({_display_text(risk)})"
+    details = [_display_text(risk)]
+    args_schema_hash = value.get("args_schema_hash")
+    if args_schema_hash is not None:
+        details.append(f"schema {_display_text(args_schema_hash)[:12]}")
+    return f"{_display_text(name)} ({', '.join(details)})"
 
 
 @app.command(name="list-runs")
