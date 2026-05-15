@@ -648,6 +648,20 @@ def test_registry_rejects_uninspectable_args_schema_descriptions() -> None:
         registry.register(InvalidSchemaTool())
 
 
+def test_registry_rejects_non_json_args_schema_values() -> None:
+    class NonJsonValueTool(EchoTool):
+        args_schema = {
+            "type": "object",
+            "properties": {},
+            "x-internal": object(),
+        }
+
+    registry = ToolRegistry()
+
+    with pytest.raises(ValueError, match="Tool echo schema must contain JSON values"):
+        registry.register(NonJsonValueTool())
+
+
 @pytest.mark.parametrize(
     ("schema", "error"),
     [

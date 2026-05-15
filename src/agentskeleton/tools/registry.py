@@ -166,6 +166,7 @@ def _validate_args_schema_inner(tool: Tool) -> dict[str, Any]:
         raise ValueError(f"Tool {tool.name} schema type must be object")
     _validate_schema_size(tool.name, schema)
     _validate_schema_node(tool.name, schema, "schema", set(), 0)
+    _validate_schema_json_values(tool.name, schema)
     return deepcopy(dict(schema))
 
 
@@ -176,6 +177,22 @@ def _validate_schema_size(tool_name: str, schema: Mapping) -> None:
         return
     if size > MAX_TOOL_SCHEMA_BYTES:
         raise ValueError(f"Tool {tool_name} schema exceeds maximum size")
+
+
+def _validate_schema_json_values(tool_name: str, schema: Mapping) -> None:
+    if _json_value_uninspectable(schema):
+        raise ValueError(f"Tool {tool_name} schema must contain JSON values")
+    try:
+        json.dumps(
+            schema,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise ValueError(
+            f"Tool {tool_name} schema must contain JSON values"
+        ) from exc
 
 
 def _validate_schema_node(
@@ -402,15 +419,17 @@ def _enum_value_uninspectable(
         seen.add(marker)
         try:
             try:
-                items = list(value.items())
+                items = value.items()
             except Exception:
                 return True
-            return any(
-                not isinstance(key, str)
-                or _is_uninspectable_text(key)
-                or _enum_value_uninspectable(item, seen, depth + 1)
-                for key, item in items
-            )
+            for key, item in items:
+                if (
+                    not isinstance(key, str)
+                    or _is_uninspectable_text(key)
+                    or _enum_value_uninspectable(item, seen, depth + 1)
+                ):
+                    return True
+            return False
         finally:
             seen.remove(marker)
 
@@ -421,13 +440,65 @@ def _enum_value_uninspectable(
         seen.add(marker)
         try:
             try:
-                items = list(value)
+                for item in value:
+                    if _enum_value_uninspectable(item, seen, depth + 1):
+                        return True
             except Exception:
                 return True
-            return any(
-                _enum_value_uninspectable(item, seen, depth + 1)
-                for item in items
-            )
+            return False
+        finally:
+            seen.remove(marker)
+
+    return True
+
+
+def _json_value_uninspectable(
+    value: object,
+    seen: set[int] | None = None,
+    depth: int = 0,
+) -> bool:
+    if depth > MAX_TOOL_SCHEMA_DEPTH:
+        return True
+    if isinstance(value, str):
+        return _is_uninspectable_text(value)
+    if value is None or isinstance(value, int | float | bool):
+        return False
+
+    seen = seen or set()
+    if isinstance(value, Mapping):
+        marker = id(value)
+        if marker in seen:
+            return True
+        seen.add(marker)
+        try:
+            try:
+                items = value.items()
+            except Exception:
+                return True
+            for key, item in items:
+                if (
+                    not isinstance(key, str)
+                    or _is_uninspectable_text(key)
+                    or _json_value_uninspectable(item, seen, depth + 1)
+                ):
+                    return True
+            return False
+        finally:
+            seen.remove(marker)
+
+    if isinstance(value, list | tuple):
+        marker = id(value)
+        if marker in seen:
+            return True
+        seen.add(marker)
+        try:
+            try:
+                for item in value:
+                    if _json_value_uninspectable(item, seen, depth + 1):
+                        return True
+            except Exception:
+                return True
+            return False
         finally:
             seen.remove(marker)
 
