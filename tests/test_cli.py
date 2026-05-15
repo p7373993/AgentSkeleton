@@ -2904,6 +2904,35 @@ def test_sessions_command_outputs_json_with_uninspectable_values(
     assert payload == {"sessions": [{"name": "<uninspectable>"}]}
 
 
+def test_sessions_command_outputs_json_with_recursive_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    class FakeSummary:
+        def to_dict(self) -> dict[str, object]:
+            payload: dict[str, object] = {"name": "default"}
+            payload["self"] = payload
+            return payload
+
+    class FakeSessionStore:
+        def __init__(self, _logs_dir: Path) -> None:
+            pass
+
+        def list_sessions(self) -> list[FakeSummary]:
+            return [FakeSummary()]
+
+    monkeypatch.setattr(cli_module, "SessionStore", FakeSessionStore)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["sessions", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload == {"sessions": [{"name": "default", "self": "<recursive>"}]}
+
+
 def test_sessions_command_reports_session_read_errors(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     transcript_path = tmp_path / "runs" / "sessions" / "default" / "transcript.jsonl"

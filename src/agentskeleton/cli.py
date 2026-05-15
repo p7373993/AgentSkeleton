@@ -134,10 +134,51 @@ def _validate_goal_or_exit(goal: str) -> str:
 
 def _print_json(payload: object) -> None:
     console.print(
-        json.dumps(payload, ensure_ascii=False, indent=2, default=_display_text),
+        json.dumps(_json_output_safe(payload), ensure_ascii=False, indent=2),
         soft_wrap=True,
         markup=False,
     )
+
+
+def _json_output_safe(
+    value: object,
+    seen: set[int] | None = None,
+    depth: int = 0,
+) -> object:
+    if depth > MAX_RUN_LOG_EVENT_DEPTH:
+        return "<max-depth-exceeded>"
+    if value is None or isinstance(value, int | float | bool):
+        return value
+    if isinstance(value, str):
+        return str.__str__(value)
+
+    seen = seen or set()
+    if isinstance(value, dict):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return {
+                _display_text(key): _json_output_safe(item, seen, depth + 1)
+                for key, item in value.items()
+            }
+        except Exception:
+            return "<uninspectable>"
+        finally:
+            seen.remove(marker)
+    if isinstance(value, list | tuple):
+        marker = id(value)
+        if marker in seen:
+            return "<recursive>"
+        seen.add(marker)
+        try:
+            return [_json_output_safe(item, seen, depth + 1) for item in value]
+        except Exception:
+            return "<uninspectable>"
+        finally:
+            seen.remove(marker)
+    return _display_text(value)
 
 
 def _tool_implementation_label(tool: object) -> str:
