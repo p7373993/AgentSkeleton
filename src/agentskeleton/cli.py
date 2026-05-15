@@ -1136,9 +1136,9 @@ def _run_duration_seconds(started_at: object, finished_at: object) -> float | No
     try:
         started = datetime.fromisoformat(started_at)
         finished = datetime.fromisoformat(finished_at)
-    except ValueError:
+        duration = (finished - started).total_seconds()
+    except (TypeError, ValueError):
         return None
-    duration = (finished - started).total_seconds()
     return duration if duration >= 0 else None
 
 
