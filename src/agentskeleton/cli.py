@@ -421,7 +421,13 @@ def eval_suite(
         console.print(f"Scenarios: {payload['passed_count']}/{payload['total']}")
         for item in payload["results"]:
             marker = "PASS" if item["passed"] else "FAIL"
-            console.print(f"{marker}: {item['scenario']} status={item['status']}")
+            run_id_text = (
+                f" run={item['run_id']}" if item.get("run_id") else ""
+            )
+            console.print(
+                f"{marker}: {item['scenario']} status={item['status']}"
+                f"{run_id_text}"
+            )
             if item["reason"]:
                 reason = _bounded_display_text(str(item["reason"]))
                 console.print(f"Reason: {reason}")

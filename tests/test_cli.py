@@ -496,6 +496,7 @@ def test_eval_suite_command_prints_status_and_reason(
 
     assert result.exit_code == 0
     assert "PASS: invalid-action status=invalid_action" in result.stdout
+    assert "run=eval-" in result.stdout
     assert "Reason: Model returned unsupported action: dict" in result.stdout
 
 
