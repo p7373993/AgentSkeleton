@@ -1793,11 +1793,37 @@ def test_run_persists_status_reason_when_no_final_answer(
             "Reason: Model call failed: RuntimeError"
         ),
     ]
-    assert session.transcript[1].metadata == {
-        "run_id": "run-fixed",
-        "status": "model_error",
-        "reason": "Model call failed: RuntimeError",
-    }
+    metadata = session.transcript[1].metadata
+    assert metadata["run_id"] == "run-fixed"
+    assert metadata["status"] == "model_error"
+    assert metadata["reason"] == "Model call failed: RuntimeError"
+    runtime = metadata["runtime"]
+    assert runtime["model"] == "gpt-5.5"
+    assert runtime["reasoning_effort"] == "low"
+    assert runtime["enabled_tools"] is None
+    assert runtime["tool_modules"] == []
+    registered_tools = runtime["registered_tools"]
+    assert [tool["name"] for tool in registered_tools] == [
+        "list_dir",
+        "read_file",
+        "write_file",
+        "shell",
+        "ask_user",
+    ]
+    read_file = registered_tools[1]
+    assert read_file["args_schema_hash"] == schema_hash(
+        {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "File path."}
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        }
+    )
+    assert read_file["implementation"] == (
+        "agentskeleton.tools.filesystem.ReadFileTool"
+    )
 
 
 def test_run_uses_enabled_tools_from_config(monkeypatch, tmp_path) -> None:

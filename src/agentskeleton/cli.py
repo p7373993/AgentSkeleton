@@ -27,6 +27,7 @@ from agentskeleton.policy.permissions import PermissionDecision
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
 from agentskeleton.tools.loading import load_tools_from_modules
 from agentskeleton.tools.provenance import (
+    registered_tool_inventory,
     registered_tool_provenance,
     tool_schema_hash,
 )
@@ -186,14 +187,35 @@ def _assistant_transcript_content(state) -> str | None:
     return None
 
 
-def _assistant_transcript_metadata(run_id: str, state) -> dict[str, object]:
+def _assistant_transcript_metadata(
+    run_id: str,
+    state,
+    runtime: dict[str, object] | None = None,
+) -> dict[str, object]:
     metadata: dict[str, object] = {
         "run_id": run_id,
         "status": state.final_status,
     }
     if getattr(state, "final_reason", None) is not None:
         metadata["reason"] = _display_text(state.final_reason)
+    if runtime:
+        metadata["runtime"] = runtime
     return metadata
+
+
+def _runtime_metadata(config, registry: ToolRegistry) -> dict[str, object]:
+    return {
+        "model": config.model,
+        "reasoning_effort": config.reasoning_effort,
+        "text_verbosity": config.text_verbosity,
+        "max_steps": config.max_steps,
+        "model_retry_attempts": config.model_retry_attempts,
+        "permission_profile": config.permission_profile,
+        "confirm_risky_actions": config.confirm_risky_actions,
+        "enabled_tools": config.enabled_tools,
+        "tool_modules": config.tool_modules,
+        "registered_tools": registered_tool_inventory(registry),
+    }
 
 
 def _summary_assistant_metadata(
@@ -533,7 +555,11 @@ def run(
                 session,
                 "assistant",
                 assistant_content,
-                _assistant_transcript_metadata(run_id, state),
+                _assistant_transcript_metadata(
+                    run_id,
+                    state,
+                    _runtime_metadata(loaded, registry),
+                ),
             )
         except ValueError as exc:
             _exit_session_error(exc)
@@ -650,7 +676,11 @@ def chat(
                     session,
                     "assistant",
                     assistant_content,
-                    _assistant_transcript_metadata(run_id, state),
+                    _assistant_transcript_metadata(
+                        run_id,
+                        state,
+                        _runtime_metadata(loaded, registry),
+                    ),
                 )
             except ValueError as exc:
                 _exit_session_error(exc)
