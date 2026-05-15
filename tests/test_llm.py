@@ -77,6 +77,11 @@ class InvalidStripString(str):
         return []
 
 
+class TruthyInvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return ["not-text"]
+
+
 class StickyString(str):
     def __str__(self) -> str:
         return self
@@ -132,6 +137,10 @@ def test_normalize_base_url_treats_blank_as_unset() -> None:
 
 def test_normalize_base_url_treats_uninspectable_values_as_unset() -> None:
     assert normalize_base_url(UninspectableString("https://example.test")) is None
+
+
+def test_normalize_base_url_treats_invalid_strip_result_as_unset() -> None:
+    assert normalize_base_url(TruthyInvalidStripString("https://example.test")) is None
 
 
 def test_resolve_openai_settings_uses_azure_environment(monkeypatch) -> None:
