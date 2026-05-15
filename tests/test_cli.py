@@ -2693,6 +2693,47 @@ def test_show_run_reports_runtime_settings_as_json(monkeypatch, tmp_path) -> Non
     }
 
 
+def test_show_run_bounds_runtime_list_values_as_json(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_dir = tmp_path / "runs" / "20260511"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "run-1.jsonl"
+    large_tool_name = "tool_" + ("x" * 20_000)
+    events = [
+        {
+            "type": "run_started",
+            "run_id": "run-1",
+            "step": 0,
+            "payload": {
+                "goal": "finish",
+                "enabled_tools": [large_tool_name],
+                "tool_modules": ["example.tools"],
+            },
+        },
+        {
+            "type": "run_finished",
+            "run_id": "run-1",
+            "step": 1,
+            "payload": {"status": "completed", "answer": "done"},
+        },
+    ]
+    log_path.write_text(
+        "\n".join(json.dumps(event) for event in events),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1", "--json"])
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    enabled_tool = payload["runtime"]["enabled_tools"][0]
+    assert enabled_tool.startswith("tool_xxxxxxxxxxxx")
+    assert "[truncated" in enabled_tool
+    assert len(enabled_tool) < 5_000
+    assert large_tool_name not in result.stdout
+
+
 def test_show_run_prints_runtime_settings(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"

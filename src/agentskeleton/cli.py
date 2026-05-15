@@ -1199,7 +1199,7 @@ def _run_runtime_summary(start_payload: dict[str, Any]) -> dict[str, object]:
         "tool_modules",
     )
     return {
-        key: _run_log_text_value(start_payload[key])
+        key: _bounded_run_log_event(_run_log_text_value(start_payload[key]))
         for key in runtime_keys
         if key in start_payload
     }
