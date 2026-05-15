@@ -2661,6 +2661,13 @@ def test_show_run_reports_runtime_settings_as_json(monkeypatch, tmp_path) -> Non
                 "confirm_risky_actions": False,
                 "enabled_tools": ["read_file"],
                 "tool_modules": ["example.tools"],
+                "registered_tools": [
+                    {
+                        "name": "read_file",
+                        "description": "Read a file.",
+                        "risk": "read",
+                    }
+                ],
             },
         },
         {
@@ -2690,6 +2697,13 @@ def test_show_run_reports_runtime_settings_as_json(monkeypatch, tmp_path) -> Non
         "confirm_risky_actions": False,
         "enabled_tools": ["read_file"],
         "tool_modules": ["example.tools"],
+        "registered_tools": [
+            {
+                "name": "read_file",
+                "description": "Read a file.",
+                "risk": "read",
+            }
+        ],
     }
 
 
@@ -2753,6 +2767,18 @@ def test_show_run_prints_runtime_settings(monkeypatch, tmp_path) -> None:
                 "permission_profile": "trusted",
                 "enabled_tools": ["read_file"],
                 "tool_modules": ["example.tools"],
+                "registered_tools": [
+                    {
+                        "name": "read_file",
+                        "description": "Read a file.",
+                        "risk": "read",
+                    },
+                    {
+                        "name": "ask_user",
+                        "description": "Ask the user one direct question.",
+                        "risk": "interactive",
+                    },
+                ],
             },
         },
         {
@@ -2778,6 +2804,9 @@ def test_show_run_prints_runtime_settings(monkeypatch, tmp_path) -> None:
     assert "Permission profile: trusted" in result.stdout
     assert "Enabled tools: read_file" in result.stdout
     assert "Tool modules: example.tools" in result.stdout
+    assert "Registered tools: 2" in result.stdout
+    assert "read_file (read)" in result.stdout
+    assert "ask_user (interactive)" in result.stdout
 
 
 def test_show_run_reports_run_event_timestamps_as_json(

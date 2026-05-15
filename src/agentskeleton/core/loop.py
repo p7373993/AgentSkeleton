@@ -50,6 +50,17 @@ MAX_STORED_TOOL_RESULT_PAYLOAD_PREVIEW_CHARS = 200
 MAX_STORED_TOOL_RESULT_TEXT_CHARS = 4_096
 
 
+def _registered_tool_inventory(registry: ToolRegistry) -> list[dict[str, str]]:
+    return [
+        {
+            "name": tool.name,
+            "description": tool.description,
+            "risk": tool.risk,
+        }
+        for tool in registry.all()
+    ]
+
+
 class AgentLoop:
     def __init__(
         self,
@@ -101,6 +112,7 @@ class AgentLoop:
             "confirm_risky_actions": self.config.confirm_risky_actions,
             "enabled_tools": self.config.enabled_tools,
             "tool_modules": self.config.tool_modules,
+            "registered_tools": _registered_tool_inventory(self.registry),
             "workspace": str(state.workspace),
             "resumed": bool(state.conversation),
             "conversation_turns": len(state.conversation),

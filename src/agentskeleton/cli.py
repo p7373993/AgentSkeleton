@@ -890,6 +890,13 @@ def _print_run_runtime(runtime: dict[object, object]) -> None:
         console.print(
             f"Tool modules: {_runtime_list_text(runtime['tool_modules'], 'none')}"
         )
+    registered_tools = runtime.get("registered_tools")
+    if isinstance(registered_tools, list):
+        console.print(f"Registered tools: {len(registered_tools)}")
+        for tool in registered_tools:
+            tool_text = _registered_tool_text(tool)
+            if tool_text:
+                console.print(f"  {tool_text}")
 
 
 def _runtime_list_text(value: object, none_label: str) -> str:
@@ -898,6 +905,18 @@ def _runtime_list_text(value: object, none_label: str) -> str:
     if isinstance(value, list):
         return ", ".join(_display_text(item) for item in value) or "none"
     return _display_text(value)
+
+
+def _registered_tool_text(value: object) -> str | None:
+    if not isinstance(value, dict):
+        return _display_text(value)
+    name = value.get("name")
+    if name is None:
+        return None
+    risk = value.get("risk")
+    if risk is None:
+        return _display_text(name)
+    return f"{_display_text(name)} ({_display_text(risk)})"
 
 
 @app.command(name="list-runs")
@@ -1197,6 +1216,7 @@ def _run_runtime_summary(start_payload: dict[str, Any]) -> dict[str, object]:
         "confirm_risky_actions",
         "enabled_tools",
         "tool_modules",
+        "registered_tools",
     )
     return {
         key: _bounded_run_log_event(_run_log_text_value(start_payload[key]))

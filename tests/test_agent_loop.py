@@ -226,6 +226,13 @@ def default_run_start_runtime() -> dict[str, object]:
         "confirm_risky_actions": True,
         "enabled_tools": None,
         "tool_modules": [],
+        "registered_tools": [
+            {
+                "name": "record",
+                "description": "Record a value.",
+                "risk": "read",
+            }
+        ],
     }
 
 
@@ -375,6 +382,30 @@ def test_loop_logs_runtime_settings_in_run_start(tmp_path: Path) -> None:
     assert payload["confirm_risky_actions"] is False
     assert payload["enabled_tools"] == ["record"]
     assert payload["tool_modules"] == ["example.tools"]
+
+
+def test_loop_logs_registered_tool_inventory_in_run_start(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool(), AskUserTool()]),
+        logger=logger,
+    ).run("continue")
+
+    payload = logger.events[0][2]
+    assert payload["registered_tools"] == [
+        {
+            "name": "record",
+            "description": "Record a value.",
+            "risk": "read",
+        },
+        {
+            "name": "ask_user",
+            "description": "Ask the user one direct question.",
+            "risk": "interactive",
+        },
+    ]
 
 
 def test_loop_trace_context_cannot_clobber_run_start_fields(tmp_path: Path) -> None:
