@@ -72,6 +72,11 @@ class UninspectableString(str):
         raise RuntimeError("cannot strip")
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return []
+
+
 class StickyString(str):
     def __str__(self) -> str:
         return self
@@ -849,6 +854,37 @@ def test_llm_client_rejects_uninspectable_function_call_metadata(
         "call_id": "call-1",
     }
     item[field] = UninspectableString(str(item[field]))
+    response = SimpleNamespace(id="resp-1", output_text="", output=[item])
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(LLMResponseError, match=message):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
+@pytest.mark.parametrize(
+    ("field", "message"),
+    [
+        ("name", "Function call name could not be inspected"),
+        ("call_id", "Function call call_id could not be inspected"),
+    ],
+)
+def test_llm_client_rejects_function_call_metadata_with_invalid_strip_result(
+    tmp_path,
+    field: str,
+    message: str,
+) -> None:
+    item = {
+        "type": "function_call",
+        "name": "read_file",
+        "arguments": "{}",
+        "call_id": "call-1",
+    }
+    item[field] = InvalidStripString(str(item[field]))
     response = SimpleNamespace(id="resp-1", output_text="", output=[item])
     state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
 
