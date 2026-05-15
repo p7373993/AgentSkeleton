@@ -111,8 +111,22 @@ def _exit_run_log_error(exc: ValueError) -> NoReturn:
     raise typer.Exit(1) from exc
 
 
+def _safe_strip_text(value: str) -> str | None:
+    try:
+        stripped = value.strip()
+    except Exception:
+        return None
+    if not isinstance(stripped, str):
+        return None
+    return str.__str__(stripped)
+
+
 def _validate_goal_or_exit(goal: str) -> None:
-    if not goal.strip():
+    stripped_goal = _safe_strip_text(goal)
+    if stripped_goal is None:
+        console.print("Goal error: Goal could not be inspected")
+        raise typer.Exit(1)
+    if not stripped_goal:
         console.print("Goal error: Goal cannot be blank")
         raise typer.Exit(1)
 

@@ -13,6 +13,11 @@ from agentskeleton.core.actions import FinalAction
 from agentskeleton.core.session import SessionStore
 
 
+class InvalidStripString(str):
+    def strip(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        return object()
+
+
 def schema_hash(schema: dict[str, object]) -> str:
     encoded = json.dumps(
         schema,
@@ -1074,6 +1079,12 @@ def test_run_rejects_blank_goal_before_api_key_check(tmp_path, monkeypatch) -> N
     assert result.exit_code == 1
     assert "Goal error: Goal cannot be blank" in result.stdout
     assert "OPENAI_API_KEY" not in result.stdout
+
+
+def test_cli_goal_validation_rejects_uninspectable_goal(capsys) -> None:
+    with pytest.raises(cli_module.typer.Exit):
+        cli_module._validate_goal_or_exit(InvalidStripString("finish"))  # noqa: SLF001
+    assert "Goal error: Goal could not be inspected" in capsys.readouterr().out
 
 
 def test_run_reports_session_store_errors(tmp_path, monkeypatch) -> None:
