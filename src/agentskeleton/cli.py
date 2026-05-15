@@ -213,7 +213,7 @@ def _assistant_transcript_metadata(
     }
     if getattr(state, "final_reason", None) is not None:
         metadata["reason"] = _display_text(state.final_reason)
-    if runtime:
+    if _has_display_value(runtime):
         metadata["runtime"] = runtime
     return metadata
 
@@ -227,16 +227,16 @@ def _summary_assistant_metadata(
         "source": "run_log",
         "status": summary["status"],
     }
-    if summary["reason"]:
+    if _has_display_value(summary["reason"]):
         metadata["reason"] = summary["reason"]
-    if summary["last_model_error"]:
+    if _has_display_value(summary["last_model_error"]):
         metadata["last_model_error"] = summary["last_model_error"]
-    if summary["last_tool_error"]:
+    if _has_display_value(summary["last_tool_error"]):
         metadata["last_tool_error"] = summary["last_tool_error"]
-    if summary["last_snapshot"]:
+    if _has_display_value(summary["last_snapshot"]):
         metadata["last_snapshot"] = summary["last_snapshot"]
     runtime = summary.get("runtime")
-    if runtime:
+    if _has_display_value(runtime):
         metadata["runtime"] = runtime
     return metadata
 

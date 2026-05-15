@@ -5404,6 +5404,69 @@ def test_restore_run_imports_runtime_metadata(monkeypatch, tmp_path) -> None:
     assert session.transcript[1].metadata["runtime"] == runtime
 
 
+def test_restore_run_handles_uninspectable_summary_metadata(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_path = tmp_path / "runs" / "20260511" / "run-1.jsonl"
+
+    class UninspectableValue:
+        def __bool__(self) -> bool:
+            raise RuntimeError("truth unavailable")
+
+        def __str__(self) -> str:
+            raise RuntimeError("display unavailable")
+
+    def fake_summarize_run_log(*_args, **_kwargs) -> dict[str, object]:
+        return {
+            "run_id": "run-1",
+            "goal": "summarize",
+            "workspace": None,
+            "session": None,
+            "started_at": None,
+            "finished_at": None,
+            "duration_seconds": None,
+            "resumed": None,
+            "resumed_run_id": None,
+            "conversation_turns": None,
+            "status": UninspectableValue(),
+            "reason": UninspectableValue(),
+            "answer": "done",
+            "steps": 1,
+            "model_retries": 0,
+            "last_model_retry": None,
+            "last_model_error": UninspectableValue(),
+            "tool_calls": 0,
+            "tool_failures": 0,
+            "last_tool_error": UninspectableValue(),
+            "last_snapshot": UninspectableValue(),
+            "runtime": UninspectableValue(),
+            "log": log_path,
+        }
+
+    monkeypatch.setattr(cli_module, "_find_run_log", lambda *_args, **_kwargs: log_path)
+    monkeypatch.setattr(
+        cli_module,
+        "_summarize_run_log_or_exit",
+        fake_summarize_run_log,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["restore-run", "run-1", "--session", "work"])
+
+    assert result.exit_code == 0
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    session = SessionStore(tmp_path / "runs").load("work")
+    metadata = session.transcript[1].metadata
+    assert metadata["status"] == "<uninspectable>"
+    assert metadata["reason"] == "<uninspectable>"
+    assert metadata["last_model_error"] == "<uninspectable>"
+    assert metadata["last_tool_error"] == "<uninspectable>"
+    assert metadata["last_snapshot"] == "<uninspectable>"
+    assert metadata["runtime"] == "<uninspectable>"
+
+
 def test_restore_run_imports_model_error_details(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     log_dir = tmp_path / "runs" / "20260511"
