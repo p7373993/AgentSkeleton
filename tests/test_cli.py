@@ -1848,6 +1848,53 @@ def test_summary_transcript_content_bounds_status_details() -> None:
     assert large_model_error not in content
 
 
+def test_summary_transcript_content_handles_lengthless_text_fields() -> None:
+    class ExplodingText(str):
+        def __len__(self) -> int:
+            raise RuntimeError("text length unavailable")
+
+    answer_content = cli_module._summary_transcript_content(  # noqa: SLF001
+        {
+            "answer": ExplodingText("done"),
+            "last_snapshot": None,
+        }
+    )
+    status_content = cli_module._summary_transcript_content(  # noqa: SLF001
+        {
+            "answer": None,
+            "status": ExplodingText("model_error"),
+            "reason": ExplodingText("failed"),
+            "last_model_error": None,
+            "last_tool_error": None,
+            "last_snapshot": None,
+        }
+    )
+
+    assert answer_content == "done"
+    assert status_content == "Run stopped with status model_error. Reason: failed"
+
+
+def test_summary_conversation_handles_lengthless_goal() -> None:
+    class ExplodingGoal(str):
+        def __len__(self) -> int:
+            raise RuntimeError("goal length unavailable")
+
+    conversation = cli_module._summary_conversation(  # noqa: SLF001
+        "run-1",
+        {
+            "goal": ExplodingGoal("continue"),
+            "answer": "done",
+            "status": "completed",
+            "reason": None,
+            "last_model_error": None,
+            "last_tool_error": None,
+            "last_snapshot": None,
+        },
+    )
+
+    assert [turn.content for turn in conversation] == ["continue", "done"]
+
+
 def test_run_bounds_large_confirmation_prompt_output(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")

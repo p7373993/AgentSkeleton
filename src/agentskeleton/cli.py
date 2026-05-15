@@ -287,12 +287,13 @@ def _summary_conversation(
     summary: dict[str, object],
 ) -> list[ConversationMessage]:
     goal = summary["goal"]
-    if not isinstance(goal, str) or not goal:
+    if not isinstance(goal, str) or not _has_display_value(goal):
         return []
+    goal_text = _display_text(goal)
     conversation = [
         ConversationMessage(
             role="user",
-            content=goal,
+            content=goal_text,
             metadata={"run_id": run_id, "source": "run_log"},
         )
     ]
@@ -1436,20 +1437,21 @@ def _bounded_run_log_event(value: Any, depth: int = 0) -> Any:
 
 def _summary_transcript_content(summary: dict[str, object]) -> str | None:
     answer = summary.get("answer")
-    if isinstance(answer, str) and answer:
+    if isinstance(answer, str) and _has_display_value(answer):
+        answer_text = _display_text(answer)
         snapshot_detail = _snapshot_detail_text(summary.get("last_snapshot"))
         if snapshot_detail:
             return _bounded_display_text(
-                f"{answer} Last run snapshot: {snapshot_detail}"
+                f"{answer_text} Last run snapshot: {snapshot_detail}"
             )
-        return _bounded_display_text(answer)
+        return _bounded_display_text(answer_text)
 
     status = summary.get("status")
-    if isinstance(status, str) and status:
-        content = f"Run stopped with status {status}."
+    if isinstance(status, str) and _has_display_value(status):
+        content = f"Run stopped with status {_display_text(status)}."
         reason = summary.get("reason")
-        if isinstance(reason, str) and reason:
-            content = f"{content} Reason: {reason}"
+        if isinstance(reason, str) and _has_display_value(reason):
+            content = f"{content} Reason: {_display_text(reason)}"
         model_error_detail = _error_detail_text(summary.get("last_model_error"))
         if model_error_detail:
             content = f"{content} Last model error: {model_error_detail}"
