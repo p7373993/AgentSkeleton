@@ -531,6 +531,8 @@ def test_eval_suite_command_prints_scenario_failures(
     assert result.exit_code == 1
     assert "FAIL: mismatch status=completed" in result.stdout
     assert "Failure: answer expected 'expected' but got 'actual'" in result.stdout
+    assert "Workspace:" in result.stdout
+    assert "Log:" in result.stdout
 
 
 def test_eval_suite_command_bounds_large_reason_and_failure_output(

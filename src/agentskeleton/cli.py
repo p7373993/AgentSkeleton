@@ -436,6 +436,11 @@ def eval_suite(
             for failure in item["failures"]:
                 bounded_failure = _bounded_display_text(str(failure))
                 console.print(f"Failure: {bounded_failure}")
+            if not item["passed"]:
+                if item.get("workspace"):
+                    console.print(f"Workspace: {item['workspace']}", soft_wrap=True)
+                if item.get("log"):
+                    console.print(f"Log: {item['log']}", soft_wrap=True)
         for failure in payload["coverage_failures"]:
             bounded_failure = _bounded_display_text(str(failure))
             console.print(f"Coverage failure: {bounded_failure}")
