@@ -3455,6 +3455,61 @@ def test_show_run_prints_resumed_source_run_id(monkeypatch, tmp_path) -> None:
     assert "Resumed from: run-1" in result.stdout
 
 
+def test_show_run_handles_uninspectable_summary_display_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_path = tmp_path / "runs" / "20260511" / "run-1.jsonl"
+
+    class UninspectableValue:
+        def __bool__(self) -> bool:
+            raise RuntimeError("truth unavailable")
+
+        def __str__(self) -> str:
+            raise RuntimeError("display unavailable")
+
+    def fake_summarize_run_log(*_args, **_kwargs) -> dict[str, object]:
+        return {
+            "run_id": UninspectableValue(),
+            "goal": UninspectableValue(),
+            "workspace": None,
+            "session": UninspectableValue(),
+            "started_at": UninspectableValue(),
+            "finished_at": UninspectableValue(),
+            "duration_seconds": UninspectableValue(),
+            "resumed": None,
+            "resumed_run_id": UninspectableValue(),
+            "conversation_turns": UninspectableValue(),
+            "status": UninspectableValue(),
+            "reason": UninspectableValue(),
+            "answer": None,
+            "steps": UninspectableValue(),
+            "model_retries": UninspectableValue(),
+            "last_model_retry": None,
+            "last_model_error": None,
+            "tool_calls": UninspectableValue(),
+            "tool_failures": UninspectableValue(),
+            "last_tool_error": None,
+            "last_snapshot": None,
+            "log": UninspectableValue(),
+        }
+
+    monkeypatch.setattr(cli_module, "_find_run_log", lambda *_args, **_kwargs: log_path)
+    monkeypatch.setattr(
+        cli_module,
+        "_summarize_run_log_or_exit",
+        fake_summarize_run_log,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["show-run", "run-1"])
+
+    assert result.exit_code == 0
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    assert "<uninspectable>" in result.stdout
+
+
 def test_show_run_prints_latest_run_snapshot_summary(
     monkeypatch,
     tmp_path,
@@ -4751,6 +4806,62 @@ def test_list_runs_prints_model_retry_counts(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     assert "Retries" in result.stdout
     assert "1" in result.stdout
+
+
+def test_list_runs_handles_uninspectable_summary_display_values(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    log_path = tmp_path / "runs" / "20260511" / "run-1.jsonl"
+
+    class UninspectableValue:
+        def __bool__(self) -> bool:
+            raise RuntimeError("truth unavailable")
+
+        def __str__(self) -> str:
+            raise RuntimeError("display unavailable")
+
+    def fake_summarize_run_log(_log_path: Path) -> dict[str, object]:
+        return {
+            "run_id": UninspectableValue(),
+            "goal": UninspectableValue(),
+            "workspace": None,
+            "session": None,
+            "started_at": UninspectableValue(),
+            "finished_at": UninspectableValue(),
+            "duration_seconds": None,
+            "resumed": None,
+            "resumed_run_id": UninspectableValue(),
+            "conversation_turns": None,
+            "status": UninspectableValue(),
+            "reason": None,
+            "answer": None,
+            "steps": UninspectableValue(),
+            "model_retries": UninspectableValue(),
+            "tool_calls": UninspectableValue(),
+            "tool_failures": UninspectableValue(),
+            "last_tool_error": None,
+            "log": UninspectableValue(),
+        }
+
+    monkeypatch.setattr(
+        cli_module,
+        "_run_log_paths",
+        lambda *_args, **_kwargs: [log_path],
+    )
+    monkeypatch.setattr(
+        cli_module,
+        "_summarize_run_log_or_exit",
+        fake_summarize_run_log,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["list-runs"])
+
+    assert result.exit_code == 0
+    assert result.exception is None or not isinstance(result.exception, RuntimeError)
+    assert "<uninspectable>" in result.stdout
 
 
 def test_show_run_reports_missing_run(monkeypatch, tmp_path) -> None:

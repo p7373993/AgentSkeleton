@@ -886,52 +886,54 @@ def show_run(
         return
 
     console.print(f"Run id: {run_id}")
-    console.print(f"Status: {summary['status']}")
-    if summary["reason"]:
-        console.print(f"Reason: {summary['reason']}")
-    if summary["goal"]:
-        console.print(f"Goal: {summary['goal']}", soft_wrap=True)
+    console.print(f"Status: {_display_text(summary['status'])}")
+    if _has_display_value(summary["reason"]):
+        console.print(f"Reason: {_display_text(summary['reason'])}")
+    if _has_display_value(summary["goal"]):
+        console.print(f"Goal: {_display_text(summary['goal'])}", soft_wrap=True)
     runtime = summary.get("runtime")
     if isinstance(runtime, dict):
         _print_run_runtime(runtime)
-    if summary["session"]:
-        console.print(f"Session: {summary['session']}")
-    if summary["started_at"]:
-        console.print(f"Started: {summary['started_at']}")
-    if summary["finished_at"]:
-        console.print(f"Finished: {summary['finished_at']}")
+    if _has_display_value(summary["session"]):
+        console.print(f"Session: {_display_text(summary['session'])}")
+    if _has_display_value(summary["started_at"]):
+        console.print(f"Started: {_display_text(summary['started_at'])}")
+    if _has_display_value(summary["finished_at"]):
+        console.print(f"Finished: {_display_text(summary['finished_at'])}")
     if summary["duration_seconds"] is not None:
-        console.print(f"Duration: {summary['duration_seconds']}s")
-    if summary["resumed_run_id"]:
-        console.print(f"Resumed from: {summary['resumed_run_id']}")
+        console.print(f"Duration: {_display_text(summary['duration_seconds'])}s")
+    if _has_display_value(summary["resumed_run_id"]):
+        console.print(f"Resumed from: {_display_text(summary['resumed_run_id'])}")
     if summary["conversation_turns"] is not None:
-        console.print(f"Conversation turns: {summary['conversation_turns']}")
+        console.print(
+            f"Conversation turns: {_display_text(summary['conversation_turns'])}"
+        )
     if summary["steps"] is not None:
-        console.print(f"Steps: {summary['steps']}")
+        console.print(f"Steps: {_display_text(summary['steps'])}")
     snapshot_summary = _snapshot_summary_text(summary.get("last_snapshot"))
     if snapshot_summary:
         console.print(f"Snapshot: {snapshot_summary}")
-    if summary["model_retries"]:
-        console.print(f"Model retries: {summary['model_retries']}")
+    if _has_display_value(summary["model_retries"]):
+        console.print(f"Model retries: {_display_text(summary['model_retries'])}")
         retry_detail = _error_detail_text(summary.get("last_model_retry"))
         if retry_detail:
             console.print(f"Last model retry: {retry_detail}")
     model_error_detail = _error_detail_text(summary.get("last_model_error"))
     if model_error_detail:
         console.print(f"Last model error: {model_error_detail}")
-    if summary["tool_calls"]:
+    if _has_display_value(summary["tool_calls"]):
         console.print(
-            f"Tool calls: {summary['tool_calls']} "
-            f"({summary['tool_failures']} failed)"
+            f"Tool calls: {_display_text(summary['tool_calls'])} "
+            f"({_display_text(summary['tool_failures'])} failed)"
         )
-        if summary["last_tool_error"]:
+        if _has_display_value(summary["last_tool_error"]):
             tool_error_detail = _tool_error_detail_text(summary["last_tool_error"])
             if tool_error_detail:
                 console.print(
                     f"Last tool error: {tool_error_detail}",
                     soft_wrap=True,
                 )
-    console.print(f"Log: {summary['log']}", soft_wrap=True)
+    console.print(f"Log: {_display_text(summary['log'])}", soft_wrap=True)
 
 
 def _print_run_runtime(runtime: dict[object, object]) -> None:
@@ -1025,38 +1027,44 @@ def list_runs(
     table.add_column("Log")
     for summary in summaries:
         table.add_row(
-            str(summary["run_id"]),
-            str(summary["status"]),
-            "" if summary["steps"] is None else str(summary["steps"]),
-            str(summary["model_retries"]),
-            f"{summary['tool_failures']}/{summary['tool_calls']}",
-            str(summary["goal"] or ""),
-            str(summary["log"]),
+            _display_text(summary["run_id"]),
+            _display_text(summary["status"]),
+            "" if summary["steps"] is None else _display_text(summary["steps"]),
+            _display_text(summary["model_retries"]),
+            (
+                f"{_display_text(summary['tool_failures'])}/"
+                f"{_display_text(summary['tool_calls'])}"
+            ),
+            _display_optional_text(summary["goal"]),
+            _display_text(summary["log"]),
         )
     console.print(table)
     for summary in summaries:
         started_at = summary.get("started_at")
         finished_at = summary.get("finished_at")
         duration_seconds = summary.get("duration_seconds")
-        if started_at and finished_at:
+        run_id = _display_text(summary["run_id"])
+        if _has_display_value(started_at) and _has_display_value(finished_at):
             duration_text = (
-                f" duration: {duration_seconds}s"
+                f" duration: {_display_text(duration_seconds)}s"
                 if duration_seconds is not None
                 else ""
             )
             console.print(
-                f"Run {summary['run_id']} started: {started_at} "
-                f"finished: {finished_at}{duration_text}",
+                f"Run {run_id} started: {_display_text(started_at)} "
+                f"finished: {_display_text(finished_at)}{duration_text}",
                 soft_wrap=True,
             )
-        elif started_at:
+        elif _has_display_value(started_at):
             console.print(
-                f"Run {summary['run_id']} started: {started_at}",
+                f"Run {run_id} started: {_display_text(started_at)}",
                 soft_wrap=True,
             )
         resumed_run_id = summary.get("resumed_run_id")
-        if resumed_run_id:
-            console.print(f"Run {summary['run_id']} resumed from: {resumed_run_id}")
+        if _has_display_value(resumed_run_id):
+            console.print(
+                f"Run {run_id} resumed from: {_display_text(resumed_run_id)}"
+            )
 
 
 @app.command(name="restore-run")
@@ -1356,6 +1364,12 @@ def _has_display_value(value: object) -> bool:
         return bool(value)
     except Exception:
         return True
+
+
+def _display_optional_text(value: object) -> str:
+    if value is None:
+        return ""
+    return _display_text(value)
 
 
 def _enabled_tool_name(value: object) -> str:
