@@ -105,6 +105,23 @@ def test_tools_command_can_output_json(monkeypatch, tmp_path) -> None:
         {"name": "ask_user", "risk": "interactive"},
     ]
     assert all(tool["description"] for tool in payload["tools"])
+    assert payload["tools"][0]["args_schema"] == {
+        "type": "object",
+        "properties": {"path": {"type": "string", "description": "File path."}},
+        "required": ["path"],
+        "additionalProperties": False,
+    }
+    assert payload["tools"][1]["args_schema"] == {
+        "type": "object",
+        "properties": {
+            "question": {
+                "type": "string",
+                "description": "A direct question to ask the user.",
+            }
+        },
+        "required": ["question"],
+        "additionalProperties": False,
+    }
 
 
 def test_doctor_can_validate_configured_tools_as_json(monkeypatch, tmp_path) -> None:

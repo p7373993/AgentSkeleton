@@ -246,6 +246,7 @@ def tools(
                         "name": registered_tool.name,
                         "description": registered_tool.description,
                         "risk": registered_tool.risk,
+                        "args_schema": registered_tool.args_schema,
                     }
                     for registered_tool in registry.all()
                 ]
