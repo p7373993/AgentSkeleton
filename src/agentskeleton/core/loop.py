@@ -83,7 +83,11 @@ class AgentLoop:
         conversation: list[ConversationMessage | dict[str, object]] | None = None,
         trace_context: object | None = None,
     ) -> RunState:
-        normalized_goal = _safe_text(goal)
+        inspectable_goal = _inspectable_text(goal)
+        goal_uninspectable = inspectable_goal is None
+        normalized_goal = (
+            UNINSPECTABLE_VALUE if inspectable_goal is None else inspectable_goal
+        )
         state = RunState(
             run_id=self.run_id or str(uuid4()),
             workspace=self.config.workspace,
@@ -110,6 +114,11 @@ class AgentLoop:
                 **start_payload,
             },
         )
+        if goal_uninspectable:
+            state.final_status = "invalid_goal"
+            state.final_reason = "Goal could not be inspected"
+            self._log_run_finished(state)
+            return state
         if not normalized_goal.strip():
             state.final_status = "invalid_goal"
             state.final_reason = "Goal cannot be blank"
@@ -841,6 +850,14 @@ def _safe_text(value: object) -> str:
         text = str(value)
     except Exception:
         return UNINSPECTABLE_VALUE
+    return str.__str__(text)
+
+
+def _inspectable_text(value: object) -> str | None:
+    try:
+        text = str(value)
+    except Exception:
+        return None
     return str.__str__(text)
 
 

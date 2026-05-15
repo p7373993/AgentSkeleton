@@ -343,6 +343,21 @@ def test_loop_rejects_blank_goal_before_model_call(tmp_path: Path) -> None:
     )
 
 
+def test_loop_rejects_empty_goal_before_model_call(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=UnexpectedLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run("")
+
+    assert state.final_status == "invalid_goal"
+    assert state.final_reason == "Goal cannot be blank"
+    assert state.goal == ""
+    assert not any(event[0] == "model_requested" for event in logger.events)
+
+
 def test_loop_logs_run_start_context(tmp_path: Path) -> None:
     logger = MemoryLogger()
     AgentLoop(
@@ -635,35 +650,33 @@ def test_loop_normalizes_goal_text_subclasses(tmp_path: Path) -> None:
     assert type(seen_goals[0]) is str
 
 
-def test_loop_normalizes_unstringable_goal(tmp_path: Path) -> None:
+def test_loop_rejects_unstringable_goal_before_model_call(tmp_path: Path) -> None:
     class UnstringableGoal:
         def __str__(self) -> str:
             raise RuntimeError("goal unavailable")
 
     logger = MemoryLogger()
-    seen_goals: list[str] = []
-
-    class InspectingLLM:
-        def next_action(self, state, registry):
-            seen_goals.append(state.goal)
-            return FinalAction(text="done")
-
     state = AgentLoop(
         config=RunConfig(workspace=tmp_path),
-        llm=InspectingLLM(),
+        llm=UnexpectedLLM(),
         registry=ToolRegistry([RecordTool()]),
         logger=logger,
     ).run(UnstringableGoal())  # type: ignore[arg-type]
 
-    assert state.final_status == "completed"
+    assert state.final_status == "invalid_goal"
+    assert state.final_reason == "Goal could not be inspected"
     assert state.goal == "<uninspectable>"
-    assert seen_goals == ["<uninspectable>"]
     assert logger.events[0][2]["goal"] == "<uninspectable>"
-    assert (
-        "model_requested",
-        1,
-        {"goal": "<uninspectable>"},
-    ) in logger.events
+    assert not any(event[0] == "model_requested" for event in logger.events)
+    assert logger.events[-1] == (
+        "run_finished",
+        0,
+        {
+            "status": "invalid_goal",
+            "answer": None,
+            "reason": "Goal could not be inspected",
+        },
+    )
 
 
 def test_loop_bounds_logged_goal_without_changing_model_input(tmp_path: Path) -> None:
