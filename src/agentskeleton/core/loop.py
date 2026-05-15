@@ -696,7 +696,7 @@ class AgentLoop:
                 else None
             ),
         }
-        if state.final_reason:
+        if state.final_reason is not None:
             payload["reason"] = _logged_text(state.final_reason)
         self._log_run_snapshot(state)
         self._emit_trace("run_finished", payload)

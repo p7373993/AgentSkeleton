@@ -7,7 +7,7 @@ import pytest
 from agentskeleton.config import RunConfig
 from agentskeleton.core.actions import FinalAction, ToolCallAction, ToolCallBatchAction
 from agentskeleton.core.loop import AgentLoop
-from agentskeleton.core.state import ConversationMessage
+from agentskeleton.core.state import ConversationMessage, RunState
 from agentskeleton.core.trace import MemoryTraceSink
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 from agentskeleton.tools.registry import ToolRegistry
@@ -776,6 +776,28 @@ def test_loop_logs_model_error_and_returns_state(tmp_path: Path) -> None:
             "reason": "Model call failed: RuntimeError",
         },
     )
+
+
+def test_loop_logs_run_finished_with_lengthless_reason(tmp_path: Path) -> None:
+    class LengthlessReason(str):
+        def __len__(self) -> int:
+            raise RuntimeError("reason length unavailable")
+
+    logger = MemoryLogger()
+    loop = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+    state.final_status = "model_error"
+    state.final_reason = LengthlessReason("Model call failed")
+
+    loop._log_run_finished(state)  # noqa: SLF001
+
+    run_finished = next(event for event in logger.events if event[0] == "run_finished")
+    assert run_finished[2]["reason"] == "Model call failed"
 
 
 def test_loop_retries_transient_model_error_before_returning_action(
