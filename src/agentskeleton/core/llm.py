@@ -557,9 +557,12 @@ def _is_context_item(item: object) -> bool:
 
 def _has_text(value: str) -> bool:
     try:
-        return bool(value.strip())
+        stripped = value.strip()
     except Exception:
         return False
+    if not isinstance(stripped, str):
+        return False
+    return bool(stripped)
 
 
 def _safe_stripped_text(value: str) -> str | None:

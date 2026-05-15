@@ -666,6 +666,33 @@ def test_llm_client_ignores_uninspectable_model_dump_context_items(
     ]
 
 
+def test_llm_client_skips_context_item_with_invalid_type_strip_result(
+    tmp_path,
+) -> None:
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[
+            {
+                "type": TruthyInvalidStripString("message"),
+                "content": "note",
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "done"
+    assert state.response_context_items == [
+        {"role": "user", "content": "finish"}
+    ]
+
+
 def test_llm_client_serializes_object_function_call_arguments_for_context(
     tmp_path,
 ) -> None:
