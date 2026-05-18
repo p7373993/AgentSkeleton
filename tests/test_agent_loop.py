@@ -1507,6 +1507,74 @@ def test_loop_rejects_uninspectable_tool_call_arguments_attribute(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_uninspectable_tool_call_name_attribute(
+    tmp_path: Path,
+) -> None:
+    class ToolCallWithExplodingName(ToolCallAction):
+        def __getattribute__(self, name):
+            if name == "tool_name":
+                raise RuntimeError("tool name unavailable")
+            return super().__getattribute__(name)
+
+    action = ToolCallWithExplodingName("record", {"value": "x"}, "call-1")
+    logger = MemoryLogger()
+
+    try:
+        state = make_loop(tmp_path, [action], logger).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording invalid action: {exc!r}")
+
+    reason = "Model returned invalid tool call: tool_name could not be inspected"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_call",
+            "error": reason,
+        },
+    ) in logger.events
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
+def test_loop_rejects_uninspectable_tool_call_id_attribute(
+    tmp_path: Path,
+) -> None:
+    class ToolCallWithExplodingCallId(ToolCallAction):
+        def __getattribute__(self, name):
+            if name == "call_id":
+                raise RuntimeError("call id unavailable")
+            return super().__getattribute__(name)
+
+    action = ToolCallWithExplodingCallId("record", {"value": "x"}, "call-1")
+    logger = MemoryLogger()
+
+    try:
+        state = make_loop(tmp_path, [action], logger).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording invalid action: {exc!r}")
+
+    reason = "Model returned invalid tool call: call_id could not be inspected"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_call",
+            "error": reason,
+        },
+    ) in logger.events
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_ignores_uninspectable_tool_call_provider_metadata(
     tmp_path: Path,
 ) -> None:

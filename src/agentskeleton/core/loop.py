@@ -1171,26 +1171,34 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 
 
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
-    if not isinstance(action.tool_name, str):
+    try:
+        tool_name = action.tool_name
+    except Exception:
+        return "tool_name could not be inspected"
+    if not isinstance(tool_name, str):
         return "tool_name must be a non-empty string"
-    normalized_tool_name = _safe_stripped_text(action.tool_name)
+    normalized_tool_name = _safe_stripped_text(tool_name)
     if normalized_tool_name is None:
         return "tool_name could not be inspected"
     if not normalized_tool_name:
         return "tool_name must be a non-empty string"
-    tool_name_bytes = _utf8_size(action.tool_name)
+    tool_name_bytes = _utf8_size(tool_name)
     if tool_name_bytes is None:
         return "tool_name could not be inspected"
     if tool_name_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
         return f"tool_name exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
-    if not isinstance(action.call_id, str):
+    try:
+        call_id = action.call_id
+    except Exception:
+        return "call_id could not be inspected"
+    if not isinstance(call_id, str):
         return "call_id must be a non-empty string"
-    normalized_call_id = _safe_stripped_text(action.call_id)
+    normalized_call_id = _safe_stripped_text(call_id)
     if normalized_call_id is None:
         return "call_id could not be inspected"
     if not normalized_call_id:
         return "call_id must be a non-empty string"
-    call_id_bytes = _utf8_size(action.call_id)
+    call_id_bytes = _utf8_size(call_id)
     if call_id_bytes is None:
         return "call_id could not be inspected"
     if call_id_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
