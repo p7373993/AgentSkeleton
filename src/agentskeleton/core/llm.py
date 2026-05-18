@@ -157,19 +157,24 @@ def _message_content_text_parts(content: Any) -> list[str]:
         pending_text = None
         has_pending_text = False
         omitted = 0
-        for index, part in enumerate(content):
-            text = _message_content_part_text(part)
-            if index < MAX_MESSAGE_CONTENT_PARTS - 1:
-                if text is not None:
-                    text_parts.append(text)
-                continue
-            if index == MAX_MESSAGE_CONTENT_PARTS - 1:
-                pending_text = text
-                has_pending_text = text is not None
-                continue
-            if omitted == 0:
+        try:
+            for index, part in enumerate(content):
+                text = _message_content_part_text(part)
+                if index < MAX_MESSAGE_CONTENT_PARTS - 1:
+                    if text is not None:
+                        text_parts.append(text)
+                    continue
+                if index == MAX_MESSAGE_CONTENT_PARTS - 1:
+                    pending_text = text
+                    has_pending_text = text is not None
+                    continue
+                if omitted == 0:
+                    omitted += 1
                 omitted += 1
-            omitted += 1
+        except Exception as exc:
+            raise LLMResponseError(
+                "Response message content could not be inspected"
+            ) from exc
         if omitted:
             text_parts.append(f"[truncated {omitted} content parts]")
         elif has_pending_text:

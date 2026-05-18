@@ -374,6 +374,38 @@ def test_llm_client_avoids_length_checks_for_message_content_parts(tmp_path) -> 
     assert action.text == "done from content"
 
 
+def test_llm_client_rejects_uninspectable_message_content_parts(tmp_path) -> None:
+    class ExplodingContentParts(list):
+        def __iter__(self):
+            raise RuntimeError("content iteration unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": ExplodingContentParts(
+                    [{"type": "output_text", "text": "done"}]
+                ),
+            }
+        ],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Response message content could not be inspected",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_avoids_truthiness_checks_for_message_content_text(
     tmp_path,
 ) -> None:
