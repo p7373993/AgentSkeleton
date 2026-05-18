@@ -294,7 +294,7 @@ def load_scenario(path: Path) -> Scenario:
     expect = raw.get("expect", {})
     if not isinstance(expect, dict):
         raise ValueError("Scenario expect must be a mapping")
-    if not expect:
+    if not _has_items(expect):
         raise ValueError("Scenario must define expectations")
 
     goal = raw.get("goal")
@@ -314,10 +314,13 @@ def load_scenario(path: Path) -> Scenario:
     config_overrides = _parse_config_overrides(raw.get("config", {}))
     user_answers = _parse_user_answers(raw.get("user_answers", []))
     conversation = _parse_conversation(raw.get("conversation", []))
-    name = raw.get("name") or path.stem
+    raw_name = raw.get("name")
+    name = raw_name if raw_name is not None else path.stem
+    raw_domain = raw.get("domain")
+    domain = raw_domain if raw_domain is not None else "general"
     return Scenario(
         name=_safe_text(name),
-        domain=_safe_text(raw.get("domain") or "general"),
+        domain=_safe_text(domain),
         goal=goal,
         actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],
         expect=expect,

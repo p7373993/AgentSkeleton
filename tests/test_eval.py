@@ -547,6 +547,61 @@ def test_load_scenario_rejects_goal_when_strip_returns_invalid_type(
         raise AssertionError("Expected invalid-strip scenario goal to fail")
 
 
+def test_load_scenario_accepts_expect_mapping_without_length(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class LengthlessExpect(dict):
+        def __len__(self) -> int:
+            raise RuntimeError("expect length unavailable")
+
+    scenario_path = tmp_path / "lengthless-expect.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "goal": "finish",
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": LengthlessExpect({"status": "completed"}),
+        },
+    )
+
+    scenario = load_scenario(scenario_path)
+
+    assert scenario.expect == {"status": "completed"}
+
+
+def test_load_scenario_accepts_name_and_domain_without_length(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class LengthlessText(str):
+        def __len__(self) -> int:
+            raise RuntimeError("text length unavailable")
+
+    scenario_path = tmp_path / "lengthless-name.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "name": LengthlessText("custom-name"),
+            "domain": LengthlessText("reliability"),
+            "goal": "finish",
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": {"status": "completed"},
+        },
+    )
+
+    scenario = load_scenario(scenario_path)
+
+    assert scenario.name == "custom-name"
+    assert scenario.domain == "reliability"
+
+
 def test_eval_rejects_uninspectable_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001
