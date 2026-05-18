@@ -214,7 +214,21 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
-                tool_calls = _bounded_batch_tool_calls(action.tool_calls)
+                try:
+                    tool_calls = _bounded_batch_tool_calls(action.tool_calls)
+                except Exception:
+                    self._record_invalid_action(
+                        state,
+                        action,
+                        reason=(
+                            "Model returned invalid tool call batch: "
+                            "tool_calls could not be inspected"
+                        ),
+                        error_type="invalid_tool_batch",
+                    )
+                    if state.final_status is not None:
+                        self._log_run_finished(state)
+                        return state
                 if not tool_calls:
                     self._record_invalid_action(
                         state,

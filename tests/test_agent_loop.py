@@ -1792,6 +1792,66 @@ def test_loop_executes_iterable_tool_call_batch_without_length(
     assert state.observations[0].result.payload["value"] == "x"
 
 
+def test_loop_rejects_tool_call_batch_when_iteration_fails(
+    tmp_path: Path,
+) -> None:
+    class PartiallyIterableToolCalls(list):
+        def __iter__(self):
+            yield ToolCallAction(
+                tool_name="record",
+                arguments={"value": "x"},
+                call_id="call-1",
+            )
+            raise RuntimeError("tool call batch interrupted")
+
+    logger = MemoryLogger()
+    try:
+        state = make_loop(
+            tmp_path,
+            [
+                ToolCallBatchAction(
+                    tool_calls=PartiallyIterableToolCalls(
+                        [
+                            ToolCallAction(
+                                tool_name="record",
+                                arguments={"value": "hidden"},
+                                call_id="hidden-call",
+                            )
+                        ]
+                    )
+                )
+            ],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording invalid batch: {exc!r}")
+
+    reason = "Model returned invalid tool call batch: tool_calls could not be inspected"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_batch",
+            "error": reason,
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": reason,
+        },
+    )
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_handles_empty_tool_call_batch_as_invalid_action(
     tmp_path: Path,
 ) -> None:
