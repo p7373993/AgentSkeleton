@@ -2413,6 +2413,26 @@ def test_load_scenario_suite_config_reads_manifest_required_domains(
     assert [scenario.name for scenario in scenarios] == ["alpha"]
 
 
+def test_load_scenario_suite_config_strips_required_domain_names(
+    tmp_path: Path,
+) -> None:
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    (suite_dir / "suite.yaml").write_text(
+        "\n".join(
+            [
+                "required_domains:",
+                "  - ' finance '",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_scenario_suite_config(suite_dir)
+
+    assert config.required_domains == ["finance"]
+
+
 def test_load_scenario_suite_config_rejects_invalid_min_required_domain_count(
     tmp_path: Path,
 ) -> None:
