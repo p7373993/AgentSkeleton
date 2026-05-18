@@ -259,6 +259,38 @@ def test_llm_client_avoids_truthiness_checks_for_output_text(tmp_path) -> None:
     assert action.text == "done"
 
 
+def test_llm_client_falls_back_to_message_content_when_output_text_unavailable(
+    tmp_path,
+) -> None:
+    class ResponseWithExplodingOutputText:
+        output = [
+            {
+                "type": "message",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "done from message content",
+                    }
+                ],
+            }
+        ]
+
+        def __getattr__(self, name):
+            if name == "output_text":
+                raise RuntimeError("output text unavailable")
+            raise AttributeError(name)
+
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(ResponseWithExplodingOutputText()),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "done from message content"
+
+
 def test_llm_client_avoids_truthiness_checks_for_response_output(tmp_path) -> None:
     class ExplodingOutput(list):
         def __len__(self) -> int:

@@ -125,6 +125,13 @@ def _response_message_content(item: Any) -> Any:
         ) from exc
 
 
+def _response_output_text(response: Any) -> Any:
+    try:
+        return _read_attr(response, "output_text", "")
+    except Exception:
+        return None
+
+
 def _response_output_items(response: Any) -> list[Any]:
     output = _read_attr(response, "output", [])
     if output is None:
@@ -152,7 +159,7 @@ def _response_output_items(response: Any) -> list[Any]:
 
 
 def _response_final_text(response: Any, output: list[Any]) -> str:
-    output_text = _read_attr(response, "output_text", "")
+    output_text = _response_output_text(response)
     if isinstance(output_text, str):
         if str.__len__(output_text) > 0:
             return _bounded_final_text(output_text)
