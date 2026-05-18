@@ -551,9 +551,48 @@ class AgentLoop:
             state.final_status = "blocked"
             state.final_reason = stored_result.summary
             return
+        if not isinstance(decision_reason, str):
+            result = ToolResult(
+                success=False,
+                summary=(
+                    "Permission decision invalid: "
+                    "reason must be a non-empty string"
+                ),
+                error="Invalid permission decision",
+            )
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                "block",
+                result,
+            )
+            state.final_status = "blocked"
+            state.final_reason = stored_result.summary
+            return
+        normalized_reason = _safe_stripped_text(decision_reason)
+        if normalized_reason is None or not normalized_reason:
+            result = ToolResult(
+                success=False,
+                summary=(
+                    "Permission decision invalid: "
+                    "reason must be a non-empty string"
+                ),
+                error="Invalid permission decision",
+            )
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                "block",
+                result,
+            )
+            state.final_status = "blocked"
+            state.final_reason = stored_result.summary
+            return
         decision = PermissionDecision(
             str.__str__(decision_outcome),
-            _safe_text(decision_reason),
+            normalized_reason,
         )
         self._log_event(
             "policy_decision",
