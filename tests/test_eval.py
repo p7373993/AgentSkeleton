@@ -2817,6 +2817,25 @@ def test_run_scenario_suite_fails_when_required_domain_is_below_minimum(
     ]
 
 
+def test_run_scenario_suite_rejects_negative_min_required_domain_count(
+    tmp_path: Path,
+) -> None:
+    try:
+        run_scenario_suite(
+            [],
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+            min_scenarios_per_required_domain=-1,
+        )
+    except ValueError as exc:
+        assert (
+            str(exc)
+            == "Suite min_scenarios_per_required_domain must be a non-negative integer"
+        )
+    else:
+        raise AssertionError("Expected negative minimum domain count to fail")
+
+
 def _write_final_scenario(
     tmp_path: Path,
     name: str,

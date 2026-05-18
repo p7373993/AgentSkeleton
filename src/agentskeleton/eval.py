@@ -435,7 +435,11 @@ def run_scenario_suite(
             if required_domains is not None
             else []
         ),
-        min_scenarios_per_required_domain=min_scenarios_per_required_domain,
+        min_scenarios_per_required_domain=(
+            _parse_min_scenarios_per_required_domain(
+                min_scenarios_per_required_domain
+            )
+        ),
     )
 
 
