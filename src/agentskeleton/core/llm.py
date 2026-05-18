@@ -180,7 +180,12 @@ def _message_content_text_parts(content: Any) -> list[str]:
         elif has_pending_text:
             text_parts.append(pending_text)
         return text_parts
-    text = _message_content_part_text(content)
+    try:
+        text = _message_content_part_text(content)
+    except Exception as exc:
+        raise LLMResponseError(
+            "Response message content could not be inspected"
+        ) from exc
     return [] if text is None else [text]
 
 
