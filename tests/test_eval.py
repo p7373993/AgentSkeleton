@@ -676,6 +676,32 @@ def test_load_scenario_strips_name_metadata(tmp_path: Path) -> None:
     assert scenario.name == "alpha"
 
 
+def test_load_scenario_rejects_blank_name_metadata(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "blank-name.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: '   '",
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+                "  answer: done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario name cannot be blank"
+    else:
+        raise AssertionError("Expected blank scenario name to fail")
+
+
 def test_eval_rejects_uninspectable_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001

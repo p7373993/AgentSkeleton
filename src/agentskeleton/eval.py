@@ -318,6 +318,8 @@ def load_scenario(path: Path) -> Scenario:
     name = raw_name if raw_name is not None else path.stem
     name_text = _safe_text(name)
     stripped_name = _safe_strip(name_text)
+    if stripped_name == "":
+        raise ValueError("Scenario name cannot be blank")
     raw_domain = raw.get("domain")
     domain = raw_domain if raw_domain is not None else "general"
     domain_text = _safe_text(domain)
