@@ -2686,6 +2686,30 @@ def test_run_scenario_suite_accepts_required_domains_without_length(
     assert suite.coverage_failures == ["required domain finance has no scenarios"]
 
 
+def test_run_scenario_suite_strips_required_domain_names(
+    tmp_path: Path,
+) -> None:
+    scenario = load_scenario(
+        _write_final_scenario(
+            tmp_path,
+            "passing",
+            "ok",
+            "ok",
+            domain="finance",
+        )
+    )
+
+    suite = run_scenario_suite(
+        [scenario],
+        RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+        ToolRegistry([ReadFileTool()]),
+        required_domains=[" finance "],
+    )
+
+    assert suite.required_domains == ["finance"]
+    assert suite.coverage_failures == []
+
+
 def test_run_scenario_suite_fails_when_required_domain_is_missing(
     tmp_path: Path,
 ) -> None:
