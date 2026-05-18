@@ -26,6 +26,7 @@ from agentskeleton.tools.registry import ToolRegistry
 RegistryFactory = Callable[[RunConfig], ToolRegistry]
 SUITE_MANIFEST_NAMES = {"suite.yaml", "suite.yml"}
 MAX_SCENARIO_FILE_BYTES = 2_097_152
+MAX_SCENARIO_WORKSPACE_FILES = 128
 UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
@@ -549,7 +550,12 @@ def _parse_files(raw: object) -> dict[str, str]:
     if not isinstance(raw, dict):
         raise ValueError("Scenario files must be a mapping")
     files: dict[str, str] = {}
-    for path, content in raw.items():
+    for index, (path, content) in enumerate(raw.items(), 1):
+        if index > MAX_SCENARIO_WORKSPACE_FILES:
+            raise ValueError(
+                "Scenario files cannot contain more than "
+                f"{MAX_SCENARIO_WORKSPACE_FILES} entries"
+            )
         path_text = _safe_text(path)
         files[path_text] = _parse_file_content(path_text, content)
     return files
@@ -671,7 +677,12 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
         raise ValueError(
             f"Scenario workspace could not be prepared: {workspace}"
         ) from exc
-    for requested_path, content in scenario.files.items():
+    for index, (requested_path, content) in enumerate(scenario.files.items(), 1):
+        if index > MAX_SCENARIO_WORKSPACE_FILES:
+            raise ValueError(
+                "Scenario files cannot contain more than "
+                f"{MAX_SCENARIO_WORKSPACE_FILES} entries"
+            )
         try:
             target = resolve_workspace_path(workspace, requested_path)
         except PathSecurityError as exc:

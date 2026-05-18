@@ -218,6 +218,39 @@ def test_load_scenario_rejects_repeated_workspace_file_over_limit(
         raise AssertionError("Expected oversized repeated fixture to fail")
 
 
+def test_load_scenario_rejects_too_many_workspace_files(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_WORKSPACE_FILES", 2)
+    scenario_path = tmp_path / "fixture-too-many.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: fixture-too-many",
+                "goal: prepare too many fixture files",
+                "files:",
+                "  one.txt: one",
+                "  two.txt: two",
+                "  three.txt: three",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario files cannot contain more than 2 entries"
+    else:
+        raise AssertionError("Expected too many scenario files to fail")
+
+
 def test_run_scenario_reports_declared_file_parent_conflict(
     tmp_path: Path,
 ) -> None:
@@ -390,6 +423,36 @@ def test_run_scenario_rejects_oversized_declared_file_content(
         assert str(exc) == "Scenario file data/input.txt exceeds 10 bytes"
     else:
         raise AssertionError("Expected oversized scenario file content to fail")
+
+
+def test_run_scenario_rejects_too_many_programmatic_files(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_WORKSPACE_FILES", 2)
+    scenario = eval_module.Scenario(
+        name="fixture-too-many",
+        domain="filesystem",
+        goal="prepare fixtures",
+        files={
+            "one.txt": "one",
+            "two.txt": "two",
+            "three.txt": "three",
+        },
+        actions=[eval_module.FinalAction(text="unreachable")],
+        expect={"status": "completed"},
+    )
+
+    try:
+        run_scenario(
+            scenario,
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario files cannot contain more than 2 entries"
+    else:
+        raise AssertionError("Expected too many programmatic scenario files to fail")
 
 
 def test_run_scenario_accepts_declared_files_without_length(tmp_path: Path) -> None:
