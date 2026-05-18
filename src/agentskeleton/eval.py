@@ -506,6 +506,10 @@ def _parse_required_domains(raw: object) -> list[str]:
             raise ValueError("Suite required_domains entries could not be inspected")
         if not stripped_domain:
             raise ValueError("Suite required_domains cannot contain empty names")
+        if _has_control_characters(stripped_domain):
+            raise ValueError(
+                "Suite required_domains cannot contain control characters"
+            )
         domains.append(stripped_domain)
     return domains
 

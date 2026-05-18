@@ -766,6 +766,20 @@ def test_eval_rejects_uninspectable_required_domains() -> None:
         raise AssertionError("Expected uninspectable required domain to fail")
 
 
+def test_eval_rejects_control_characters_in_required_domains() -> None:
+    try:
+        eval_module._parse_required_domains(  # noqa: SLF001
+            ["finance\nops"]
+        )
+    except ValueError as exc:
+        assert (
+            str(exc)
+            == "Suite required_domains cannot contain control characters"
+        )
+    else:
+        raise AssertionError("Expected control character required domain to fail")
+
+
 def test_eval_normalizes_required_domain_text_subclasses() -> None:
     class StickyString(str):
         def __str__(self) -> str:
