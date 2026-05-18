@@ -638,7 +638,7 @@ class AgentLoop:
             state.final_reason = stored_result.summary
             return
 
-        result_errors = _validate_tool_result_metadata(result)
+        normalized_result, result_errors = _normalize_tool_result_metadata(result)
         if result_errors:
             result = ToolResult(
                 success=False,
@@ -660,6 +660,7 @@ class AgentLoop:
             state.final_status = "tool_error"
             state.final_reason = stored_result.summary
             return
+        result = normalized_result
 
         self._record_tool_observation(
             state,
@@ -1234,6 +1235,13 @@ def _safe_provider_metadata(action: ToolCallAction) -> dict[str, object] | None:
 
 
 def _validate_tool_result_metadata(result: ToolResult) -> list[str]:
+    _normalized_result, errors = _normalize_tool_result_metadata(result)
+    return errors
+
+
+def _normalize_tool_result_metadata(
+    result: ToolResult,
+) -> tuple[ToolResult | None, list[str]]:
     errors = []
     try:
         success = result.success
@@ -1249,6 +1257,11 @@ def _validate_tool_result_metadata(result: ToolResult) -> list[str]:
     else:
         if not isinstance(payload, Mapping):
             errors.append("payload must be a mapping")
+        else:
+            try:
+                payload = dict(payload)
+            except Exception:
+                errors.append("payload could not be inspected")
     try:
         summary = result.summary
     except Exception:
@@ -1263,7 +1276,17 @@ def _validate_tool_result_metadata(result: ToolResult) -> list[str]:
     else:
         if error is not None and not isinstance(error, str):
             errors.append("error must be a string or null")
-    return errors
+    if errors:
+        return None, errors
+    return (
+        ToolResult.model_construct(
+            success=success,
+            payload=payload,
+            summary=str.__str__(summary),
+            error=None if error is None else str.__str__(error),
+        ),
+        [],
+    )
 
 
 def _conversation_message(

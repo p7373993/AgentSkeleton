@@ -218,6 +218,27 @@ class UninspectableResultTool(RecordTool):
         )
 
 
+class FlakyResultTool(RecordTool):
+    name = "flaky_result"
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        reads = {"success": 0}
+
+        class FlakyResult(ToolResult):
+            def __getattribute__(self, name: str):
+                if name == "success":
+                    reads["success"] += 1
+                    if reads["success"] > 2:
+                        raise RuntimeError("success changed after validation")
+                return super().__getattribute__(name)
+
+        return FlakyResult(
+            success=True,
+            payload={"value": args["value"]},
+            summary="flaky ok",
+        )
+
+
 class LargePayloadTool(RecordTool):
     name = "large_payload"
 
@@ -3326,6 +3347,46 @@ def test_loop_converts_uninspectable_tool_result_to_observation(
                 "Tool returned malformed result: success could not be inspected"
             ),
             "error": "Malformed tool result",
+        },
+    ) in logger.events
+
+
+def test_loop_normalizes_tool_result_before_recording(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    try:
+        state = AgentLoop(
+            config=RunConfig(workspace=tmp_path),
+            llm=ScriptedLLM(
+                [
+                    ToolCallAction(
+                        tool_name="flaky_result",
+                        arguments={"value": "x"},
+                        call_id="call-1",
+                    ),
+                    FinalAction(text="done"),
+                ]
+            ),
+            registry=ToolRegistry([FlakyResultTool()]),
+            logger=logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised after validating a tool result: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "allow"
+    assert observation.result.success is True
+    assert observation.result.payload == {"value": "x"}
+    assert observation.result.summary == "flaky ok"
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "flaky_result",
+            "success": True,
+            "summary": "flaky ok",
+            "error": None,
         },
     ) in logger.events
 
