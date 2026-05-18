@@ -366,6 +366,32 @@ def test_run_scenario_reports_unencodable_declared_file_content(
         raise AssertionError("Expected unencodable scenario file content to fail")
 
 
+def test_run_scenario_rejects_oversized_declared_file_content(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_FILE_BYTES", 10)
+    scenario = eval_module.Scenario(
+        name="fixture-oversized",
+        domain="filesystem",
+        goal="prepare fixture",
+        files={"data/input.txt": "x" * 11},
+        actions=[eval_module.FinalAction(text="unreachable")],
+        expect={"status": "completed"},
+    )
+
+    try:
+        run_scenario(
+            scenario,
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario file data/input.txt exceeds 10 bytes"
+    else:
+        raise AssertionError("Expected oversized scenario file content to fail")
+
+
 def test_run_scenario_accepts_declared_files_without_length(tmp_path: Path) -> None:
     class LengthlessFiles(dict):
         def __len__(self) -> int:

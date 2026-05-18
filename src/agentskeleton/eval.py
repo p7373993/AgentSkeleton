@@ -719,6 +719,11 @@ def _prepare_workspace(config: RunConfig, run_id: str, scenario: Scenario) -> Pa
             raise ValueError(
                 f"Scenario file {requested_path} content could not be inspected"
             )
+        if len(content_bytes) > MAX_SCENARIO_FILE_BYTES:
+            raise ValueError(
+                f"Scenario file {requested_path} exceeds "
+                f"{MAX_SCENARIO_FILE_BYTES} bytes"
+            )
         try:
             target.write_bytes(content_bytes)
         except OSError as exc:
