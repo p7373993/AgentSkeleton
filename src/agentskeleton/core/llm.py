@@ -465,9 +465,16 @@ class LLMClient:
                 f"{MAX_FUNCTION_CALL_METADATA_BYTES} bytes"
             )
 
+        try:
+            raw_arguments = _read_attr(item, "arguments", "{}")
+        except Exception as exc:
+            raise LLMResponseError(
+                "Function call arguments could not be inspected"
+            ) from exc
+
         return ToolCallAction(
             tool_name=normalized_name,
-            arguments=self._parse_arguments(_read_attr(item, "arguments", "{}")),
+            arguments=self._parse_arguments(raw_arguments),
             call_id=normalized_call_id,
             provider_metadata={},
         )

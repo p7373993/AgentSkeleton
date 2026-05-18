@@ -1323,6 +1323,38 @@ def test_llm_client_rejects_unencodable_function_call_arguments(tmp_path) -> Non
     assert state.response_context_items == []
 
 
+def test_llm_client_rejects_uninspectable_function_call_arguments_attribute(
+    tmp_path,
+) -> None:
+    class FunctionCallWithExplodingArguments:
+        type = "function_call"
+        name = "read_file"
+        call_id = "call-1"
+
+        def __getattr__(self, name):
+            if name == "arguments":
+                raise RuntimeError("arguments unavailable")
+            raise AttributeError(name)
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[FunctionCallWithExplodingArguments()],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Function call arguments could not be inspected",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_rejects_oversized_mapping_function_call_arguments(
     tmp_path,
 ) -> None:
