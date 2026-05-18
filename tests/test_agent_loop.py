@@ -1185,6 +1185,39 @@ def test_loop_rejects_oversized_final_status_before_logging(
     ) in logger.events
 
 
+def test_loop_rejects_unknown_final_action_status(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+
+    state = make_loop(
+        tmp_path,
+        [FinalAction(text="done", status="paused")],
+        logger,
+    ).run("finish")
+
+    reason = "Model returned invalid final action: unknown status paused"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_final_action",
+            "error": reason,
+        },
+    ) in logger.events
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "invalid_action",
+            "answer": None,
+            "reason": reason,
+        },
+    )
+
+
 def test_loop_normalizes_final_action_text_subclasses(tmp_path: Path) -> None:
     class StickyString(str):
         def __str__(self) -> str:

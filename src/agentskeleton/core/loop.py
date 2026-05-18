@@ -33,6 +33,7 @@ class LoggerLike(Protocol):
 
 Confirmer = Callable[[PermissionDecision, ToolCallAction], bool]
 REPEATED_ACTION_THRESHOLD = 3
+ALLOWED_FINAL_ACTION_STATUSES = {"completed"}
 MAX_TOOL_CALL_BATCH_SIZE = 20
 MAX_LOGGED_ARGUMENT_BYTES = 4_096
 MAX_LOGGED_ARGUMENT_PREVIEW_CHARS = 49
@@ -1215,6 +1216,8 @@ def _validate_final_action_metadata(action: FinalAction) -> str | None:
         return "status could not be inspected"
     if status_bytes > MAX_FINAL_ACTION_STATUS_BYTES:
         return f"status exceeds {MAX_FINAL_ACTION_STATUS_BYTES} bytes"
+    if normalized_status not in ALLOWED_FINAL_ACTION_STATUSES:
+        return f"unknown status {normalized_status}"
     return None
 
 
