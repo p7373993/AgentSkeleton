@@ -1050,6 +1050,31 @@ def test_eval_accepts_batch_calls_without_length() -> None:
     assert action.tool_calls[0].call_id == "read-1"
 
 
+def test_eval_rejects_too_many_batch_calls(monkeypatch) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_BATCH_CALLS", 2)
+    calls = [
+        {
+            "tool": "read_file",
+            "call_id": f"read-{index}",
+            "arguments": {"path": f"note-{index}.txt"},
+        }
+        for index in range(3)
+    ]
+
+    try:
+        eval_module._parse_action(  # noqa: SLF001
+            {
+                "type": "batch",
+                "calls": calls,
+            },
+            0,
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario action 1 batch cannot contain more than 2 calls"
+    else:
+        raise AssertionError("Expected too many batch calls to fail")
+
+
 def test_eval_expectation_failures_handle_unreprable_values(tmp_path: Path) -> None:
     class UnreprableValue:
         def __repr__(self) -> str:

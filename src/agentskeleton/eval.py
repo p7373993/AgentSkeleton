@@ -29,6 +29,7 @@ MAX_SCENARIO_FILE_BYTES = 2_097_152
 MAX_SCENARIO_WORKSPACE_FILES = 128
 MAX_SCENARIO_SUITE_FILES = 512
 MAX_SCENARIO_ACTIONS = 200
+MAX_SCENARIO_BATCH_CALLS = 20
 UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
@@ -786,6 +787,7 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
             raise ValueError(
                 f"Scenario action {index + 1} batch must define calls",
             )
+        bounded_calls = _bounded_batch_calls(raw_calls, index + 1)
         return ToolCallBatchAction(
             tool_calls=[
                 _parse_tool_call(
@@ -794,7 +796,7 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
                     index + 1,
                     call_index + 1,
                 )
-                for call_index, call in enumerate(raw_calls)
+                for call_index, call in enumerate(bounded_calls)
             ],
         )
 
@@ -837,6 +839,21 @@ def _bounded_scenario_actions(
                 f"{MAX_SCENARIO_ACTIONS} actions"
             )
         bounded.append(action)
+    return bounded
+
+
+def _bounded_batch_calls(
+    calls: Iterable[object],
+    action_number: int,
+) -> list[object]:
+    bounded: list[object] = []
+    for index, call in enumerate(calls, 1):
+        if index > MAX_SCENARIO_BATCH_CALLS:
+            raise ValueError(
+                f"Scenario action {action_number} batch cannot contain more than "
+                f"{MAX_SCENARIO_BATCH_CALLS} calls"
+            )
+        bounded.append(call)
     return bounded
 
 
