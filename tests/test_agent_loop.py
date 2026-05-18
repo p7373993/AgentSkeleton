@@ -2947,6 +2947,53 @@ def test_loop_stops_with_unknown_tool_when_name_stringification_fails(
     assert state.observations[0].result.summary == "Unknown tool: <uninspectable>"
 
 
+def test_loop_uses_captured_tool_action_values_for_unknown_tools(
+    tmp_path: Path,
+) -> None:
+    class VolatileUnknownToolCall(ToolCallAction):
+        def __init__(
+            self,
+            tool_name: str,
+            arguments: dict[str, object],
+            call_id: str,
+        ) -> None:
+            super().__init__(tool_name, arguments, call_id)
+            object.__setattr__(self, "_tool_name_reads", 0)
+            object.__setattr__(self, "_arguments_reads", 0)
+
+        def __getattribute__(self, name):
+            if name == "tool_name":
+                reads = object.__getattribute__(self, "_tool_name_reads")
+                object.__setattr__(self, "_tool_name_reads", reads + 1)
+                if reads:
+                    raise RuntimeError("tool name unavailable")
+            if name == "arguments":
+                reads = object.__getattribute__(self, "_arguments_reads")
+                object.__setattr__(self, "_arguments_reads", reads + 1)
+                if reads:
+                    raise RuntimeError("arguments unavailable")
+            return super().__getattribute__(name)
+
+    logger = MemoryLogger()
+    try:
+        state = make_loop(
+            tmp_path,
+            [VolatileUnknownToolCall("missing", {"value": "x"}, "call-1")],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording unknown tool: {exc!r}")
+
+    assert state.final_status == "unknown_tool"
+    assert state.final_reason == "Unknown tool: missing"
+    assert state.observations[0].tool_name == "missing"
+    assert state.observations[0].call_id == "call-1"
+    assert state.observations[0].result.payload == {
+        "tool_name": "missing",
+        "arguments": {"value": "x"},
+    }
+
+
 @pytest.mark.parametrize(
     ("arguments", "validation_errors"),
     [

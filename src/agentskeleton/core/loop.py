@@ -264,9 +264,13 @@ class AgentLoop:
                             self._log_run_finished(state)
                             return state
                         continue
-                    tool_name, call_id, call_id_display, metadata_error = (
-                        _inspect_tool_action_metadata(tool_call)
-                    )
+                    (
+                        tool_name,
+                        _tool_name_display,
+                        call_id,
+                        call_id_display,
+                        metadata_error,
+                    ) = _inspect_tool_action_metadata(tool_call)
                     if metadata_error is not None:
                         self._record_invalid_action(
                             state,
@@ -386,7 +390,9 @@ class AgentLoop:
         return normalized
 
     def _execute_tool_action(self, state: RunState, action: ToolCallAction) -> None:
-        tool_name, call_id, metadata_error = _normalize_tool_action_metadata(action)
+        tool_name, tool_name_display, call_id, metadata_error = (
+            _normalize_tool_action_metadata(action)
+        )
         if metadata_error is not None:
             self._record_invalid_action(
                 state,
@@ -441,7 +447,7 @@ class AgentLoop:
             tool = self.registry.get(tool_name)
         except KeyError as exc:
             summary = (
-                f"Unknown tool: {_safe_text(action.tool_name)}"
+                f"Unknown tool: {tool_name_display}"
                 if exc.args
                 else str(exc)
             )
@@ -449,7 +455,7 @@ class AgentLoop:
                 success=False,
                 payload={
                     "tool_name": tool_name,
-                    "arguments": action.arguments,
+                    "arguments": arguments,
                 },
                 summary=summary,
                 error="Unknown tool",
@@ -1200,38 +1206,45 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 
 
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
-    _tool_name, _call_id, _call_id_display, error = _inspect_tool_action_metadata(
-        action
-    )
+    (
+        _tool_name,
+        _tool_name_display,
+        _call_id,
+        _call_id_display,
+        error,
+    ) = _inspect_tool_action_metadata(action)
     return error
 
 
 def _normalize_tool_action_metadata(
     action: ToolCallAction,
-) -> tuple[str | None, str | None, str | None]:
-    tool_name, call_id, _call_id_display, error = _inspect_tool_action_metadata(action)
-    return tool_name, call_id, error
+) -> tuple[str | None, str | None, str | None, str | None]:
+    tool_name, tool_name_display, call_id, _call_id_display, error = (
+        _inspect_tool_action_metadata(action)
+    )
+    return tool_name, tool_name_display, call_id, error
 
 
 def _inspect_tool_action_metadata(
     action: ToolCallAction,
-) -> tuple[str | None, str | None, str | None, str | None]:
+) -> tuple[str | None, str | None, str | None, str | None, str | None]:
     try:
         tool_name = action.tool_name
     except Exception:
-        return None, None, None, "tool_name could not be inspected"
+        return None, None, None, None, "tool_name could not be inspected"
     if not isinstance(tool_name, str):
-        return None, None, None, "tool_name must be a non-empty string"
+        return None, None, None, None, "tool_name must be a non-empty string"
     normalized_tool_name = _safe_stripped_text(tool_name)
     if normalized_tool_name is None:
-        return None, None, None, "tool_name could not be inspected"
+        return None, None, None, None, "tool_name could not be inspected"
     if not normalized_tool_name:
-        return None, None, None, "tool_name must be a non-empty string"
+        return None, None, None, None, "tool_name must be a non-empty string"
     tool_name_bytes = _utf8_size(tool_name)
     if tool_name_bytes is None:
-        return None, None, None, "tool_name could not be inspected"
+        return None, None, None, None, "tool_name could not be inspected"
     if tool_name_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
         return (
+            None,
             None,
             None,
             None,
@@ -1240,19 +1253,20 @@ def _inspect_tool_action_metadata(
     try:
         call_id = action.call_id
     except Exception:
-        return None, None, None, "call_id could not be inspected"
+        return None, None, None, None, "call_id could not be inspected"
     if not isinstance(call_id, str):
-        return None, None, None, "call_id must be a non-empty string"
+        return None, None, None, None, "call_id must be a non-empty string"
     normalized_call_id = _safe_stripped_text(call_id)
     if normalized_call_id is None:
-        return None, None, None, "call_id could not be inspected"
+        return None, None, None, None, "call_id could not be inspected"
     if not normalized_call_id:
-        return None, None, None, "call_id must be a non-empty string"
+        return None, None, None, None, "call_id must be a non-empty string"
     call_id_bytes = _utf8_size(call_id)
     if call_id_bytes is None:
-        return None, None, None, "call_id could not be inspected"
+        return None, None, None, None, "call_id could not be inspected"
     if call_id_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
         return (
+            None,
             None,
             None,
             None,
@@ -1260,6 +1274,7 @@ def _inspect_tool_action_metadata(
         )
     return (
         _normalized_checked_text(tool_name),
+        _safe_text(tool_name),
         _normalized_checked_text(call_id),
         _safe_text(call_id),
         None,
