@@ -446,6 +446,50 @@ class AgentLoop:
             state.final_status = "blocked"
             state.final_reason = stored_result.summary
             return
+        try:
+            decision_outcome = decision.outcome
+            decision_reason = decision.reason
+        except Exception as exc:
+            result = ToolResult(
+                success=False,
+                summary=f"Permission decision invalid: {type(exc).__name__}",
+                error=_exception_text(exc),
+            )
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                "block",
+                result,
+            )
+            state.final_status = "blocked"
+            state.final_reason = stored_result.summary
+            return
+        if not isinstance(decision_outcome, str) or str.__str__(
+            decision_outcome
+        ) not in {"allow", "confirm", "block"}:
+            result = ToolResult(
+                success=False,
+                summary=(
+                    "Permission decision invalid: unknown outcome "
+                    f"{_safe_text(decision_outcome)}"
+                ),
+                error="Invalid permission decision",
+            )
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                "block",
+                result,
+            )
+            state.final_status = "blocked"
+            state.final_reason = stored_result.summary
+            return
+        decision = PermissionDecision(
+            str.__str__(decision_outcome),
+            _safe_text(decision_reason),
+        )
         self._log_event(
             "policy_decision",
             state.step_count,
