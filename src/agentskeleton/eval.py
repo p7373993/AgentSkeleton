@@ -318,9 +318,11 @@ def load_scenario(path: Path) -> Scenario:
     name = raw_name if raw_name is not None else path.stem
     raw_domain = raw.get("domain")
     domain = raw_domain if raw_domain is not None else "general"
+    domain_text = _safe_text(domain)
+    stripped_domain = _safe_strip(domain_text)
     return Scenario(
         name=_safe_text(name),
-        domain=_safe_text(domain),
+        domain=stripped_domain if stripped_domain is not None else domain_text,
         goal=goal,
         actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],
         expect=expect,

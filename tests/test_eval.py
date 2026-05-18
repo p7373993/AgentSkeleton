@@ -602,6 +602,30 @@ def test_load_scenario_accepts_name_and_domain_without_length(
     assert scenario.domain == "reliability"
 
 
+def test_load_scenario_strips_domain_metadata(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "finance.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: finance",
+                "domain: ' finance '",
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+                "  answer: done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario(scenario_path)
+
+    assert scenario.domain == "finance"
+
+
 def test_eval_rejects_uninspectable_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001
