@@ -1070,12 +1070,6 @@ def _bounded_stored_tool_result(result: ToolResult) -> ToolResult:
         if result.error is not None
         else None
     )
-    if (
-        payload == result.payload
-        and summary == result.summary
-        and error == result.error
-    ):
-        return result
     return ToolResult(
         success=result.success,
         payload=payload,
@@ -1138,7 +1132,9 @@ def _json_log_safe(
 ) -> object:
     if depth > MAX_LOGGED_VALUE_DEPTH:
         return MAX_DEPTH_EXCEEDED
-    if value is None or isinstance(value, str | int | float | bool):
+    if isinstance(value, str):
+        return str.__str__(value)
+    if value is None or isinstance(value, int | float | bool):
         return value
 
     seen = seen or set()

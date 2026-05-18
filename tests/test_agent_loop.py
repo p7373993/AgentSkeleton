@@ -3917,6 +3917,45 @@ def test_loop_normalizes_tool_result_before_recording(tmp_path: Path) -> None:
     ) in logger.events
 
 
+def test_loop_normalizes_tool_result_payload_text_subclasses(
+    tmp_path: Path,
+) -> None:
+    class StickyString(str):
+        def __str__(self) -> str:
+            return self
+
+    class StickyPayloadTool(RecordTool):
+        name = "sticky_payload"
+
+        def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+            return ToolResult(
+                success=True,
+                payload={"value": StickyString("x")},
+                summary="ok",
+            )
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="sticky_payload",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([StickyPayloadTool()]),
+        logger=MemoryLogger(),
+    ).run("record")
+
+    payload_value = state.observations[0].result.payload["value"]
+    assert state.final_status == "completed"
+    assert payload_value == "x"
+    assert type(payload_value) is str
+
+
 def test_loop_bounds_stored_successful_tool_result_payload(tmp_path: Path) -> None:
     large_payload = "x" * 1_100_000
 
