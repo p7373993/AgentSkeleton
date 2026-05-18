@@ -107,6 +107,15 @@ def _read_attr(item: Any, name: str, default: Any = None) -> Any:
     return getattr(item, name, default)
 
 
+def _response_output_item_type(item: Any) -> Any:
+    try:
+        return _read_attr(item, "type")
+    except Exception as exc:
+        raise LLMResponseError(
+            "Response output item could not be inspected"
+        ) from exc
+
+
 def _response_output_items(response: Any) -> list[Any]:
     output = _read_attr(response, "output", [])
     if output is None:
@@ -143,7 +152,7 @@ def _response_final_text(response: Any, output: list[Any]) -> str:
 
     parts: list[str] = []
     for item in output:
-        if _read_attr(item, "type") != "message":
+        if _response_output_item_type(item) != "message":
             continue
         parts.extend(_message_content_text_parts(_read_attr(item, "content")))
     return _bounded_final_text("\n".join(part for part in parts if part))
@@ -242,7 +251,7 @@ class LLMClient:
         output = _response_output_items(response)
         tool_calls: list[ToolCallAction] = []
         for item in output:
-            if _read_attr(item, "type") == "function_call":
+            if _response_output_item_type(item) == "function_call":
                 tool_calls.append(self._parse_function_call(item))
         final_text = _response_final_text(response, output)
         if output:
