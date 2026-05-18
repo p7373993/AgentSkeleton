@@ -115,13 +115,20 @@ def _response_output_items(response: Any) -> list[Any]:
         return [output]
     if isinstance(output, list | tuple):
         items = []
-        for index, item in enumerate(output, 1):
-            if index > MAX_RESPONSE_OUTPUT_ITEMS:
-                raise LLMResponseError(
-                    "Response output contains too many items "
-                    f"({index} > {MAX_RESPONSE_OUTPUT_ITEMS})"
-                )
-            items.append(item)
+        try:
+            for index, item in enumerate(output, 1):
+                if index > MAX_RESPONSE_OUTPUT_ITEMS:
+                    raise LLMResponseError(
+                        "Response output contains too many items "
+                        f"({index} > {MAX_RESPONSE_OUTPUT_ITEMS})"
+                    )
+                items.append(item)
+        except LLMResponseError:
+            raise
+        except Exception as exc:
+            raise LLMResponseError(
+                "Response output could not be inspected"
+            ) from exc
         return items
     raise LLMResponseError("Response output must be a list of items")
 

@@ -280,6 +280,30 @@ def test_llm_client_avoids_truthiness_checks_for_response_output(tmp_path) -> No
     assert action.text == "done"
 
 
+def test_llm_client_rejects_uninspectable_response_output(tmp_path) -> None:
+    class ExplodingOutput(list):
+        def __iter__(self):
+            raise RuntimeError("output iteration unavailable")
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=ExplodingOutput([{"type": "message"}]),
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="hello")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Response output could not be inspected",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_parses_final_text_from_message_output_content(tmp_path) -> None:
     response = SimpleNamespace(
         id="resp-1",
