@@ -469,6 +469,18 @@ def test_config_rejects_excessive_max_steps(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, max_steps=201)
 
 
+@pytest.mark.parametrize(
+    "field_name",
+    ["session_context_turns", "session_summary_turns"],
+)
+def test_config_rejects_excessive_session_turn_limits(
+    tmp_path: Path,
+    field_name: str,
+) -> None:
+    with pytest.raises(ValueError):
+        RunConfig(workspace=tmp_path, **{field_name: 1001})
+
+
 def test_config_rejects_oversized_shell_output_limit(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         RunConfig(workspace=tmp_path, shell_max_output_bytes=1_048_577)
