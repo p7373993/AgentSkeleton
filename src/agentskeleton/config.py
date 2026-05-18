@@ -10,6 +10,7 @@ MAX_CONFIG_FILE_BYTES = 2_097_152
 MAX_CONFIG_MAX_STEPS = 200
 MAX_CONFIG_MODEL_RETRY_ATTEMPTS = 10
 MAX_CONFIG_SESSION_TURNS = 1000
+MAX_CONFIG_SHELL_TIMEOUT_SECONDS = 600
 MAX_CONFIG_TOOL_LIST_ITEMS = 128
 MAX_CONFIG_TOOL_NAME_BYTES = 512
 
@@ -171,7 +172,11 @@ class RunConfig(BaseModel):
     permission_profile: Literal["standard", "read_only", "trusted"] = "standard"
     confirm_risky_actions: bool = True
     logs_dir: Path = Path("runs")
-    shell_timeout_seconds: int = Field(default=30, gt=0)
+    shell_timeout_seconds: int = Field(
+        default=30,
+        gt=0,
+        le=MAX_CONFIG_SHELL_TIMEOUT_SECONDS,
+    )
     shell_max_output_bytes: int = Field(default=20000, gt=0, le=1_048_576)
     tool_modules: list[str] = Field(default_factory=list)
     enabled_tools: list[str] | None = None
