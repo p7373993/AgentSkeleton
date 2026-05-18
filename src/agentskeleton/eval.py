@@ -30,6 +30,7 @@ MAX_SCENARIO_WORKSPACE_FILES = 128
 MAX_SCENARIO_SUITE_FILES = 512
 MAX_SCENARIO_ACTIONS = 200
 MAX_SCENARIO_BATCH_CALLS = 20
+MAX_SCENARIO_USER_ANSWERS = 200
 UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
@@ -380,6 +381,7 @@ def run_scenario(
 ) -> ScenarioResult:
     run_id = f"eval-{uuid4()}"
     scenario_actions = _bounded_scenario_actions(scenario.actions)
+    scenario_user_answers = _bounded_user_answers(scenario.user_answers)
     scenario_config = _apply_config_overrides(config, scenario.config_overrides)
     scenario_registry = _resolve_registry(
         scenario_config,
@@ -398,8 +400,8 @@ def run_scenario(
         run_id=run_id,
         trace=NullTraceSink(),
         ask_user=(
-            _scripted_user_answers(scenario.user_answers)
-            if _has_items(scenario.user_answers)
+            _scripted_user_answers(scenario_user_answers)
+            if _has_items(scenario_user_answers)
             else None
         ),
     )
@@ -609,7 +611,7 @@ def _parse_user_answers(raw: object) -> list[str]:
         return []
     if not isinstance(raw, list):
         raise ValueError("Scenario user_answers must be a list")
-    return [_safe_text(answer) for answer in raw]
+    return _bounded_user_answers(_safe_text(answer) for answer in raw)
 
 
 def _parse_conversation(raw: object) -> list[ConversationMessage]:
@@ -651,6 +653,18 @@ def _scripted_user_answers(answers: list[str]) -> Callable[[str], str]:
             raise RuntimeError("Scenario user answers exhausted") from exc
 
     return ask_user
+
+
+def _bounded_user_answers(answers: Iterable[str]) -> list[str]:
+    bounded: list[str] = []
+    for index, answer in enumerate(answers, 1):
+        if index > MAX_SCENARIO_USER_ANSWERS:
+            raise ValueError(
+                "Scenario user_answers cannot contain more than "
+                f"{MAX_SCENARIO_USER_ANSWERS} entries"
+            )
+        bounded.append(_safe_text(answer))
+    return bounded
 
 
 def _has_items(items: Iterable[object]) -> bool:

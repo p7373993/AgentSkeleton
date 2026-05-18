@@ -1436,6 +1436,65 @@ def test_run_scenario_accepts_user_answers_without_length(tmp_path: Path) -> Non
     assert result.failures == []
 
 
+def test_load_scenario_rejects_too_many_user_answers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_USER_ANSWERS", 2)
+    scenario_path = tmp_path / "too-many-user-answers.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: too-many-user-answers",
+                "goal: ask a bounded number of questions",
+                "user_answers:",
+                "  - one",
+                "  - two",
+                "  - three",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario user_answers cannot contain more than 2 entries"
+    else:
+        raise AssertionError("Expected too many user answers to fail")
+
+
+def test_run_scenario_rejects_too_many_programmatic_user_answers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_USER_ANSWERS", 2)
+    scenario = eval_module.Scenario(
+        name="too-many-user-answers",
+        domain="interactive",
+        goal="ask a bounded number of questions",
+        actions=[eval_module.FinalAction(text="unreachable")],
+        expect={"status": "completed"},
+        user_answers=["one", "two", "three"],
+    )
+
+    try:
+        run_scenario(
+            scenario,
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([AskUserTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario user_answers cannot contain more than 2 entries"
+    else:
+        raise AssertionError("Expected too many programmatic user answers to fail")
+
+
 def test_run_scenario_starts_with_declared_conversation(tmp_path: Path) -> None:
     scenario_path = tmp_path / "resume-context.yaml"
     scenario_path.write_text(
