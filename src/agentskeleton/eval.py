@@ -320,6 +320,8 @@ def load_scenario(path: Path) -> Scenario:
     stripped_name = _safe_strip(name_text)
     if stripped_name == "":
         raise ValueError("Scenario name cannot be blank")
+    if stripped_name is not None and _has_control_characters(stripped_name):
+        raise ValueError("Scenario name cannot contain control characters")
     raw_domain = raw.get("domain")
     domain = raw_domain if raw_domain is not None else "general"
     domain_text = _safe_text(domain)
@@ -1180,6 +1182,10 @@ def _safe_strip(value: str) -> str | None:
     if not isinstance(stripped, str):
         return None
     return str.__str__(stripped)
+
+
+def _has_control_characters(value: str) -> bool:
+    return any(ord(character) < 32 for character in value)
 
 
 def _safe_repr(value: object) -> str:

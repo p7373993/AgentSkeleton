@@ -702,6 +702,32 @@ def test_load_scenario_rejects_blank_name_metadata(tmp_path: Path) -> None:
         raise AssertionError("Expected blank scenario name to fail")
 
 
+def test_load_scenario_rejects_control_characters_in_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "control-name.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "name": "bad\nname",
+            "goal": "finish",
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": {"status": "completed"},
+        },
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario name cannot contain control characters"
+    else:
+        raise AssertionError("Expected control character scenario name to fail")
+
+
 def test_eval_rejects_uninspectable_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001
