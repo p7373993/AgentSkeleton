@@ -653,6 +653,33 @@ def test_load_scenario_rejects_blank_domain_metadata(tmp_path: Path) -> None:
         raise AssertionError("Expected blank scenario domain to fail")
 
 
+def test_load_scenario_rejects_control_characters_in_domain(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "control-domain.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "name": "control-domain",
+            "domain": "bad\ndomain",
+            "goal": "finish",
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": {"status": "completed"},
+        },
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario domain cannot contain control characters"
+    else:
+        raise AssertionError("Expected control character scenario domain to fail")
+
+
 def test_load_scenario_strips_name_metadata(tmp_path: Path) -> None:
     scenario_path = tmp_path / "alpha.yaml"
     scenario_path.write_text(

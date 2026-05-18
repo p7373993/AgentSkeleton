@@ -328,6 +328,8 @@ def load_scenario(path: Path) -> Scenario:
     stripped_domain = _safe_strip(domain_text)
     if stripped_domain == "":
         raise ValueError("Scenario domain cannot be blank")
+    if stripped_domain is not None and _has_control_characters(stripped_domain):
+        raise ValueError("Scenario domain cannot contain control characters")
     return Scenario(
         name=stripped_name if stripped_name is not None else name_text,
         domain=stripped_domain if stripped_domain is not None else domain_text,
