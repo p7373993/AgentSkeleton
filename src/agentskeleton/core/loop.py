@@ -1224,16 +1224,24 @@ def _duplicate_batch_call_id(tool_calls: list[object]) -> str | None:
 
 
 def _validate_final_action_metadata(action: FinalAction) -> str | None:
-    if not isinstance(action.text, str):
+    try:
+        text = action.text
+    except Exception:
+        return "text could not be inspected"
+    if not isinstance(text, str):
         return "text must be a string"
-    if not isinstance(action.status, str):
+    try:
+        status = action.status
+    except Exception:
+        return "status could not be inspected"
+    if not isinstance(status, str):
         return "status must be a non-empty string"
-    normalized_status = _safe_stripped_text(action.status)
+    normalized_status = _safe_stripped_text(status)
     if normalized_status is None:
         return "status could not be inspected"
     if not normalized_status:
         return "status must be a non-empty string"
-    status_bytes = _utf8_size(action.status)
+    status_bytes = _utf8_size(status)
     if status_bytes is None:
         return "status could not be inspected"
     if status_bytes > MAX_FINAL_ACTION_STATUS_BYTES:
