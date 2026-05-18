@@ -1492,6 +1492,24 @@ def test_loop_rejects_uninspectable_final_status_before_logging(
             ),
             "Model returned invalid tool call: call_id exceeds 512 bytes",
         ),
+        (
+            ToolCallAction(
+                tool_name="\trecord",
+                arguments={"value": "x"},
+                call_id="call-1",
+            ),
+            "Model returned invalid tool call: "
+            "tool_name cannot contain control characters",
+        ),
+        (
+            ToolCallAction(
+                tool_name="record",
+                arguments={"value": "x"},
+                call_id="call-1\n",
+            ),
+            "Model returned invalid tool call: "
+            "call_id cannot contain control characters",
+        ),
     ],
 )
 def test_loop_rejects_malformed_tool_call_metadata(

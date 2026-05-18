@@ -446,6 +446,13 @@ class LLMClient:
         name = _read_attr(item, "name")
         if not isinstance(name, str):
             raise LLMResponseError("Function call missing name")
+        name_has_control = _has_control_characters(name)
+        if name_has_control is None:
+            raise LLMResponseError("Function call name could not be inspected")
+        if name_has_control:
+            raise LLMResponseError(
+                "Function call name cannot contain control characters"
+            )
         normalized_name = _safe_stripped_text(name)
         if normalized_name is None:
             raise LLMResponseError("Function call name could not be inspected")
@@ -462,6 +469,13 @@ class LLMClient:
         call_id = _read_attr(item, "call_id")
         if not isinstance(call_id, str):
             raise LLMResponseError("Function call missing call_id")
+        call_id_has_control = _has_control_characters(call_id)
+        if call_id_has_control is None:
+            raise LLMResponseError("Function call call_id could not be inspected")
+        if call_id_has_control:
+            raise LLMResponseError(
+                "Function call call_id cannot contain control characters"
+            )
         normalized_call_id = _safe_stripped_text(call_id)
         if normalized_call_id is None:
             raise LLMResponseError("Function call call_id could not be inspected")
@@ -671,6 +685,13 @@ def _safe_stripped_text(value: str) -> str | None:
     if not isinstance(stripped, str):
         return None
     return str.__str__(stripped)
+
+
+def _has_control_characters(value: str) -> bool | None:
+    try:
+        return any(ord(character) < 32 for character in str.__str__(value))
+    except Exception:
+        return None
 
 
 def _normalize_function_call_arguments(arguments: dict[Any, Any]) -> dict[str, Any]:

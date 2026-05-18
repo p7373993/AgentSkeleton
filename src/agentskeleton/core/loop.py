@@ -1272,6 +1272,11 @@ def _inspect_tool_action_metadata(
         return None, None, None, None, "tool_name could not be inspected"
     if not isinstance(tool_name, str):
         return None, None, None, None, "tool_name must be a non-empty string"
+    tool_name_has_control = _has_control_characters(tool_name)
+    if tool_name_has_control is None:
+        return None, None, None, None, "tool_name could not be inspected"
+    if tool_name_has_control:
+        return None, None, None, None, "tool_name cannot contain control characters"
     normalized_tool_name = _safe_stripped_text(tool_name)
     if normalized_tool_name is None:
         return None, None, None, None, "tool_name could not be inspected"
@@ -1294,6 +1299,11 @@ def _inspect_tool_action_metadata(
         return None, None, None, None, "call_id could not be inspected"
     if not isinstance(call_id, str):
         return None, None, None, None, "call_id must be a non-empty string"
+    call_id_has_control = _has_control_characters(call_id)
+    if call_id_has_control is None:
+        return None, None, None, None, "call_id could not be inspected"
+    if call_id_has_control:
+        return None, None, None, None, "call_id cannot contain control characters"
     normalized_call_id = _safe_stripped_text(call_id)
     if normalized_call_id is None:
         return None, None, None, None, "call_id could not be inspected"
@@ -1378,6 +1388,13 @@ def _safe_stripped_text(value: str) -> str | None:
     if not isinstance(stripped, str):
         return None
     return str.__str__(stripped)
+
+
+def _has_control_characters(value: str) -> bool | None:
+    try:
+        return any(ord(character) < 32 for character in str.__str__(value))
+    except Exception:
+        return None
 
 
 def _normalized_checked_text(value: str) -> str:

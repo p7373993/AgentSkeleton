@@ -1116,6 +1116,42 @@ def test_llm_client_rejects_oversized_function_call_metadata(
 
 
 @pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("name", "\tread_file", "Function call name cannot contain control characters"),
+        (
+            "call_id",
+            "call-1\n",
+            "Function call call_id cannot contain control characters",
+        ),
+    ],
+)
+def test_llm_client_rejects_function_call_metadata_with_control_characters(
+    tmp_path,
+    field: str,
+    value: str,
+    message: str,
+) -> None:
+    item = {
+        "type": "function_call",
+        "name": "read_file",
+        "arguments": "{}",
+        "call_id": "call-1",
+    }
+    item[field] = value
+    response = SimpleNamespace(id="resp-1", output_text="", output=[item])
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="read")
+
+    with pytest.raises(LLMResponseError, match=message):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
+@pytest.mark.parametrize(
     ("field", "message"),
     [
         ("name", "Function call name could not be inspected"),
