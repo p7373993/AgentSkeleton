@@ -9,6 +9,7 @@ from agentskeleton.core.actions import FinalAction, ToolCallAction, ToolCallBatc
 from agentskeleton.core.loop import AgentLoop
 from agentskeleton.core.state import ConversationMessage, RunState
 from agentskeleton.core.trace import MemoryTraceSink
+from agentskeleton.policy.permissions import PermissionDecision, PermissionPolicy
 from agentskeleton.tools.base import Tool, ToolContext, ToolResult
 from agentskeleton.tools.registry import ToolRegistry
 from agentskeleton.tools.user import AskUserTool
@@ -260,6 +261,112 @@ def test_loop_stops_on_final_answer(tmp_path: Path) -> None:
     assert state.final_status == "completed"
     assert state.final_answer == "done"
     assert state.step_count == 1
+
+
+def test_loop_preserves_truthless_trace_sink(tmp_path: Path) -> None:
+    class TruthlessTrace(MemoryTraceSink):
+        def __bool__(self) -> bool:
+            raise RuntimeError("trace truthiness unavailable")
+
+    trace = TruthlessTrace()
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+        trace=trace,
+    ).run("finish")
+
+    assert state.final_status == "completed"
+    assert [event.name for event in trace.events][:2] == [
+        "run_started",
+        "step_started",
+    ]
+
+
+def test_loop_preserves_truthless_policy(tmp_path: Path) -> None:
+    class TruthlessPolicy(PermissionPolicy):
+        def __bool__(self) -> bool:
+            raise RuntimeError("policy truthiness unavailable")
+
+        def decide(
+            self,
+            tool_name: str,
+            args: dict[str, object],
+            risk: str,
+        ) -> PermissionDecision:
+            return PermissionDecision("block", "truthless policy used")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="record",
+                    call_id="record-1",
+                    arguments={"value": "hello"},
+                )
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+        policy=TruthlessPolicy(),
+    ).run("finish")
+
+    assert state.final_status == "blocked"
+    assert state.final_reason == "truthless policy used"
+
+
+def test_loop_preserves_truthless_confirmer(tmp_path: Path) -> None:
+    class TruthlessConfirmer:
+        def __bool__(self) -> bool:
+            raise RuntimeError("confirmer truthiness unavailable")
+
+        def __call__(
+            self,
+            decision: PermissionDecision,
+            action: ToolCallAction,
+        ) -> bool:
+            return True
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="write_record",
+                    call_id="write-1",
+                    arguments={"value": "hello"},
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([WriteRecordTool()]),
+        logger=MemoryLogger(),
+        confirmer=TruthlessConfirmer(),
+    ).run("finish")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].policy_decision == "confirm"
+    assert state.observations[0].result.success is True
+
+
+def test_loop_preserves_truthless_run_id(tmp_path: Path) -> None:
+    class TruthlessRunId(str):
+        def __len__(self) -> int:
+            raise RuntimeError("run id length unavailable")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM([FinalAction(text="done")]),
+        registry=ToolRegistry([RecordTool()]),
+        logger=MemoryLogger(),
+        run_id=TruthlessRunId("run-1"),
+    ).run("finish")
+
+    assert state.run_id == "run-1"
+    assert type(state.run_id) is str
 
 
 def test_loop_bounds_logged_final_answer(tmp_path: Path) -> None:

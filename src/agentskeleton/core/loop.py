@@ -68,14 +68,20 @@ class AgentLoop:
         self.llm = llm
         self.registry = registry
         self.logger = logger
-        self.policy = policy or PermissionPolicy(
-            config.confirm_risky_actions,
-            config.permission_profile,
+        self.policy = (
+            policy
+            if policy is not None
+            else PermissionPolicy(
+                config.confirm_risky_actions,
+                config.permission_profile,
+            )
         )
-        self.confirmer = confirmer or (lambda _decision, _action: False)
+        self.confirmer = (
+            confirmer if confirmer is not None else (lambda _decision, _action: False)
+        )
         self.ask_user = ask_user
-        self.run_id = run_id
-        self.trace = trace or NullTraceSink()
+        self.run_id = _safe_text(run_id) if run_id is not None else None
+        self.trace = trace if trace is not None else NullTraceSink()
 
     def run(
         self,
@@ -89,7 +95,7 @@ class AgentLoop:
             UNINSPECTABLE_VALUE if inspectable_goal is None else inspectable_goal
         )
         state = RunState(
-            run_id=self.run_id or str(uuid4()),
+            run_id=self.run_id if self.run_id is not None else str(uuid4()),
             workspace=self.config.workspace,
             goal=normalized_goal,
             conversation=self._normalize_conversation(conversation),
