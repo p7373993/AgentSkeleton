@@ -399,7 +399,7 @@ class LLMClient:
         if isinstance(item, dict):
             return _normalize_context_item(dict(item))
 
-        model_dump = getattr(item, "model_dump", None)
+        model_dump = _read_optional_attr(item, "model_dump")
         if model_dump is not None:
             try:
                 return _normalize_context_item(model_dump(exclude_none=True))
