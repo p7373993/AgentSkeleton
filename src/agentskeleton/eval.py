@@ -316,12 +316,14 @@ def load_scenario(path: Path) -> Scenario:
     conversation = _parse_conversation(raw.get("conversation", []))
     raw_name = raw.get("name")
     name = raw_name if raw_name is not None else path.stem
+    name_text = _safe_text(name)
+    stripped_name = _safe_strip(name_text)
     raw_domain = raw.get("domain")
     domain = raw_domain if raw_domain is not None else "general"
     domain_text = _safe_text(domain)
     stripped_domain = _safe_strip(domain_text)
     return Scenario(
-        name=_safe_text(name),
+        name=stripped_name if stripped_name is not None else name_text,
         domain=stripped_domain if stripped_domain is not None else domain_text,
         goal=goal,
         actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],

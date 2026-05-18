@@ -626,6 +626,29 @@ def test_load_scenario_strips_domain_metadata(tmp_path: Path) -> None:
     assert scenario.domain == "finance"
 
 
+def test_load_scenario_strips_name_metadata(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "alpha.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: ' alpha '",
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+                "  answer: done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    scenario = load_scenario(scenario_path)
+
+    assert scenario.name == "alpha"
+
+
 def test_eval_rejects_uninspectable_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001
