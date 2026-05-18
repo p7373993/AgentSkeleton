@@ -1537,6 +1537,74 @@ def test_run_scenario_starts_with_declared_conversation(tmp_path: Path) -> None:
     assert result.failures == []
 
 
+def test_load_scenario_rejects_too_many_conversation_turns(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_CONVERSATION_TURNS", 2)
+    scenario_path = tmp_path / "too-many-conversation-turns.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: too-many-conversation-turns",
+                "goal: continue bounded context",
+                "conversation:",
+                "  - role: user",
+                "    content: one",
+                "  - role: assistant",
+                "    content: two",
+                "  - role: user",
+                "    content: three",
+                "actions:",
+                "  - type: final",
+                "    text: unreachable",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario conversation cannot contain more than 2 turns"
+    else:
+        raise AssertionError("Expected too many conversation turns to fail")
+
+
+def test_run_scenario_rejects_too_many_programmatic_conversation_turns(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_CONVERSATION_TURNS", 2)
+    scenario = eval_module.Scenario(
+        name="too-many-conversation-turns",
+        domain="reliability",
+        goal="continue bounded context",
+        actions=[eval_module.FinalAction(text="unreachable")],
+        expect={"status": "completed"},
+        conversation=[
+            eval_module.ConversationMessage(role="user", content="one"),
+            eval_module.ConversationMessage(role="assistant", content="two"),
+            eval_module.ConversationMessage(role="user", content="three"),
+        ],
+    )
+
+    try:
+        run_scenario(
+            scenario,
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario conversation cannot contain more than 2 turns"
+    else:
+        raise AssertionError(
+            "Expected too many programmatic conversation turns to fail"
+        )
+
+
 def test_run_scenario_executes_scripted_model_error_and_checks_reason(
     tmp_path: Path,
 ) -> None:

@@ -31,6 +31,7 @@ MAX_SCENARIO_SUITE_FILES = 512
 MAX_SCENARIO_ACTIONS = 200
 MAX_SCENARIO_BATCH_CALLS = 20
 MAX_SCENARIO_USER_ANSWERS = 200
+MAX_SCENARIO_CONVERSATION_TURNS = 200
 UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
@@ -382,6 +383,7 @@ def run_scenario(
     run_id = f"eval-{uuid4()}"
     scenario_actions = _bounded_scenario_actions(scenario.actions)
     scenario_user_answers = _bounded_user_answers(scenario.user_answers)
+    scenario_conversation = _bounded_conversation(scenario.conversation)
     scenario_config = _apply_config_overrides(config, scenario.config_overrides)
     scenario_registry = _resolve_registry(
         scenario_config,
@@ -407,7 +409,7 @@ def run_scenario(
     )
     state = loop.run(
         scenario.goal,
-        conversation=scenario.conversation,
+        conversation=scenario_conversation,
         trace_context={"scenario": scenario.name},
     )
     log_path = Path(logger.path).resolve()
@@ -621,7 +623,7 @@ def _parse_conversation(raw: object) -> list[ConversationMessage]:
         raise ValueError("Scenario conversation must be a list")
 
     conversation: list[ConversationMessage] = []
-    for index, item in enumerate(raw, 1):
+    for index, item in enumerate(_bounded_raw_conversation(raw), 1):
         if not isinstance(item, dict):
             raise ValueError(f"Scenario conversation turn {index} must be a mapping")
         role = item.get("role", "user")
@@ -641,6 +643,32 @@ def _parse_conversation(raw: object) -> list[ConversationMessage]:
             )
         )
     return conversation
+
+
+def _bounded_raw_conversation(raw: Iterable[object]) -> list[object]:
+    bounded: list[object] = []
+    for index, item in enumerate(raw, 1):
+        if index > MAX_SCENARIO_CONVERSATION_TURNS:
+            raise ValueError(
+                "Scenario conversation cannot contain more than "
+                f"{MAX_SCENARIO_CONVERSATION_TURNS} turns"
+            )
+        bounded.append(item)
+    return bounded
+
+
+def _bounded_conversation(
+    conversation: Iterable[ConversationMessage],
+) -> list[ConversationMessage]:
+    bounded: list[ConversationMessage] = []
+    for index, turn in enumerate(conversation, 1):
+        if index > MAX_SCENARIO_CONVERSATION_TURNS:
+            raise ValueError(
+                "Scenario conversation cannot contain more than "
+                f"{MAX_SCENARIO_CONVERSATION_TURNS} turns"
+            )
+        bounded.append(turn)
+    return bounded
 
 
 def _scripted_user_answers(answers: list[str]) -> Callable[[str], str]:
