@@ -183,7 +183,9 @@ class AgentLoop:
                 return state
 
             if isinstance(action, FinalAction):
-                metadata_error = _validate_final_action_metadata(action)
+                final_answer, final_status, metadata_error = (
+                    _normalize_final_action_metadata(action)
+                )
                 if metadata_error is not None:
                     self._record_invalid_action(
                         state,
@@ -193,8 +195,8 @@ class AgentLoop:
                     )
                     self._log_run_finished(state)
                     return state
-                state.final_status = _safe_text(action.status)
-                state.final_answer = _safe_text(action.text)
+                state.final_status = final_status
+                state.final_answer = final_answer
                 self._log_run_finished(state)
                 return state
 
@@ -1224,31 +1226,38 @@ def _duplicate_batch_call_id(tool_calls: list[object]) -> str | None:
 
 
 def _validate_final_action_metadata(action: FinalAction) -> str | None:
+    _final_answer, _final_status, error = _normalize_final_action_metadata(action)
+    return error
+
+
+def _normalize_final_action_metadata(
+    action: FinalAction,
+) -> tuple[str | None, str | None, str | None]:
     try:
         text = action.text
     except Exception:
-        return "text could not be inspected"
+        return None, None, "text could not be inspected"
     if not isinstance(text, str):
-        return "text must be a string"
+        return None, None, "text must be a string"
     try:
         status = action.status
     except Exception:
-        return "status could not be inspected"
+        return None, None, "status could not be inspected"
     if not isinstance(status, str):
-        return "status must be a non-empty string"
+        return None, None, "status must be a non-empty string"
     normalized_status = _safe_stripped_text(status)
     if normalized_status is None:
-        return "status could not be inspected"
+        return None, None, "status could not be inspected"
     if not normalized_status:
-        return "status must be a non-empty string"
+        return None, None, "status must be a non-empty string"
     status_bytes = _utf8_size(status)
     if status_bytes is None:
-        return "status could not be inspected"
+        return None, None, "status could not be inspected"
     if status_bytes > MAX_FINAL_ACTION_STATUS_BYTES:
-        return f"status exceeds {MAX_FINAL_ACTION_STATUS_BYTES} bytes"
+        return None, None, f"status exceeds {MAX_FINAL_ACTION_STATUS_BYTES} bytes"
     if normalized_status not in ALLOWED_FINAL_ACTION_STATUSES:
-        return f"unknown status {normalized_status}"
-    return None
+        return None, None, f"unknown status {normalized_status}"
+    return _safe_text(text), _safe_text(status), None
 
 
 def _utf8_size(value: str) -> int | None:

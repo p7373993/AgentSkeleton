@@ -1304,6 +1304,50 @@ def test_loop_rejects_uninspectable_final_action_status_attribute(
     )
 
 
+def test_loop_uses_final_action_values_captured_during_validation(
+    tmp_path: Path,
+) -> None:
+    class VolatileFinalAction(FinalAction):
+        def __init__(self, text: str, status: str = "completed") -> None:
+            super().__init__(text=text, status=status)
+            object.__setattr__(self, "_text_reads", 0)
+            object.__setattr__(self, "_status_reads", 0)
+
+        def __getattribute__(self, name):
+            if name == "text":
+                reads = object.__getattribute__(self, "_text_reads")
+                object.__setattr__(self, "_text_reads", reads + 1)
+                if reads:
+                    raise RuntimeError("final text unavailable")
+            if name == "status":
+                reads = object.__getattribute__(self, "_status_reads")
+                object.__setattr__(self, "_status_reads", reads + 1)
+                if reads:
+                    raise RuntimeError("final status unavailable")
+            return super().__getattribute__(name)
+
+    logger = MemoryLogger()
+    try:
+        state = make_loop(
+            tmp_path,
+            [VolatileFinalAction(text="done", status="completed")],
+            logger,
+        ).run("finish")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of reusing final action values: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "completed",
+            "answer": "done",
+        },
+    )
+
+
 def test_loop_normalizes_final_action_text_subclasses(tmp_path: Path) -> None:
     class StickyString(str):
         def __str__(self) -> str:
