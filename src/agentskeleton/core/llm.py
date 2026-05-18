@@ -133,7 +133,12 @@ def _response_output_text(response: Any) -> Any:
 
 
 def _response_output_items(response: Any) -> list[Any]:
-    output = _read_attr(response, "output", [])
+    try:
+        output = _read_attr(response, "output", [])
+    except Exception as exc:
+        raise LLMResponseError(
+            "Response output could not be inspected"
+        ) from exc
     if output is None:
         output = []
     if isinstance(output, dict):

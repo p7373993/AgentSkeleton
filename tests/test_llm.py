@@ -336,6 +336,31 @@ def test_llm_client_rejects_uninspectable_response_output(tmp_path) -> None:
     assert state.response_context_items == []
 
 
+def test_llm_client_rejects_uninspectable_response_output_attribute(
+    tmp_path,
+) -> None:
+    class ResponseWithExplodingOutput:
+        output_text = ""
+
+        def __getattr__(self, name):
+            if name == "output":
+                raise RuntimeError("output unavailable")
+            raise AttributeError(name)
+
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="hello")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Response output could not be inspected",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(ResponseWithExplodingOutput()),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_rejects_uninspectable_response_output_items(tmp_path) -> None:
     class ExplodingOutputItem:
         def __getattr__(self, _name):
