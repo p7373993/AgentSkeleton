@@ -189,6 +189,21 @@ class RunConfig(BaseModel):
             raise ValueError(f"{info.field_name} cannot be blank")
         return str.__str__(value)
 
+    @field_validator(
+        "max_steps",
+        "model_retry_attempts",
+        "session_context_turns",
+        "session_summary_turns",
+        "shell_timeout_seconds",
+        "shell_max_output_bytes",
+        mode="before",
+    )
+    @classmethod
+    def reject_bool_numeric_limits(cls, value: object, info) -> object:
+        if isinstance(value, bool):
+            raise ValueError(f"{info.field_name} must be an integer")
+        return value
+
     @field_validator("logs_dir")
     @classmethod
     def reject_file_logs_dir(cls, value: Path) -> Path:

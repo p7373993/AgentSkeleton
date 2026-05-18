@@ -426,6 +426,25 @@ def test_config_rejects_non_positive_limits(tmp_path: Path) -> None:
         RunConfig(workspace=tmp_path, session_summary_turns=0)
 
 
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        "max_steps",
+        "model_retry_attempts",
+        "session_context_turns",
+        "session_summary_turns",
+        "shell_timeout_seconds",
+        "shell_max_output_bytes",
+    ],
+)
+def test_config_rejects_bool_numeric_limits(
+    tmp_path: Path,
+    field_name: str,
+) -> None:
+    with pytest.raises(ValueError, match=f"{field_name} must be an integer"):
+        RunConfig(workspace=tmp_path, **{field_name: True})
+
+
 def test_config_rejects_excessive_max_steps(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         RunConfig(workspace=tmp_path, max_steps=201)
