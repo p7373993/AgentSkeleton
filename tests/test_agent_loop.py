@@ -3941,6 +3941,54 @@ def test_loop_normalizes_non_mapping_conversation_entries(tmp_path: Path) -> Non
     assert logger.events[0][2]["conversation_turns"] == 2
 
 
+def test_loop_isolates_uninspectable_mapping_conversation_entry(
+    tmp_path: Path,
+) -> None:
+    class ExplodingMapping(dict):
+        def get(self, key, default=None):  # type: ignore[override]
+            raise RuntimeError("entry get unavailable")
+
+        def __str__(self) -> str:
+            raise RuntimeError("entry unavailable")
+
+    logger = MemoryLogger()
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in state.conversation
+                ]
+            )
+            return FinalAction(text="done")
+
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=InspectingLLM(),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+    ).run(
+        "continue",
+        conversation=[
+            {"role": "user", "content": "before"},
+            ExplodingMapping({"role": "assistant", "content": "hidden"}),
+            {"role": "user", "content": "after"},
+        ],
+    )
+
+    assert state.final_status == "completed"
+    assert seen_conversation == [
+        [
+            ("user", "before", {}),
+            ("user", "<uninspectable>", {}),
+            ("user", "after", {}),
+        ]
+    ]
+    assert logger.events[0][2]["conversation_turns"] == 3
+
+
 def test_loop_sanitizes_conversation_message_entries(tmp_path: Path) -> None:
     seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
 
