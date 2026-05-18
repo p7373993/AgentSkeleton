@@ -353,7 +353,7 @@ class AgentLoop:
             tool_name=tool_name,
             arguments=arguments,
             call_id=call_id,
-            provider_metadata=action.provider_metadata,
+            provider_metadata=_safe_provider_metadata(action),
         )
 
         logged_arguments = _logged_arguments(arguments)
@@ -1160,6 +1160,16 @@ def _safe_stripped_text(value: str) -> str | None:
 
 def _normalized_checked_text(value: str) -> str:
     return str.__str__(value)
+
+
+def _safe_provider_metadata(action: ToolCallAction) -> dict[str, object] | None:
+    try:
+        metadata = action.provider_metadata
+    except Exception:
+        return None
+    if metadata is None:
+        return None
+    return metadata if isinstance(metadata, dict) else None
 
 
 def _validate_tool_result_metadata(result: ToolResult) -> list[str]:

@@ -1436,6 +1436,38 @@ def test_loop_rejects_uninspectable_tool_call_arguments_attribute(
     assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_ignores_uninspectable_tool_call_provider_metadata(
+    tmp_path: Path,
+) -> None:
+    class ToolCallWithExplodingProviderMetadata(ToolCallAction):
+        def __getattribute__(self, name):
+            if name == "provider_metadata":
+                raise RuntimeError("provider metadata unavailable")
+            return super().__getattribute__(name)
+
+    action = ToolCallWithExplodingProviderMetadata(
+        "record",
+        {"value": "x"},
+        "call-1",
+    )
+    logger = MemoryLogger()
+
+    try:
+        state = make_loop(
+            tmp_path,
+            [action, FinalAction(text="done")],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of executing tool call: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert len(state.observations) == 1
+    assert state.observations[0].result.success is True
+    assert any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_recovers_when_tool_name_stringification_fails_after_validation(
     tmp_path: Path,
 ) -> None:
