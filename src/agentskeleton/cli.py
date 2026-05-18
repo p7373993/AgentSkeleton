@@ -223,6 +223,7 @@ def _merge_required_domains(
     seen: set[str] = set()
     for domains in (manifest_domains, () if option_domains is None else option_domains):
         for domain in domains:
+            domain = domain.strip()
             if domain in seen:
                 continue
             merged.append(domain)

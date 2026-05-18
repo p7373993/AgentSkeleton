@@ -908,6 +908,13 @@ def test_merge_required_domains_accepts_option_domains_without_length() -> None:
     ) == ["finance", "writing"]
 
 
+def test_merge_required_domains_strips_option_domain_names() -> None:
+    assert cli_module._merge_required_domains(  # noqa: SLF001
+        ["finance"],
+        [" finance ", " writing "],
+    ) == ["finance", "writing"]
+
+
 def test_eval_command_uses_scenario_tool_modules(
     monkeypatch,
     tmp_path,
