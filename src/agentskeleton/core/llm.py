@@ -132,6 +132,13 @@ def _response_output_text(response: Any) -> Any:
         return None
 
 
+def _read_optional_attr(item: Any, name: str) -> Any:
+    try:
+        return _read_attr(item, name)
+    except Exception:
+        return None
+
+
 def _response_output_items(response: Any) -> list[Any]:
     try:
         output = _read_attr(response, "output", [])
@@ -419,7 +426,7 @@ class LLMClient:
 
         serialized = {"type": item_type}
         for field in ("id", "role", "content", "status"):
-            value = _read_attr(item, field)
+            value = _read_optional_attr(item, field)
             if value is not None:
                 serialized[field] = value
         return _normalize_context_item(serialized)

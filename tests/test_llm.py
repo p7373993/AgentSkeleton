@@ -885,6 +885,38 @@ def test_llm_client_ignores_uninspectable_model_dump_context_items(
     ]
 
 
+def test_llm_client_skips_uninspectable_object_context_fields(
+    tmp_path,
+) -> None:
+    class OutputItemWithExplodingContent:
+        type = "message"
+        role = "assistant"
+
+        def __getattr__(self, name):
+            if name == "content":
+                raise RuntimeError("content unavailable")
+            raise AttributeError(name)
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="done",
+        output=[OutputItemWithExplodingContent()],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert action.text == "done"
+    assert state.response_context_items == [
+        {"role": "user", "content": "finish"},
+        {"type": "message", "role": "assistant"},
+    ]
+
+
 def test_llm_client_skips_context_item_with_invalid_type_strip_result(
     tmp_path,
 ) -> None:
