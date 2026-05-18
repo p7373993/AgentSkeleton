@@ -200,7 +200,7 @@ class RunConfig(BaseModel):
     )
     @classmethod
     def reject_bool_numeric_limits(cls, value: object, info) -> object:
-        if isinstance(value, bool):
+        if isinstance(value, bool | float):
             raise ValueError(f"{info.field_name} must be an integer")
         return value
 
