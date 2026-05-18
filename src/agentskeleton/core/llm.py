@@ -89,6 +89,16 @@ def resolve_openai_settings(config: RunConfig) -> OpenAISettings:
         or dotenv.get("OPENAI_API_KEY")
         or dotenv.get("AZURE_OPENAI_API_KEY")
     )
+    if api_key:
+        has_control = _has_control_characters(api_key)
+        if has_control is None:
+            raise MissingAPIKeyError("API key could not be inspected")
+        if has_control:
+            raise ValueError("api_key cannot contain control characters")
+        normalized_api_key = _safe_stripped_text(api_key)
+        if normalized_api_key is None:
+            raise MissingAPIKeyError("API key could not be inspected")
+        api_key = normalized_api_key
     if not api_key:
         raise MissingAPIKeyError(
             "OPENAI_API_KEY or AZURE_OPENAI_API_KEY is required for live LLM runs"

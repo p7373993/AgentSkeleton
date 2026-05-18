@@ -108,6 +108,24 @@ def test_llm_client_requires_api_key_without_injected_client(
         LLMClient(RunConfig())
 
 
+def test_resolve_openai_settings_treats_blank_api_key_as_missing(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "   ")
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(MissingAPIKeyError):
+        resolve_openai_settings(RunConfig())
+
+
+def test_resolve_openai_settings_rejects_control_characters_in_api_key(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test\n")
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+
+    with pytest.raises(ValueError, match="api_key cannot contain control characters"):
+        resolve_openai_settings(RunConfig())
+
+
 def test_normalize_base_url_accepts_full_responses_endpoint() -> None:
     endpoint = (
         "https://my-ai-resource.services.ai.azure.com/api/projects/demo/"
