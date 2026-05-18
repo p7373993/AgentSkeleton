@@ -201,6 +201,18 @@ class RunConfig(BaseModel):
             raise ValueError(f"{info.field_name} cannot be blank")
         return str.__str__(value)
 
+    @field_validator("base_url", mode="before")
+    @classmethod
+    def reject_control_characters_in_base_url(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        has_control = _has_control_characters(value)
+        if has_control is None:
+            raise ValueError("base_url could not be inspected")
+        if has_control:
+            raise ValueError("base_url cannot contain control characters")
+        return str.__str__(value)
+
     @field_validator(
         "max_steps",
         "model_retry_attempts",
