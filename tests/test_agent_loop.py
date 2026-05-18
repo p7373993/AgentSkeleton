@@ -1466,6 +1466,30 @@ def test_loop_normalizes_tool_action_text_subclasses(tmp_path: Path) -> None:
     assert type(model_action[2]["call_id"]) is str
 
 
+def test_loop_uses_normalized_tool_name_for_registry_lookup(tmp_path: Path) -> None:
+    class UnhashableString(str):
+        def __hash__(self) -> int:
+            raise RuntimeError("tool name hash unavailable")
+
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                tool_name=UnhashableString("record"),
+                arguments={"value": "x"},
+                call_id="call-1",
+            ),
+            FinalAction(text="done"),
+        ],
+        logger,
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].tool_name == "record"
+    assert state.observations[0].result.success is True
+
+
 def test_loop_executes_tool_and_feeds_observation(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = make_loop(

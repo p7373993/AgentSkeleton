@@ -366,9 +366,13 @@ class AgentLoop:
             return
 
         try:
-            tool = self.registry.get(action.tool_name)
+            tool = self.registry.get(tool_name)
         except KeyError as exc:
-            summary = str(exc.args[0]) if exc.args else str(exc)
+            summary = (
+                f"Unknown tool: {_safe_text(action.tool_name)}"
+                if exc.args
+                else str(exc)
+            )
             result = ToolResult(
                 success=False,
                 payload={
