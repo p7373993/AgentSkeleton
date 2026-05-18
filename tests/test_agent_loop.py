@@ -1737,6 +1737,53 @@ def test_loop_ignores_uninspectable_tool_call_provider_metadata(
     assert any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_uses_tool_action_values_captured_during_validation(
+    tmp_path: Path,
+) -> None:
+    class VolatileToolCallAction(ToolCallAction):
+        def __init__(
+            self,
+            tool_name: str,
+            arguments: dict[str, object],
+            call_id: str,
+        ) -> None:
+            super().__init__(tool_name, arguments, call_id)
+            object.__setattr__(self, "_tool_name_reads", 0)
+            object.__setattr__(self, "_call_id_reads", 0)
+
+        def __getattribute__(self, name):
+            if name == "tool_name":
+                reads = object.__getattribute__(self, "_tool_name_reads")
+                object.__setattr__(self, "_tool_name_reads", reads + 1)
+                if reads:
+                    raise RuntimeError("tool name unavailable")
+            if name == "call_id":
+                reads = object.__getattribute__(self, "_call_id_reads")
+                object.__setattr__(self, "_call_id_reads", reads + 1)
+                if reads:
+                    raise RuntimeError("call id unavailable")
+            return super().__getattribute__(name)
+
+    logger = MemoryLogger()
+    try:
+        state = make_loop(
+            tmp_path,
+            [
+                VolatileToolCallAction("record", {"value": "x"}, "call-1"),
+                FinalAction(text="done"),
+            ],
+            logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of reusing tool action values: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert state.observations[0].tool_name == "record"
+    assert state.observations[0].call_id == "call-1"
+    assert state.observations[0].result.success is True
+
+
 def test_loop_recovers_when_tool_name_stringification_fails_after_validation(
     tmp_path: Path,
 ) -> None:

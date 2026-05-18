@@ -255,6 +255,8 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
+                normalized_tool_calls: list[ToolCallAction] = []
+                normalized_call_ids: list[tuple[str, str]] = []
                 for tool_call in tool_calls:
                     if not isinstance(tool_call, ToolCallAction):
                         self._record_invalid_action(state, tool_call)
@@ -262,7 +264,9 @@ class AgentLoop:
                             self._log_run_finished(state)
                             return state
                         continue
-                    metadata_error = _validate_tool_action_metadata(tool_call)
+                    tool_name, call_id, call_id_display, metadata_error = (
+                        _inspect_tool_action_metadata(tool_call)
+                    )
                     if metadata_error is not None:
                         self._record_invalid_action(
                             state,
@@ -276,7 +280,31 @@ class AgentLoop:
                         if state.final_status is not None:
                             self._log_run_finished(state)
                             return state
-                duplicate_call_id = _duplicate_batch_call_id(tool_calls)
+                    try:
+                        arguments = tool_call.arguments
+                    except Exception:
+                        self._record_invalid_action(
+                            state,
+                            tool_call,
+                            reason=(
+                                "Model returned invalid tool call: "
+                                "arguments could not be inspected"
+                            ),
+                            error_type="invalid_tool_call",
+                        )
+                        if state.final_status is not None:
+                            self._log_run_finished(state)
+                            return state
+                    normalized_tool_calls.append(
+                        ToolCallAction(
+                            tool_name=tool_name,
+                            arguments=arguments,
+                            call_id=call_id,
+                            provider_metadata=_safe_provider_metadata(tool_call),
+                        )
+                    )
+                    normalized_call_ids.append((call_id, call_id_display))
+                duplicate_call_id = _duplicate_normalized_call_id(normalized_call_ids)
                 if duplicate_call_id is not None:
                     self._record_invalid_action(
                         state,
@@ -290,6 +318,7 @@ class AgentLoop:
                     if state.final_status is not None:
                         self._log_run_finished(state)
                         return state
+                tool_calls = normalized_tool_calls
                 for tool_call in tool_calls:
                     self._execute_tool_action(state, tool_call)
                     if state.final_status is not None:
@@ -357,7 +386,7 @@ class AgentLoop:
         return normalized
 
     def _execute_tool_action(self, state: RunState, action: ToolCallAction) -> None:
-        metadata_error = _validate_tool_action_metadata(action)
+        tool_name, call_id, metadata_error = _normalize_tool_action_metadata(action)
         if metadata_error is not None:
             self._record_invalid_action(
                 state,
@@ -366,8 +395,6 @@ class AgentLoop:
                 error_type="invalid_tool_call",
             )
             return
-        tool_name = _normalized_checked_text(action.tool_name)
-        call_id = _normalized_checked_text(action.call_id)
         try:
             arguments = action.arguments
         except Exception:
@@ -1173,54 +1200,77 @@ def _truncated_items_marker(total_items: int, omitted: int) -> dict[str, object]
 
 
 def _validate_tool_action_metadata(action: ToolCallAction) -> str | None:
+    _tool_name, _call_id, _call_id_display, error = _inspect_tool_action_metadata(
+        action
+    )
+    return error
+
+
+def _normalize_tool_action_metadata(
+    action: ToolCallAction,
+) -> tuple[str | None, str | None, str | None]:
+    tool_name, call_id, _call_id_display, error = _inspect_tool_action_metadata(action)
+    return tool_name, call_id, error
+
+
+def _inspect_tool_action_metadata(
+    action: ToolCallAction,
+) -> tuple[str | None, str | None, str | None, str | None]:
     try:
         tool_name = action.tool_name
     except Exception:
-        return "tool_name could not be inspected"
+        return None, None, None, "tool_name could not be inspected"
     if not isinstance(tool_name, str):
-        return "tool_name must be a non-empty string"
+        return None, None, None, "tool_name must be a non-empty string"
     normalized_tool_name = _safe_stripped_text(tool_name)
     if normalized_tool_name is None:
-        return "tool_name could not be inspected"
+        return None, None, None, "tool_name could not be inspected"
     if not normalized_tool_name:
-        return "tool_name must be a non-empty string"
+        return None, None, None, "tool_name must be a non-empty string"
     tool_name_bytes = _utf8_size(tool_name)
     if tool_name_bytes is None:
-        return "tool_name could not be inspected"
+        return None, None, None, "tool_name could not be inspected"
     if tool_name_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
-        return f"tool_name exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
+        return (
+            None,
+            None,
+            None,
+            f"tool_name exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes",
+        )
     try:
         call_id = action.call_id
     except Exception:
-        return "call_id could not be inspected"
+        return None, None, None, "call_id could not be inspected"
     if not isinstance(call_id, str):
-        return "call_id must be a non-empty string"
+        return None, None, None, "call_id must be a non-empty string"
     normalized_call_id = _safe_stripped_text(call_id)
     if normalized_call_id is None:
-        return "call_id could not be inspected"
+        return None, None, None, "call_id could not be inspected"
     if not normalized_call_id:
-        return "call_id must be a non-empty string"
+        return None, None, None, "call_id must be a non-empty string"
     call_id_bytes = _utf8_size(call_id)
     if call_id_bytes is None:
-        return "call_id could not be inspected"
+        return None, None, None, "call_id could not be inspected"
     if call_id_bytes > MAX_TOOL_ACTION_METADATA_BYTES:
-        return f"call_id exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes"
-    return None
+        return (
+            None,
+            None,
+            None,
+            f"call_id exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes",
+        )
+    return (
+        _normalized_checked_text(tool_name),
+        _normalized_checked_text(call_id),
+        _safe_text(call_id),
+        None,
+    )
 
 
-def _duplicate_batch_call_id(tool_calls: list[object]) -> str | None:
+def _duplicate_normalized_call_id(call_ids: list[tuple[str, str]]) -> str | None:
     seen: set[str] = set()
-    for tool_call in tool_calls:
-        if not isinstance(tool_call, ToolCallAction):
-            continue
-        call_id = tool_call.call_id
-        if not isinstance(call_id, str):
-            continue
-        normalized_call_id = _safe_stripped_text(call_id)
-        if normalized_call_id is None or not normalized_call_id:
-            continue
+    for normalized_call_id, display_call_id in call_ids:
         if normalized_call_id in seen:
-            return call_id
+            return display_call_id
         seen.add(normalized_call_id)
     return None
 
