@@ -530,14 +530,17 @@ class AgentLoop:
             state.final_status = "blocked"
             state.final_reason = stored_result.summary
             return
-        if not isinstance(decision_outcome, str) or str.__str__(
-            decision_outcome
-        ) not in {"allow", "confirm", "block"}:
+        normalized_outcome = (
+            _safe_stripped_text(decision_outcome)
+            if isinstance(decision_outcome, str)
+            else None
+        )
+        if normalized_outcome not in {"allow", "confirm", "block"}:
             result = ToolResult(
                 success=False,
                 summary=(
                     "Permission decision invalid: unknown outcome "
-                    f"{_safe_text(decision_outcome)}"
+                    f"{_safe_text(normalized_outcome or decision_outcome)}"
                 ),
                 error="Invalid permission decision",
             )
@@ -591,7 +594,7 @@ class AgentLoop:
             state.final_reason = stored_result.summary
             return
         decision = PermissionDecision(
-            str.__str__(decision_outcome),
+            normalized_outcome,
             normalized_reason,
         )
         self._log_event(

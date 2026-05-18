@@ -2886,6 +2886,45 @@ def test_loop_blocks_tool_when_policy_decision_outcome_is_unknown(
     )
 
 
+def test_loop_strips_policy_decision_outcome_before_using_it(
+    tmp_path: Path,
+) -> None:
+    class SpacedOutcomePolicy(PermissionPolicy):
+        def decide(
+            self,
+            tool_name: str,
+            args: dict[str, object],
+            risk: str,
+        ) -> PermissionDecision:
+            return PermissionDecision(" allow ", "policy allowed")
+
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="record",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="done"),
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        policy=SpacedOutcomePolicy(),
+    ).run("record")
+
+    assert state.final_status == "completed"
+    assert state.observations[0].policy_decision == "allow"
+    assert ("policy_decision", 1, {
+        "tool_name": "record",
+        "outcome": "allow",
+        "reason": "policy allowed",
+    }) in logger.events
+
+
 def test_loop_blocks_tool_when_policy_decision_reason_is_invalid(
     tmp_path: Path,
 ) -> None:
