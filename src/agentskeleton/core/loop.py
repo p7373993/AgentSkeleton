@@ -333,7 +333,10 @@ class AgentLoop:
                         ConversationMessage(role="user", content=_safe_text(turn)),
                     )
         except Exception:
-            return [ConversationMessage(role="user", content=_safe_text(conversation))]
+            normalized.append(
+                ConversationMessage(role="user", content=_safe_text(conversation)),
+            )
+            return normalized
         return normalized
 
     def _execute_tool_action(self, state: RunState, action: ToolCallAction) -> None:

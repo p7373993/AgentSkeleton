@@ -3900,6 +3900,53 @@ def test_loop_normalizes_uniterable_conversation_history(tmp_path: Path) -> None
     assert logger.events[0][2]["conversation_turns"] == 1
 
 
+def test_loop_preserves_conversation_entries_before_iterator_failure(
+    tmp_path: Path,
+) -> None:
+    class PartiallyIterableConversation(list):
+        def __iter__(self):
+            yield {"role": "user", "content": "before"}
+            raise RuntimeError("conversation interrupted")
+
+        def __str__(self) -> str:
+            raise RuntimeError("conversation unavailable")
+
+    logger = MemoryLogger()
+    seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
+
+    class InspectingLLM:
+        def next_action(self, state, registry):
+            seen_conversation.append(
+                [
+                    (turn.role, turn.content, turn.metadata)
+                    for turn in state.conversation
+                ]
+            )
+            return FinalAction(text="done")
+
+    try:
+        state = AgentLoop(
+            config=RunConfig(workspace=tmp_path),
+            llm=InspectingLLM(),
+            registry=ToolRegistry([RecordTool()]),
+            logger=logger,
+        ).run(
+            "continue",
+            conversation=PartiallyIterableConversation(["hidden"]),
+        )
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of preserving conversation: {exc!r}")
+
+    assert state.final_status == "completed"
+    assert seen_conversation == [
+        [
+            ("user", "before", {}),
+            ("user", "<uninspectable>", {}),
+        ]
+    ]
+    assert logger.events[0][2]["conversation_turns"] == 2
+
+
 def test_loop_normalizes_non_mapping_conversation_entries(tmp_path: Path) -> None:
     logger = MemoryLogger()
     seen_conversation: list[list[tuple[str, str, dict[str, object]]]] = []
