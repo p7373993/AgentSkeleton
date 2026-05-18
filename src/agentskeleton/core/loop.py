@@ -1273,9 +1273,9 @@ def _inspect_tool_action_metadata(
             f"call_id exceeds {MAX_TOOL_ACTION_METADATA_BYTES} bytes",
         )
     return (
-        _normalized_checked_text(tool_name),
+        normalized_tool_name,
         _safe_text(tool_name),
-        _normalized_checked_text(call_id),
+        normalized_call_id,
         _safe_text(call_id),
         None,
     )

@@ -1848,6 +1848,32 @@ def test_loop_normalizes_tool_action_text_subclasses(tmp_path: Path) -> None:
     assert type(model_action[2]["call_id"]) is str
 
 
+def test_loop_strips_tool_action_metadata_for_execution(tmp_path: Path) -> None:
+    logger = MemoryLogger()
+    state = make_loop(
+        tmp_path,
+        [
+            ToolCallAction(
+                tool_name=" record ",
+                arguments={"value": "x"},
+                call_id=" call-1 ",
+            ),
+            FinalAction(text="done"),
+        ],
+        logger,
+    ).run("record")
+
+    model_action = next(event for event in logger.events if event[0] == "model_action")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert state.observations[0].tool_name == "record"
+    assert state.observations[0].call_id == "call-1"
+    assert state.observations[0].result.success is True
+    assert model_action[2]["tool_name"] == "record"
+    assert model_action[2]["call_id"] == "call-1"
+
+
 def test_loop_uses_normalized_tool_name_for_registry_lookup(tmp_path: Path) -> None:
     class UnhashableString(str):
         def __hash__(self) -> int:
