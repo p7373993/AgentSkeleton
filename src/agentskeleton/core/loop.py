@@ -1361,7 +1361,7 @@ def _normalize_final_action_metadata(
         return None, None, f"status exceeds {MAX_FINAL_ACTION_STATUS_BYTES} bytes"
     if normalized_status not in ALLOWED_FINAL_ACTION_STATUSES:
         return None, None, f"unknown status {normalized_status}"
-    return _safe_text(text), _safe_text(status), None
+    return _safe_text(text), normalized_status, None
 
 
 def _utf8_size(value: str) -> int | None:

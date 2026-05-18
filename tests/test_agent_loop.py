@@ -1372,6 +1372,29 @@ def test_loop_normalizes_final_action_text_subclasses(tmp_path: Path) -> None:
     assert type(state.final_answer) is str
 
 
+def test_loop_strips_final_action_status_for_state_and_logs(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+
+    state = make_loop(
+        tmp_path,
+        [FinalAction(text="done", status=" completed ")],
+        logger,
+    ).run("finish")
+
+    assert state.final_status == "completed"
+    assert state.final_answer == "done"
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "completed",
+            "answer": "done",
+        },
+    )
+
+
 def test_loop_rejects_unencodable_final_status_before_logging(
     tmp_path: Path,
 ) -> None:
