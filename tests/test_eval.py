@@ -626,6 +626,33 @@ def test_load_scenario_strips_domain_metadata(tmp_path: Path) -> None:
     assert scenario.domain == "finance"
 
 
+def test_load_scenario_rejects_blank_domain_metadata(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "blank-domain.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: blank-domain",
+                "domain: '   '",
+                "goal: finish",
+                "actions:",
+                "  - type: final",
+                "    text: done",
+                "expect:",
+                "  status: completed",
+                "  answer: done",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario domain cannot be blank"
+    else:
+        raise AssertionError("Expected blank scenario domain to fail")
+
+
 def test_load_scenario_strips_name_metadata(tmp_path: Path) -> None:
     scenario_path = tmp_path / "alpha.yaml"
     scenario_path.write_text(
