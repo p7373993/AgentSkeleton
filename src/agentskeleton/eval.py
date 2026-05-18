@@ -317,19 +317,19 @@ def load_scenario(path: Path) -> Scenario:
     raw_name = raw.get("name")
     name = raw_name if raw_name is not None else path.stem
     name_text = _safe_text(name)
+    if _has_control_characters(name_text):
+        raise ValueError("Scenario name cannot contain control characters")
     stripped_name = _safe_strip(name_text)
     if stripped_name == "":
         raise ValueError("Scenario name cannot be blank")
-    if stripped_name is not None and _has_control_characters(stripped_name):
-        raise ValueError("Scenario name cannot contain control characters")
     raw_domain = raw.get("domain")
     domain = raw_domain if raw_domain is not None else "general"
     domain_text = _safe_text(domain)
+    if _has_control_characters(domain_text):
+        raise ValueError("Scenario domain cannot contain control characters")
     stripped_domain = _safe_strip(domain_text)
     if stripped_domain == "":
         raise ValueError("Scenario domain cannot be blank")
-    if stripped_domain is not None and _has_control_characters(stripped_domain):
-        raise ValueError("Scenario domain cannot contain control characters")
     return Scenario(
         name=stripped_name if stripped_name is not None else name_text,
         domain=stripped_domain if stripped_domain is not None else domain_text,
@@ -501,15 +501,15 @@ def _parse_required_domains(raw: object) -> list[str]:
         domain = _inspect_text(item)
         if domain is None:
             raise ValueError("Suite required_domains entries could not be inspected")
+        if _has_control_characters(domain):
+            raise ValueError(
+                "Suite required_domains cannot contain control characters"
+            )
         stripped_domain = _safe_strip(domain)
         if stripped_domain is None:
             raise ValueError("Suite required_domains entries could not be inspected")
         if not stripped_domain:
             raise ValueError("Suite required_domains cannot contain empty names")
-        if _has_control_characters(stripped_domain):
-            raise ValueError(
-                "Suite required_domains cannot contain control characters"
-            )
         domains.append(stripped_domain)
     return domains
 

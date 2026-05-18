@@ -680,6 +680,33 @@ def test_load_scenario_rejects_control_characters_in_domain(
         raise AssertionError("Expected control character scenario domain to fail")
 
 
+def test_load_scenario_rejects_surrounding_control_characters_in_domain(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "control-domain-edge.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "name": "control-domain-edge",
+            "domain": "\tfinance",
+            "goal": "finish",
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": {"status": "completed"},
+        },
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario domain cannot contain control characters"
+    else:
+        raise AssertionError("Expected control character scenario domain to fail")
+
+
 def test_load_scenario_strips_name_metadata(tmp_path: Path) -> None:
     scenario_path = tmp_path / "alpha.yaml"
     scenario_path.write_text(
@@ -755,6 +782,32 @@ def test_load_scenario_rejects_control_characters_in_name(
         raise AssertionError("Expected control character scenario name to fail")
 
 
+def test_load_scenario_rejects_surrounding_control_characters_in_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    scenario_path = tmp_path / "control-name-edge.yaml"
+    scenario_path.write_text("goal: finish\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        eval_module,
+        "_load_yaml_document",
+        lambda _path, _label: {
+            "name": "alpha\n",
+            "goal": "finish",
+            "actions": [{"type": "final", "text": "done"}],
+            "expect": {"status": "completed"},
+        },
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario name cannot contain control characters"
+    else:
+        raise AssertionError("Expected control character scenario name to fail")
+
+
 def test_eval_rejects_uninspectable_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001
@@ -770,6 +823,20 @@ def test_eval_rejects_control_characters_in_required_domains() -> None:
     try:
         eval_module._parse_required_domains(  # noqa: SLF001
             ["finance\nops"]
+        )
+    except ValueError as exc:
+        assert (
+            str(exc)
+            == "Suite required_domains cannot contain control characters"
+        )
+    else:
+        raise AssertionError("Expected control character required domain to fail")
+
+
+def test_eval_rejects_surrounding_control_characters_in_required_domains() -> None:
+    try:
+        eval_module._parse_required_domains(  # noqa: SLF001
+            ["\treliability"]
         )
     except ValueError as exc:
         assert (
