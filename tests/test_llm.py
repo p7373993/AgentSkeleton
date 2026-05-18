@@ -13,6 +13,7 @@ from agentskeleton.core.llm import (
     resolve_openai_settings,
 )
 from agentskeleton.core.state import ConversationMessage, RunState, ToolObservation
+from agentskeleton.core.trace import MemoryTraceSink
 from agentskeleton.tools.base import Tool, ToolResult
 from agentskeleton.tools.registry import ToolRegistry
 
@@ -178,6 +179,25 @@ def test_llm_client_sends_tool_schemas_and_parses_final_text(tmp_path) -> None:
     assert call["tools"][0]["name"] == "read_file"
     assert call["reasoning"] == {"effort": "low"}
     assert call["text"] == {"verbosity": "low"}
+
+
+def test_llm_client_preserves_truthless_trace_sink(tmp_path) -> None:
+    class TruthlessTrace(MemoryTraceSink):
+        def __bool__(self) -> bool:
+            raise RuntimeError("trace truthiness unavailable")
+
+    trace = TruthlessTrace()
+    response = SimpleNamespace(id="resp-1", output_text="done", output=[])
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    action = LLMClient(
+        RunConfig(workspace=tmp_path),
+        client=FakeClient(response),
+        trace=trace,
+    ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert isinstance(action, FinalAction)
+    assert [event.name for event in trace.events] == ["llm_request", "llm_response"]
 
 
 def test_llm_client_bounds_large_output_text(tmp_path) -> None:

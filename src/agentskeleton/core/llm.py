@@ -195,7 +195,7 @@ class LLMClient:
         trace: TraceSink | None = None,
     ) -> None:
         self.config = config
-        self.trace = trace or NullTraceSink()
+        self.trace = trace if trace is not None else NullTraceSink()
         if client is not None:
             self.client = client
             return
