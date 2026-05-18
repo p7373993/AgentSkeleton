@@ -499,6 +499,18 @@ def test_config_rejects_uninspectable_model_settings(
         RunConfig(workspace=tmp_path, **{field_name: InvalidStripString("gpt-5.5")})
 
 
+@pytest.mark.parametrize("field_name", ["model", "reasoning_effort", "text_verbosity"])
+def test_config_rejects_control_characters_in_model_settings(
+    tmp_path: Path,
+    field_name: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=f"{field_name} cannot contain control characters",
+    ):
+        RunConfig(workspace=tmp_path, **{field_name: "low\n"})
+
+
 def test_config_normalizes_model_setting_text_subclasses(tmp_path: Path) -> None:
     config = RunConfig(
         workspace=tmp_path,

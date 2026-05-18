@@ -83,6 +83,13 @@ def _has_whitespace(value: str) -> bool | None:
         return None
 
 
+def _has_control_characters(value: str) -> bool | None:
+    try:
+        return any(ord(character) < 32 for character in str.__str__(value))
+    except Exception:
+        return None
+
+
 def _has_invalid_module_part(value: str) -> bool | None:
     try:
         return any(not part.isidentifier() for part in value.split("."))
@@ -182,6 +189,11 @@ class RunConfig(BaseModel):
     def reject_blank_model_settings(cls, value: object, info) -> object:
         if not isinstance(value, str):
             return value
+        has_control = _has_control_characters(value)
+        if has_control is None:
+            raise ValueError(f"{info.field_name} could not be inspected")
+        if has_control:
+            raise ValueError(f"{info.field_name} cannot contain control characters")
         stripped = _safe_strip(value)
         if stripped is None:
             raise ValueError(f"{info.field_name} could not be inspected")
