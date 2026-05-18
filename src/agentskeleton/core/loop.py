@@ -1358,6 +1358,11 @@ def _normalize_final_action_metadata(
         return None, None, "status could not be inspected"
     if not isinstance(status, str):
         return None, None, "status must be a non-empty string"
+    status_has_control = _has_control_characters(status)
+    if status_has_control is None:
+        return None, None, "status could not be inspected"
+    if status_has_control:
+        return None, None, "status cannot contain control characters"
     normalized_status = _safe_stripped_text(status)
     if normalized_status is None:
         return None, None, "status could not be inspected"

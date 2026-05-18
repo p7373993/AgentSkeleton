@@ -1395,6 +1395,35 @@ def test_loop_strips_final_action_status_for_state_and_logs(
     )
 
 
+def test_loop_rejects_control_characters_in_final_action_status(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+
+    state = make_loop(
+        tmp_path,
+        [FinalAction(text="done", status="\tcompleted")],
+        logger,
+    ).run("finish")
+
+    reason = (
+        "Model returned invalid final action: "
+        "status cannot contain control characters"
+    )
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_final_action",
+            "error": reason,
+        },
+    ) in logger.events
+
+
 def test_loop_rejects_unencodable_final_status_before_logging(
     tmp_path: Path,
 ) -> None:
