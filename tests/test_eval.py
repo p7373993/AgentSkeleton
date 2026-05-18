@@ -1138,6 +1138,68 @@ def test_run_scenario_reports_failed_expectations(tmp_path: Path) -> None:
     assert result.failures == ["answer expected 'expected' but got 'actual'"]
 
 
+def test_load_scenario_rejects_too_many_actions(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_ACTIONS", 2)
+    scenario_path = tmp_path / "too-many-actions.yaml"
+    scenario_path.write_text(
+        "\n".join(
+            [
+                "name: too-many-actions",
+                "goal: stop oversized action script",
+                "actions:",
+                "  - type: final",
+                "    text: one",
+                "  - type: final",
+                "    text: two",
+                "  - type: final",
+                "    text: three",
+                "expect:",
+                "  status: completed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_scenario(scenario_path)
+    except ValueError as exc:
+        assert str(exc) == "Scenario cannot contain more than 2 actions"
+    else:
+        raise AssertionError("Expected too many scenario actions to fail")
+
+
+def test_run_scenario_rejects_too_many_programmatic_actions(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_ACTIONS", 2)
+    scenario = eval_module.Scenario(
+        name="too-many-actions",
+        domain="reliability",
+        goal="stop oversized action script",
+        actions=[
+            eval_module.FinalAction(text="one"),
+            eval_module.FinalAction(text="two"),
+            eval_module.FinalAction(text="three"),
+        ],
+        expect={"status": "completed"},
+    )
+
+    try:
+        run_scenario(
+            scenario,
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario cannot contain more than 2 actions"
+    else:
+        raise AssertionError("Expected too many programmatic actions to fail")
+
+
 def test_run_scenario_checks_expected_file_outputs(tmp_path: Path) -> None:
     scenario_path = tmp_path / "write-report.yaml"
     scenario_path.write_text(

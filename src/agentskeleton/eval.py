@@ -28,6 +28,7 @@ SUITE_MANIFEST_NAMES = {"suite.yaml", "suite.yml"}
 MAX_SCENARIO_FILE_BYTES = 2_097_152
 MAX_SCENARIO_WORKSPACE_FILES = 128
 MAX_SCENARIO_SUITE_FILES = 512
+MAX_SCENARIO_ACTIONS = 200
 UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
@@ -336,7 +337,7 @@ def load_scenario(path: Path) -> Scenario:
         name=stripped_name if stripped_name is not None else name_text,
         domain=stripped_domain if stripped_domain is not None else domain_text,
         goal=goal,
-        actions=[_parse_action(item, index) for index, item in enumerate(raw_actions)],
+        actions=_parse_actions(raw_actions),
         expect=expect,
         files=files,
         config_overrides=config_overrides,
@@ -377,6 +378,7 @@ def run_scenario(
     registry_factory: RegistryFactory | None = None,
 ) -> ScenarioResult:
     run_id = f"eval-{uuid4()}"
+    scenario_actions = _bounded_scenario_actions(scenario.actions)
     scenario_config = _apply_config_overrides(config, scenario.config_overrides)
     scenario_registry = _resolve_registry(
         scenario_config,
@@ -388,7 +390,7 @@ def run_scenario(
     logger = RunLogger(run_config.logs_dir, run_id)
     loop = AgentLoop(
         config=run_config,
-        llm=ScriptedScenarioLLM(scenario.actions),
+        llm=ScriptedScenarioLLM(scenario_actions),
         registry=scenario_registry,
         logger=logger,
         confirmer=lambda _decision, _action: False,
@@ -813,6 +815,29 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
         )
 
     raise ValueError(f"Unknown scenario action type: {action_type}")
+
+
+def _parse_actions(raw_actions: list[object]) -> list[ScenarioAction]:
+    return [
+        _parse_action(raw_action, index)
+        for index, raw_action in enumerate(
+            _bounded_scenario_actions(raw_actions),
+        )
+    ]
+
+
+def _bounded_scenario_actions(
+    actions: Iterable[ScenarioAction],
+) -> list[ScenarioAction]:
+    bounded: list[ScenarioAction] = []
+    for index, action in enumerate(actions, 1):
+        if index > MAX_SCENARIO_ACTIONS:
+            raise ValueError(
+                "Scenario cannot contain more than "
+                f"{MAX_SCENARIO_ACTIONS} actions"
+            )
+        bounded.append(action)
+    return bounded
 
 
 def _parse_string_list(raw: object, label: str) -> list[str]:
