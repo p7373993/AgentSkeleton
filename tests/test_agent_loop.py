@@ -2301,6 +2301,55 @@ def test_loop_denies_tool_when_confirmer_returns_non_boolean(tmp_path: Path) -> 
     )
 
 
+def test_loop_blocks_tool_when_policy_decision_raises(tmp_path: Path) -> None:
+    class FailingPolicy(PermissionPolicy):
+        def decide(
+            self,
+            tool_name: str,
+            args: dict[str, object],
+            risk: str,
+        ) -> PermissionDecision:
+            raise RuntimeError("policy backend unavailable")
+
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="record",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="unreachable"),
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        policy=FailingPolicy(),
+    ).run("record")
+
+    expected_reason = "Permission policy failed: RuntimeError"
+    assert state.final_status == "blocked"
+    assert state.final_reason == expected_reason
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "block"
+    assert observation.result.success is False
+    assert observation.result.summary == expected_reason
+    assert observation.result.error == "policy backend unavailable"
+    assert not any(event[0] == "tool_started" for event in logger.events)
+    assert logger.events[-1] == (
+        "run_finished",
+        1,
+        {
+            "status": "blocked",
+            "answer": None,
+            "reason": expected_reason,
+        },
+    )
+
+
 def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(

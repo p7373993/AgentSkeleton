@@ -428,7 +428,24 @@ class AgentLoop:
             )
             return
 
-        decision = self.policy.decide(tool.name, action.arguments, tool.risk)
+        try:
+            decision = self.policy.decide(tool.name, action.arguments, tool.risk)
+        except Exception as exc:
+            result = ToolResult(
+                success=False,
+                summary=f"Permission policy failed: {type(exc).__name__}",
+                error=_exception_text(exc),
+            )
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                "block",
+                result,
+            )
+            state.final_status = "blocked"
+            state.final_reason = stored_result.summary
+            return
         self._log_event(
             "policy_decision",
             state.step_count,
