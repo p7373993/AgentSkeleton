@@ -196,6 +196,17 @@ def _create_run_logger_or_exit(logs_dir: Path, run_id: str) -> RunLogger:
         _exit_run_log_error(exc)
 
 
+def _create_llm_or_exit(config, trace):
+    try:
+        return LLMClient(config, trace=trace)
+    except MissingAPIKeyError as exc:
+        console.print(str(exc))
+        raise typer.Exit(1) from exc
+    except ValueError as exc:
+        console.print(f"Configuration error: {exc}", soft_wrap=True)
+        raise typer.Exit(1) from exc
+
+
 def _summarize_run_log_or_exit(
     log_path: Path,
     run_id: str | None = None,
@@ -557,11 +568,7 @@ def run(
             _exit_session_error(exc)
         conversation = session_state.context_messages()
 
-    try:
-        llm = LLMClient(loaded, trace=trace)
-    except MissingAPIKeyError as exc:
-        console.print(str(exc))
-        raise typer.Exit(1) from exc
+    llm = _create_llm_or_exit(loaded, trace)
 
     def confirm(decision: PermissionDecision, action) -> bool:
         reason = _display_text(decision.reason)
@@ -655,11 +662,7 @@ def chat(
     trace_sink = ConsoleTraceSink(console) if trace else NullTraceSink()
     session_store = SessionStore(loaded.logs_dir)
 
-    try:
-        llm = LLMClient(loaded, trace=trace_sink)
-    except MissingAPIKeyError as exc:
-        console.print(str(exc))
-        raise typer.Exit(1) from exc
+    llm = _create_llm_or_exit(loaded, trace_sink)
 
     def confirm(decision: PermissionDecision, action) -> bool:
         reason = _display_text(decision.reason)
@@ -829,11 +832,7 @@ def resume_run(
     logger = _create_run_logger_or_exit(loaded.logs_dir, resumed_run_id)
     registry = _build_registry_or_exit(loaded.enabled_tools, loaded.tool_modules)
     trace = NullTraceSink() if quiet else ConsoleTraceSink(console)
-    try:
-        llm = LLMClient(loaded, trace=trace)
-    except MissingAPIKeyError as exc:
-        console.print(str(exc))
-        raise typer.Exit(1) from exc
+    llm = _create_llm_or_exit(loaded, trace)
 
     def confirm(decision: PermissionDecision, action) -> bool:
         reason = _display_text(decision.reason)

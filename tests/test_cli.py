@@ -1201,6 +1201,21 @@ def test_run_reports_missing_api_key(tmp_path, monkeypatch) -> None:
     assert "OPENAI_API_KEY or AZURE_OPENAI_API_KEY is required" in result.stdout
 
 
+def test_run_reports_invalid_api_key_settings(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test\n")
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["run", "finish"])
+
+    assert result.exit_code == 1
+    assert "Configuration error: api_key cannot contain control characters" in (
+        result.stdout
+    )
+    assert result.exception is None or not isinstance(result.exception, ValueError)
+
+
 def test_run_rejects_blank_goal_before_api_key_check(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
