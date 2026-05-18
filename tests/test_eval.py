@@ -2627,6 +2627,24 @@ def test_load_scenario_suite_discovers_yaml_files_in_order(tmp_path: Path) -> No
     assert [scenario.name for scenario in scenarios] == ["a", "b"]
 
 
+def test_load_scenario_suite_rejects_too_many_scenario_files(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_SUITE_FILES", 2)
+    suite_dir = tmp_path / "evals"
+    suite_dir.mkdir()
+    for name in ("one", "two", "three"):
+        _write_final_scenario(suite_dir, name, "ok", "ok")
+
+    try:
+        load_scenario_suite(suite_dir)
+    except ValueError as exc:
+        assert str(exc) == "Scenario suite cannot contain more than 2 scenarios"
+    else:
+        raise AssertionError("Expected too many scenario files to fail")
+
+
 def test_load_scenario_suite_reports_directory_read_failure(
     tmp_path: Path,
     monkeypatch,
@@ -2942,6 +2960,34 @@ def test_run_scenario_suite_summarizes_passes_and_failures(tmp_path: Path) -> No
     assert suite.results[1].failures == [
         "answer expected 'expected' but got 'actual'"
     ]
+
+
+def test_run_scenario_suite_rejects_too_many_programmatic_scenarios(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(eval_module, "MAX_SCENARIO_SUITE_FILES", 2)
+    scenarios = [
+        eval_module.Scenario(
+            name=name,
+            domain=None,
+            goal=name,
+            actions=[eval_module.FinalAction(text="unreachable")],
+            expect={"status": "completed"},
+        )
+        for name in ("one", "two", "three")
+    ]
+
+    try:
+        run_scenario_suite(
+            scenarios,
+            RunConfig(workspace=tmp_path, logs_dir=tmp_path / "runs"),
+            ToolRegistry([ReadFileTool()]),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Scenario suite cannot contain more than 2 scenarios"
+    else:
+        raise AssertionError("Expected too many programmatic scenarios to fail")
 
 
 def test_run_scenario_suite_accepts_required_domains_without_length(

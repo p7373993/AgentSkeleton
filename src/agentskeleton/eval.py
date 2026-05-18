@@ -27,6 +27,7 @@ RegistryFactory = Callable[[RunConfig], ToolRegistry]
 SUITE_MANIFEST_NAMES = {"suite.yaml", "suite.yml"}
 MAX_SCENARIO_FILE_BYTES = 2_097_152
 MAX_SCENARIO_WORKSPACE_FILES = 128
+MAX_SCENARIO_SUITE_FILES = 512
 UNINSPECTABLE_VALUE = "<uninspectable>"
 
 
@@ -429,16 +430,23 @@ def run_scenario_suite(
     required_domains: list[str] | None = None,
     min_scenarios_per_required_domain: int = 0,
 ) -> ScenarioSuiteResult:
-    return ScenarioSuiteResult(
-        results=[
+    results: list[ScenarioResult] = []
+    for index, scenario in enumerate(scenarios, 1):
+        if index > MAX_SCENARIO_SUITE_FILES:
+            raise ValueError(
+                "Scenario suite cannot contain more than "
+                f"{MAX_SCENARIO_SUITE_FILES} scenarios"
+            )
+        results.append(
             run_scenario(
                 scenario,
                 config,
                 registry,
                 registry_factory=registry_factory,
             )
-            for scenario in scenarios
-        ],
+        )
+    return ScenarioSuiteResult(
+        results=results,
         required_domains=(
             _parse_required_domains(required_domains)
             if required_domains is not None
@@ -459,13 +467,18 @@ def _scenario_paths(path: Path) -> list[Path]:
         if path.name in SUITE_MANIFEST_NAMES:
             return []
         return [path]
+    scenario_paths: list[Path] = []
     try:
-        scenario_paths = [
-            scenario_path
-            for pattern in ("*.yaml", "*.yml")
-            for scenario_path in path.rglob(pattern)
-            if scenario_path.name not in SUITE_MANIFEST_NAMES
-        ]
+        for pattern in ("*.yaml", "*.yml"):
+            for scenario_path in path.rglob(pattern):
+                if scenario_path.name in SUITE_MANIFEST_NAMES:
+                    continue
+                if len(scenario_paths) >= MAX_SCENARIO_SUITE_FILES:
+                    raise ValueError(
+                        "Scenario suite cannot contain more than "
+                        f"{MAX_SCENARIO_SUITE_FILES} scenarios"
+                    )
+                scenario_paths.append(scenario_path)
     except OSError as exc:
         raise ValueError(f"Scenario path could not be read: {path}") from exc
     return sorted(scenario_paths, key=lambda item: item.as_posix())
