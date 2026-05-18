@@ -144,6 +144,11 @@ def test_normalize_base_url_treats_invalid_strip_result_as_unset() -> None:
     assert normalize_base_url(TruthyInvalidStripString("https://example.test")) is None
 
 
+def test_normalize_base_url_rejects_control_characters() -> None:
+    with pytest.raises(ValueError, match="base_url cannot contain control characters"):
+        normalize_base_url("https://example.test\n")
+
+
 def test_resolve_openai_settings_uses_azure_environment(monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
@@ -157,6 +162,16 @@ def test_resolve_openai_settings_uses_azure_environment(monkeypatch) -> None:
 
     assert settings.api_key == "dummy-key"
     assert settings.base_url == "https://example.openai.azure.com/openai/v1/"
+
+
+def test_resolve_openai_settings_rejects_control_characters_in_env_base_url(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "dummy-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://example.test\n")
+
+    with pytest.raises(ValueError, match="base_url cannot contain control characters"):
+        resolve_openai_settings(RunConfig())
 
 
 def test_llm_client_sends_tool_schemas_and_parses_final_text(tmp_path) -> None:

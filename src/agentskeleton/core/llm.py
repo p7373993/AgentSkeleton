@@ -58,6 +58,11 @@ class OpenAISettings:
 def normalize_base_url(base_url: str | None) -> str | None:
     if base_url is None:
         return None
+    has_control = _has_control_characters(base_url)
+    if has_control is None:
+        return None
+    if has_control:
+        raise ValueError("base_url cannot contain control characters")
 
     try:
         normalized = base_url.strip()
