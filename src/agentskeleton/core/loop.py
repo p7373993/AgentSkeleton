@@ -535,6 +535,32 @@ class AgentLoop:
             if isinstance(decision_outcome, str)
             else None
         )
+        outcome_has_control = (
+            _has_control_characters(decision_outcome)
+            if isinstance(decision_outcome, str)
+            else None
+        )
+        if outcome_has_control is True:
+            result = ToolResult(
+                success=False,
+                summary=(
+                    "Permission decision invalid: "
+                    "outcome cannot contain control characters"
+                ),
+                error="Invalid permission decision",
+            )
+            stored_result = self._record_tool_observation(
+                state,
+                action.call_id,
+                tool.name,
+                "block",
+                result,
+            )
+            state.final_status = "blocked"
+            state.final_reason = stored_result.summary
+            return
+        if outcome_has_control is None and isinstance(decision_outcome, str):
+            normalized_outcome = None
         if normalized_outcome not in {"allow", "confirm", "block"}:
             result = ToolResult(
                 success=False,

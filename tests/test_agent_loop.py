@@ -2972,6 +2972,51 @@ def test_loop_strips_policy_decision_outcome_before_using_it(
     }) in logger.events
 
 
+def test_loop_blocks_tool_when_policy_decision_outcome_has_control_characters(
+    tmp_path: Path,
+) -> None:
+    class ControlOutcomePolicy(PermissionPolicy):
+        def decide(
+            self,
+            tool_name: str,
+            args: dict[str, object],
+            risk: str,
+        ) -> PermissionDecision:
+            return PermissionDecision("\tallow", "policy allowed")
+
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="record",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="unreachable"),
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        policy=ControlOutcomePolicy(),
+    ).run("record")
+
+    expected_reason = (
+        "Permission decision invalid: "
+        "outcome cannot contain control characters"
+    )
+    assert state.final_status == "blocked"
+    assert state.final_reason == expected_reason
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "block"
+    assert observation.result.success is False
+    assert observation.result.summary == expected_reason
+    assert observation.result.error == "Invalid permission decision"
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_blocks_tool_when_policy_decision_reason_is_invalid(
     tmp_path: Path,
 ) -> None:
