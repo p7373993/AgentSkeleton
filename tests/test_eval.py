@@ -682,6 +682,51 @@ def test_eval_normalizes_tool_name_text_subclasses() -> None:
     assert type(action.tool_name) is str
 
 
+def test_eval_accepts_tool_name_and_call_id_without_length() -> None:
+    class LengthlessText(str):
+        def __len__(self) -> int:
+            raise RuntimeError("text length unavailable")
+
+    action = eval_module._parse_tool_call(  # noqa: SLF001
+        {
+            "tool": LengthlessText("read_file"),
+            "call_id": LengthlessText("read-1"),
+            "arguments": {},
+        },
+        "Scenario action 1",
+        1,
+    )
+
+    assert action.tool_name == "read_file"
+    assert action.call_id == "read-1"
+
+
+def test_eval_accepts_batch_calls_without_length() -> None:
+    class LengthlessCalls(list):
+        def __len__(self) -> int:
+            raise RuntimeError("call count unavailable")
+
+    action = eval_module._parse_action(  # noqa: SLF001
+        {
+            "type": "batch",
+            "calls": LengthlessCalls(
+                [
+                    {
+                        "tool": "read_file",
+                        "call_id": "read-1",
+                        "arguments": {"path": "note.txt"},
+                    }
+                ]
+            ),
+        },
+        0,
+    )
+
+    assert len(action.tool_calls) == 1
+    assert action.tool_calls[0].tool_name == "read_file"
+    assert action.tool_calls[0].call_id == "read-1"
+
+
 def test_eval_expectation_failures_handle_unreprable_values(tmp_path: Path) -> None:
     class UnreprableValue:
         def __repr__(self) -> str:

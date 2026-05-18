@@ -726,8 +726,8 @@ def _parse_action(raw: object, index: int) -> ScenarioAction:
         )
 
     if action_type == "batch":
-        raw_calls = raw.get("calls") or raw.get("tool_calls")
-        if not isinstance(raw_calls, list) or not raw_calls:
+        raw_calls = raw["calls"] if "calls" in raw else raw.get("tool_calls")
+        if not isinstance(raw_calls, list) or not _has_items(raw_calls):
             raise ValueError(
                 f"Scenario action {index + 1} batch must define calls",
             )
@@ -789,7 +789,8 @@ def _parse_tool_call(
 ) -> ToolCallAction:
     if not isinstance(raw, dict):
         raise ValueError(f"{context} must be a mapping")
-    tool_name = raw.get("tool") or raw.get("tool_name")
+    raw_tool_name = raw.get("tool")
+    tool_name = raw_tool_name if raw_tool_name is not None else raw.get("tool_name")
     if not isinstance(tool_name, str):
         raise ValueError(f"{context} must define tool")
     stripped_tool_name = _safe_strip(tool_name)
@@ -800,7 +801,12 @@ def _parse_tool_call(
     arguments = raw.get("arguments", {})
     if not isinstance(arguments, dict):
         raise ValueError(f"{context} arguments must be a mapping")
-    call_id = raw.get("call_id") or _default_call_id(action_number, call_number)
+    raw_call_id = raw.get("call_id")
+    call_id = (
+        raw_call_id
+        if raw_call_id is not None
+        else _default_call_id(action_number, call_number)
+    )
     return ToolCallAction(
         tool_name=stripped_tool_name,
         arguments=dict(arguments),
