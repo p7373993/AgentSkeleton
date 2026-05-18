@@ -351,15 +351,26 @@ class LLMClient:
             )
             return state.response_context_items
 
-        conversation = getattr(state, "conversation", [])
-        if _has_items(conversation):
-            return _trim_response_context_items(self._conversation_items(state))
+        conversation = _safe_conversation_turns(getattr(state, "conversation", []))
+        if conversation:
+            return _trim_response_context_items(
+                self._conversation_items(state, conversation)
+            )
         return state.goal
 
-    def _conversation_items(self, state: RunState) -> list[dict[str, str]]:
+    def _conversation_items(
+        self,
+        state: RunState,
+        conversation_turns: list[ConversationMessage] | None = None,
+    ) -> list[dict[str, str]]:
+        conversation_turns = (
+            _safe_conversation_turns(state.conversation)
+            if conversation_turns is None
+            else conversation_turns
+        )
         sticky_candidates = [
             turn
-            for turn in state.conversation
+            for turn in conversation_turns
             if _is_sticky_context_turn(turn)
         ]
         sticky_limit = min(
@@ -379,7 +390,7 @@ class LLMClient:
         )
         conversation_candidates = [
             turn
-            for turn in state.conversation
+            for turn in conversation_turns
             if not _is_sticky_context_turn(turn)
         ]
         conversation = (
@@ -529,6 +540,22 @@ class LLMClient:
 
 def _current_user_turn(goal: str) -> ConversationMessage:
     return ConversationMessage(role="user", content=goal)
+
+
+def _safe_conversation_turns(conversation: Iterable[ConversationMessage]) -> list[
+    ConversationMessage
+]:
+    turns: list[ConversationMessage] = []
+    try:
+        iterator = iter(conversation)
+    except Exception:
+        return [ConversationMessage(role="user", content=UNINSPECTABLE_VALUE)]
+    try:
+        for turn in iterator:
+            turns.append(turn)
+    except Exception:
+        turns.append(ConversationMessage(role="user", content=UNINSPECTABLE_VALUE))
+    return turns
 
 
 def _bounded_conversation_content(content: str) -> str:
