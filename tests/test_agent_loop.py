@@ -3070,6 +3070,52 @@ def test_loop_blocks_tool_when_policy_decision_reason_is_invalid(
     )
 
 
+def test_loop_blocks_tool_when_policy_decision_reason_has_control_characters(
+    tmp_path: Path,
+) -> None:
+    class ControlReasonPolicy(PermissionPolicy):
+        def decide(
+            self,
+            tool_name: str,
+            args: dict[str, object],
+            risk: str,
+        ) -> PermissionDecision:
+            return PermissionDecision("block", "policy\nblocked")
+
+    logger = MemoryLogger()
+    state = AgentLoop(
+        config=RunConfig(workspace=tmp_path),
+        llm=ScriptedLLM(
+            [
+                ToolCallAction(
+                    tool_name="record",
+                    arguments={"value": "x"},
+                    call_id="call-1",
+                ),
+                FinalAction(text="unreachable"),
+            ]
+        ),
+        registry=ToolRegistry([RecordTool()]),
+        logger=logger,
+        policy=ControlReasonPolicy(),
+    ).run("record")
+
+    expected_reason = (
+        "Permission decision invalid: "
+        "reason cannot contain control characters"
+    )
+    assert state.final_status == "blocked"
+    assert state.final_reason == expected_reason
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "block"
+    assert observation.result.success is False
+    assert observation.result.summary == expected_reason
+    assert observation.result.error == "Invalid permission decision"
+    assert not any(event[0] == "tool_started" for event in logger.events)
+    assert "policy\nblocked" not in str(logger.events)
+
+
 def test_loop_uses_permission_profile_from_config(tmp_path: Path) -> None:
     logger = MemoryLogger()
     state = AgentLoop(
