@@ -116,6 +116,15 @@ def _response_output_item_type(item: Any) -> Any:
         ) from exc
 
 
+def _response_message_content(item: Any) -> Any:
+    try:
+        return _read_attr(item, "content")
+    except Exception as exc:
+        raise LLMResponseError(
+            "Response message content could not be inspected"
+        ) from exc
+
+
 def _response_output_items(response: Any) -> list[Any]:
     output = _read_attr(response, "output", [])
     if output is None:
@@ -154,7 +163,7 @@ def _response_final_text(response: Any, output: list[Any]) -> str:
     for item in output:
         if _response_output_item_type(item) != "message":
             continue
-        parts.extend(_message_content_text_parts(_read_attr(item, "content")))
+        parts.extend(_message_content_text_parts(_response_message_content(item)))
     return _bounded_final_text("\n".join(part for part in parts if part))
 
 

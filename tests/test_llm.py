@@ -369,6 +369,36 @@ def test_llm_client_parses_final_text_from_message_output_content(tmp_path) -> N
     ]
 
 
+def test_llm_client_rejects_uninspectable_message_content_attribute(
+    tmp_path,
+) -> None:
+    class ExplodingMessage:
+        type = "message"
+
+        def __getattr__(self, name):
+            if name == "content":
+                raise RuntimeError("message content unavailable")
+            raise AttributeError(name)
+
+    response = SimpleNamespace(
+        id="resp-1",
+        output_text="",
+        output=[ExplodingMessage()],
+    )
+    state = RunState(run_id="run-1", workspace=tmp_path, goal="finish")
+
+    with pytest.raises(
+        LLMResponseError,
+        match="Response message content could not be inspected",
+    ):
+        LLMClient(
+            RunConfig(workspace=tmp_path),
+            client=FakeClient(response),
+        ).next_action(state, ToolRegistry([DummyTool()]))
+
+    assert state.response_context_items == []
+
+
 def test_llm_client_avoids_length_checks_for_message_content_parts(tmp_path) -> None:
     class ExplodingContentParts(list):
         def __len__(self) -> int:
