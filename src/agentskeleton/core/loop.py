@@ -300,28 +300,35 @@ class AgentLoop:
             else [conversation]
         )
         normalized: list[ConversationMessage] = []
-        for turn in turns:
-            if isinstance(turn, ConversationMessage):
+        try:
+            iterator = iter(turns)
+        except Exception:
+            return [ConversationMessage(role="user", content=_safe_text(conversation))]
+        try:
+            for turn in iterator:
+                if isinstance(turn, ConversationMessage):
+                    normalized.append(
+                        _conversation_message(
+                            turn.role,
+                            turn.content,
+                            turn.metadata,
+                        )
+                    )
+                    continue
+                if not isinstance(turn, Mapping):
+                    normalized.append(
+                        ConversationMessage(role="user", content=_safe_text(turn)),
+                    )
+                    continue
                 normalized.append(
                     _conversation_message(
-                        turn.role,
-                        turn.content,
-                        turn.metadata,
+                        turn.get("role", "user"),
+                        turn.get("content", ""),
+                        turn.get("metadata"),
                     )
                 )
-                continue
-            if not isinstance(turn, Mapping):
-                normalized.append(
-                    ConversationMessage(role="user", content=_safe_text(turn)),
-                )
-                continue
-            normalized.append(
-                _conversation_message(
-                    turn.get("role", "user"),
-                    turn.get("content", ""),
-                    turn.get("metadata"),
-                )
-            )
+        except Exception:
+            return [ConversationMessage(role="user", content=_safe_text(conversation))]
         return normalized
 
     def _execute_tool_action(self, state: RunState, action: ToolCallAction) -> None:
