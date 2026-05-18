@@ -1402,6 +1402,40 @@ def test_loop_rejects_uninspectable_tool_call_metadata(
         assert not any(event[0] == "tool_started" for event in logger.events)
 
 
+def test_loop_rejects_uninspectable_tool_call_arguments_attribute(
+    tmp_path: Path,
+) -> None:
+    class ToolCallWithExplodingArguments(ToolCallAction):
+        def __getattribute__(self, name):
+            if name == "arguments":
+                raise RuntimeError("arguments unavailable")
+            return super().__getattribute__(name)
+
+    action = ToolCallWithExplodingArguments("record", {"value": "x"}, "call-1")
+    logger = MemoryLogger()
+
+    try:
+        state = make_loop(tmp_path, [action], logger).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording invalid action: {exc!r}")
+
+    reason = "Model returned invalid tool call: arguments could not be inspected"
+    assert state.final_status == "invalid_action"
+    assert state.final_reason == reason
+    assert state.final_answer is None
+    assert state.observations == []
+    assert (
+        "run_error",
+        1,
+        {
+            "status": "invalid_action",
+            "error_type": "invalid_tool_call",
+            "error": reason,
+        },
+    ) in logger.events
+    assert not any(event[0] == "tool_started" for event in logger.events)
+
+
 def test_loop_recovers_when_tool_name_stringification_fails_after_validation(
     tmp_path: Path,
 ) -> None:

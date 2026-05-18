@@ -336,14 +336,27 @@ class AgentLoop:
             return
         tool_name = _normalized_checked_text(action.tool_name)
         call_id = _normalized_checked_text(action.call_id)
+        try:
+            arguments = action.arguments
+        except Exception:
+            self._record_invalid_action(
+                state,
+                action,
+                reason=(
+                    "Model returned invalid tool call: "
+                    "arguments could not be inspected"
+                ),
+                error_type="invalid_tool_call",
+            )
+            return
         normalized_action = ToolCallAction(
             tool_name=tool_name,
-            arguments=action.arguments,
+            arguments=arguments,
             call_id=call_id,
             provider_metadata=action.provider_metadata,
         )
 
-        logged_arguments = _logged_arguments(action.arguments)
+        logged_arguments = _logged_arguments(arguments)
         self._log_event(
             "model_action",
             state.step_count,
