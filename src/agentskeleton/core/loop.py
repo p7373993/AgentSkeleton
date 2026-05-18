@@ -1235,14 +1235,34 @@ def _safe_provider_metadata(action: ToolCallAction) -> dict[str, object] | None:
 
 def _validate_tool_result_metadata(result: ToolResult) -> list[str]:
     errors = []
-    if not isinstance(result.success, bool):
-        errors.append("success must be a boolean")
-    if not isinstance(result.payload, Mapping):
-        errors.append("payload must be a mapping")
-    if not isinstance(result.summary, str):
-        errors.append("summary must be a string")
-    if result.error is not None and not isinstance(result.error, str):
-        errors.append("error must be a string or null")
+    try:
+        success = result.success
+    except Exception:
+        errors.append("success could not be inspected")
+    else:
+        if not isinstance(success, bool):
+            errors.append("success must be a boolean")
+    try:
+        payload = result.payload
+    except Exception:
+        errors.append("payload could not be inspected")
+    else:
+        if not isinstance(payload, Mapping):
+            errors.append("payload must be a mapping")
+    try:
+        summary = result.summary
+    except Exception:
+        errors.append("summary could not be inspected")
+    else:
+        if not isinstance(summary, str):
+            errors.append("summary must be a string")
+    try:
+        error = result.error
+    except Exception:
+        errors.append("error could not be inspected")
+    else:
+        if error is not None and not isinstance(error, str):
+            errors.append("error must be a string or null")
     return errors
 
 

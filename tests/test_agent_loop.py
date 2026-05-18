@@ -201,6 +201,23 @@ class MalformedResultTool(RecordTool):
         )
 
 
+class UninspectableResultTool(RecordTool):
+    name = "uninspectable_result"
+
+    def execute(self, args: dict[str, object], context: ToolContext) -> ToolResult:
+        class UninspectableResult(ToolResult):
+            def __getattribute__(self, name: str):
+                if name == "success":
+                    raise RuntimeError("success unavailable")
+                return super().__getattribute__(name)
+
+        return UninspectableResult(
+            success=True,
+            payload={"value": args["value"]},
+            summary="ok",
+        )
+
+
 class LargePayloadTool(RecordTool):
     name = "large_payload"
 
@@ -3258,6 +3275,56 @@ def test_loop_converts_malformed_tool_result_to_observation(tmp_path: Path) -> N
             "tool_name": "malformed_result",
             "success": False,
             "summary": "Tool returned malformed result: success must be a boolean",
+            "error": "Malformed tool result",
+        },
+    ) in logger.events
+
+
+def test_loop_converts_uninspectable_tool_result_to_observation(
+    tmp_path: Path,
+) -> None:
+    logger = MemoryLogger()
+    try:
+        state = AgentLoop(
+            config=RunConfig(workspace=tmp_path),
+            llm=ScriptedLLM(
+                [
+                    ToolCallAction(
+                        tool_name="uninspectable_result",
+                        arguments={"value": "x"},
+                        call_id="call-1",
+                    )
+                ]
+            ),
+            registry=ToolRegistry([UninspectableResultTool()]),
+            logger=logger,
+        ).run("record")
+    except Exception as exc:
+        pytest.fail(f"loop raised instead of recording a tool error: {exc!r}")
+
+    assert state.final_status == "tool_error"
+    assert len(state.observations) == 1
+    observation = state.observations[0]
+    assert observation.policy_decision == "allow"
+    assert observation.result.success is False
+    assert observation.result.summary == (
+        "Tool returned malformed result: success could not be inspected"
+    )
+    assert observation.result.error == "Malformed tool result"
+    assert observation.result.payload == {
+        "tool_name": "uninspectable_result",
+        "arguments": {"value": "x"},
+        "validation_errors": ["success could not be inspected"],
+    }
+    assert (
+        "tool_finished",
+        1,
+        {
+            "tool_name": "uninspectable_result",
+            "success": False,
+            "summary": (
+                "Tool returned malformed result: success could not be inspected"
+            ),
             "error": "Malformed tool result",
         },
     ) in logger.events
