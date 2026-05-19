@@ -2370,7 +2370,11 @@ def test_chat_prompt_session_supports_shift_enter_multiline(monkeypatch) -> None
 def test_chat_key_bindings_accept_enter_and_insert_newline_on_shift_enter() -> None:
     key_bindings = cli_module._create_chat_key_bindings()
     handlers = {binding.keys: binding.handler for binding in key_bindings.bindings}
-    shift_enter_keys = ("\x1b", "[", "1", "3", ";", "2", "u")
+    shift_enter_keys = [
+        ("c-j",),
+        ("\x1b", "[", "1", "3", ";", "2", "u"),
+        ("\x1b", "[", "2", "7", ";", "2", ";", "1", "3", "~"),
+    ]
 
     class FakeBuffer:
         def __init__(self) -> None:
@@ -2385,11 +2389,22 @@ def test_chat_key_bindings_accept_enter_and_insert_newline_on_shift_enter() -> N
 
     event = type("Event", (), {"current_buffer": FakeBuffer()})()
 
-    handlers[shift_enter_keys](event)
+    for sequence in shift_enter_keys:
+        handlers[sequence](event)
     handlers[("c-m",)](event)
 
-    assert event.current_buffer.inserted == ["\n"]
+    assert event.current_buffer.inserted == ["\n", "\n", "\n"]
     assert event.current_buffer.accepted is True
+
+
+def test_chat_prompt_removes_prompt_toolkit_shift_enter_collapse() -> None:
+    from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
+
+    ANSI_SEQUENCES["\x1b[27;2;13~"] = "c-m"
+
+    cli_module._patch_prompt_toolkit_shift_enter_sequences()
+
+    assert "\x1b[27;2;13~" not in ANSI_SEQUENCES
 
 
 def test_chat_output_includes_run_id_status_and_log_path(monkeypatch, tmp_path) -> None:

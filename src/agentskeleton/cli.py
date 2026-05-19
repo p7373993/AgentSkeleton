@@ -80,6 +80,10 @@ MAX_RUN_LOG_EVENT_DEPTH = 64
 SHIFT_ENTER_SEQUENCES = (
     ("\x1b", "[", "1", "3", ";", "2", "u"),
     ("\x1b", "[", "1", "3", ";", "2", "~"),
+    ("\x1b", "[", "2", "7", ";", "2", ";", "1", "3", "~"),
+)
+SHIFT_ENTER_ANSI_SEQUENCES = tuple(
+    "".join(sequence) for sequence in SHIFT_ENTER_SEQUENCES
 )
 
 
@@ -145,7 +149,15 @@ def _stdin_stdout_are_tty() -> bool:
     return bool(sys.stdin.isatty() and sys.stdout.isatty())
 
 
+def _patch_prompt_toolkit_shift_enter_sequences() -> None:
+    from prompt_toolkit.input.ansi_escape_sequences import ANSI_SEQUENCES
+
+    for sequence in SHIFT_ENTER_ANSI_SEQUENCES:
+        ANSI_SEQUENCES.pop(sequence, None)
+
+
 def _create_chat_key_bindings() -> KeyBindings:
+    _patch_prompt_toolkit_shift_enter_sequences()
     bindings = KeyBindings()
 
     @bindings.add("enter", eager=True)
@@ -155,6 +167,7 @@ def _create_chat_key_bindings() -> KeyBindings:
     def insert_newline(event) -> None:  # type: ignore[no-untyped-def]
         event.current_buffer.insert_text("\n")
 
+    bindings.add("c-j", eager=True)(insert_newline)
     for sequence in SHIFT_ENTER_SEQUENCES:
         bindings.add(*sequence, eager=True)(insert_newline)
 
