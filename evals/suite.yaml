@@ -6,6 +6,7 @@ required_domains:
   - filesystem
   - general
   - interactive
+  - manufacturing_data
   - reliability
   - servers
   - tool_packs

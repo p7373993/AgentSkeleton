@@ -2094,6 +2094,22 @@ def test_run_persists_status_reason_when_no_final_answer(
         "list_servers",
         "stop_server",
         "restart_server",
+        "list_data_sources",
+        "inspect_sqlite",
+        "describe_sqlite_table",
+        "sample_sqlite_table",
+        "query_sqlite_readonly",
+        "preview_text_data",
+        "search_text_data",
+        "inspect_jsonl",
+        "search_jsonl",
+        "search_parts",
+        "get_part_detail",
+        "get_part_relations",
+        "get_erp_item_by_part",
+        "get_procurement_risks",
+        "get_asset_service_history",
+        "get_project_risks",
     ]
     read_file = registered_tools[1]
     assert read_file["args_schema_hash"] == schema_hash(

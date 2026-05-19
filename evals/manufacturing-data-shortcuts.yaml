@@ -1,0 +1,65 @@
+name: manufacturing-data-shortcuts
+domain: manufacturing_data
+goal: Use manufacturing shortcut tools across PDM, ERP, A/S, and project data.
+actions:
+  - type: tool
+    tool: search_parts
+    call_id: search-bearing-part
+    arguments:
+      query: curved spring lock washer
+      limit: 3
+  - type: tool
+    tool: get_part_detail
+    call_id: get-bearing-detail
+    arguments:
+      part_id: consolidation-cs_onepart::/C:/DassaultSystemes/R2024x/OnePart/datadir/sources/sources/curved+spring+lock+washer_din.sldprt
+  - type: tool
+    tool: get_part_relations
+    call_id: get-bearing-relations
+    arguments:
+      part_id: consolidation-cs_onepart::/C:/DassaultSystemes/R2024x/OnePart/datadir/sources/sources/curved+spring+lock+washer_din.sldprt
+      limit: 5
+  - type: tool
+    tool: get_erp_item_by_part
+    call_id: get-bearing-erp
+    arguments:
+      part_id: consolidation-cs_onepart::/C:/DassaultSystemes/R2024x/OnePart/datadir/sources/sources/curved+spring+lock+washer_din.sldprt
+  - type: tool
+    tool: get_procurement_risks
+    call_id: get-procurement-risks
+    arguments:
+      risk_level: medium
+      limit: 5
+  - type: tool
+    tool: get_asset_service_history
+    call_id: get-asset-service-history
+    arguments:
+      asset_id: AST-0001
+      limit: 5
+  - type: tool
+    tool: get_project_risks
+    call_id: get-project-risks
+    arguments:
+      project_id: PRJ-014
+      limit: 5
+  - type: final
+    text: manufacturing shortcut tools ok
+expect:
+  status: completed
+  answer: manufacturing shortcut tools ok
+  observations: 7
+  observations_detail:
+    - tool: search_parts
+      success: true
+    - tool: get_part_detail
+      success: true
+    - tool: get_part_relations
+      success: true
+    - tool: get_erp_item_by_part
+      success: true
+    - tool: get_procurement_risks
+      success: true
+    - tool: get_asset_service_history
+      success: true
+    - tool: get_project_risks
+      success: true

@@ -12,6 +12,7 @@ commands.
 - `agent servers`, `agent stop-server`, and `agent restart-server` for managed
   local development servers
 - Tool registry with filesystem, shell, and user-question tools
+- Read-only manufacturing data tools for `data/` SQLite, Markdown, and JSONL
 - Permission policy for read, write, shell, and interactive actions
 - Run logs under `runs/`
 - Session memory under `runs/sessions/`
@@ -165,6 +166,46 @@ start_static_server  Start a managed static localhost server.
 list_servers         List managed local servers.
 stop_server          Stop a managed local server.
 restart_server       Restart a managed local server.
+list_data_sources    Inventory files under data/.
+inspect_sqlite       Inspect SQLite tables and columns.
+query_sqlite_readonly Run limited SELECT/WITH SQL against data/ SQLite files.
+preview_text_data    Preview Markdown/text files under data/.
+search_text_data     Search Markdown/text files under data/.
+inspect_jsonl        Inspect JSONL keys and sample rows.
+search_jsonl         Search JSONL rows.
+search_parts         Search PDM parts.
+get_part_detail      Get PDM part metadata plus ERP context.
+get_part_relations   Get BOM and related-part/document relations.
+get_erp_item_by_part Get ERP item, inventory, and procurement context.
+get_procurement_risks List ERP procurement risk signals.
+get_asset_service_history Get customer, asset, ticket, and action history.
+get_project_risks    Get project staffing risks.
+```
+
+## Manufacturing Data Tools
+
+The read-only data tools only access files under `data/`. SQLite tools open
+databases in read-only mode, accept only `SELECT`/`WITH` queries, reject common
+write/DDL keywords, and enforce row/time limits.
+
+Current manufacturing mock data sources:
+
+```text
+data/mock-as.sqlite
+data/mock-erp.sqlite
+data/mock-project-as-data.md
+data/mock-project-ops.sqlite
+data/onepart-metadata-units.sqlite
+data/onepart-relations.sqlite
+data/tool-trace.jsonl
+```
+
+Useful prompts:
+
+```bash
+uv run agent run "List the manufacturing data sources and summarize what each contains."
+uv run agent run "Find bearing parts, show their BOM relations, ERP item, inventory, and procurement risk."
+uv run agent run "For asset AST-0001, summarize customer context, ticket history, and actions. Do not create files."
 ```
 
 ## Configuration

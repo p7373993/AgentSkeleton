@@ -26,6 +26,24 @@ from agentskeleton.eval import (
 from agentskeleton.logging.run_logger import RunLogger
 from agentskeleton.policy.permissions import PermissionDecision
 from agentskeleton.server_manager import ServerManager
+from agentskeleton.tools.data import (
+    DescribeSqliteTableTool,
+    GetAssetServiceHistoryTool,
+    GetErpItemByPartTool,
+    GetPartDetailTool,
+    GetPartRelationsTool,
+    GetProcurementRisksTool,
+    GetProjectRisksTool,
+    InspectJsonlTool,
+    InspectSqliteTool,
+    ListDataSourcesTool,
+    PreviewTextDataTool,
+    QuerySqliteReadOnlyTool,
+    SampleSqliteTableTool,
+    SearchJsonlTool,
+    SearchPartsTool,
+    SearchTextDataTool,
+)
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
 from agentskeleton.tools.loading import load_tools_from_modules
 from agentskeleton.tools.provenance import (
@@ -73,6 +91,22 @@ def build_default_registry(
         ListServersTool(),
         StopServerTool(),
         RestartServerTool(),
+        ListDataSourcesTool(),
+        InspectSqliteTool(),
+        DescribeSqliteTableTool(),
+        SampleSqliteTableTool(),
+        QuerySqliteReadOnlyTool(),
+        PreviewTextDataTool(),
+        SearchTextDataTool(),
+        InspectJsonlTool(),
+        SearchJsonlTool(),
+        SearchPartsTool(),
+        GetPartDetailTool(),
+        GetPartRelationsTool(),
+        GetErpItemByPartTool(),
+        GetProcurementRisksTool(),
+        GetAssetServiceHistoryTool(),
+        GetProjectRisksTool(),
     ]
     tools.extend(load_tools_from_modules(tool_modules))
     registry = ToolRegistry(tools)

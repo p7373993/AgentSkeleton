@@ -1,0 +1,41 @@
+name: manufacturing-data-inventory
+domain: manufacturing_data
+goal: Inventory manufacturing data sources and inspect text/log data.
+actions:
+  - type: tool
+    tool: list_data_sources
+    call_id: list-manufacturing-data
+    arguments: {}
+  - type: tool
+    tool: inspect_sqlite
+    call_id: inspect-pdm-sqlite
+    arguments:
+      path: data/onepart-metadata-units.sqlite
+  - type: tool
+    tool: preview_text_data
+    call_id: preview-data-doc
+    arguments:
+      path: data/mock-project-as-data.md
+      max_chars: 500
+  - type: tool
+    tool: inspect_jsonl
+    call_id: inspect-tool-trace
+    arguments:
+      path: data/tool-trace.jsonl
+  - type: final
+    text: manufacturing data inventory ok
+expect:
+  status: completed
+  answer: manufacturing data inventory ok
+  observations: 4
+  observations_detail:
+    - tool: list_data_sources
+      success: true
+      payload:
+        count: 7
+    - tool: inspect_sqlite
+      success: true
+    - tool: preview_text_data
+      success: true
+    - tool: inspect_jsonl
+      success: true

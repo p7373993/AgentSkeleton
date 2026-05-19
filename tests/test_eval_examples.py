@@ -35,6 +35,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "filesystem",
         "general",
         "interactive",
+        "manufacturing_data",
         "reliability",
         "servers",
         "tool_packs",
@@ -42,7 +43,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     ]
     assert suite_config.min_scenarios_per_required_domain == 2
     assert result.passed is True
-    assert result.total == 60
+    assert result.total == 62
     assert result.failed_count == 0
     assert "artifact-from-input" in {item.scenario for item in result.results}
     assert "blank-goal" in {item.scenario for item in result.results}
@@ -53,6 +54,12 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
     assert "general-final-answer" in {item.scenario for item in result.results}
     assert "general-note-read" in {item.scenario for item in result.results}
     assert "interactive-answer-artifact" in {
+        item.scenario for item in result.results
+    }
+    assert "manufacturing-data-inventory" in {
+        item.scenario for item in result.results
+    }
+    assert "manufacturing-data-shortcuts" in {
         item.scenario for item in result.results
     }
     assert "invalid-tool-result" in {item.scenario for item in result.results}
@@ -75,6 +82,7 @@ def test_checked_in_eval_suite_passes(tmp_path: Path) -> None:
         "filesystem": {"passed": 4, "failed": 0, "total": 4},
         "general": {"passed": 2, "failed": 0, "total": 2},
         "interactive": {"passed": 2, "failed": 0, "total": 2},
+        "manufacturing_data": {"passed": 2, "failed": 0, "total": 2},
         "reliability": {"passed": 38, "failed": 0, "total": 38},
         "servers": {"passed": 2, "failed": 0, "total": 2},
         "tool_packs": {"passed": 2, "failed": 0, "total": 2},
