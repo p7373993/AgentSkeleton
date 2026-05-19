@@ -9,6 +9,8 @@ commands.
 - `agent run` for one-shot agent tasks
 - `agent chat` for an interactive local agent session
 - `agent resume-run` for continuing from a previous run log
+- `agent servers`, `agent stop-server`, and `agent restart-server` for managed
+  local development servers
 - Tool registry with filesystem, shell, and user-question tools
 - Permission policy for read, write, shell, and interactive actions
 - Run logs under `runs/`
@@ -100,6 +102,39 @@ uv run agent show-run <run-id>
 uv run agent resume-run <run-id> "continue from that run"
 ```
 
+## Managed Local Servers
+
+The agent can start static localhost servers through the `start_static_server`
+tool. Managed servers are detached from the run process, verified with an HTTP
+request, and recorded under `runs/servers/`.
+
+List, stop, and restart managed servers:
+
+```bash
+uv run agent servers
+uv run agent servers --json
+uv run agent stop-server <server-id>
+uv run agent restart-server <server-id>
+```
+
+Each server record includes:
+
+```text
+server_id
+pid
+host
+port
+root
+path
+url
+log_path
+error_log_path
+status
+```
+
+If the requested port is already busy, the server manager chooses the next
+available port and verifies the final URL before reporting success.
+
 ## Validation
 
 Run the project checks:
@@ -126,6 +161,10 @@ read_file   Read a UTF-8 text file inside the workspace.
 write_file  Write UTF-8 text inside the workspace.
 shell       Run a shell command in the configured workspace.
 ask_user    Ask the user one direct question.
+start_static_server  Start a managed static localhost server.
+list_servers         List managed local servers.
+stop_server          Stop a managed local server.
+restart_server       Restart a managed local server.
 ```
 
 ## Configuration

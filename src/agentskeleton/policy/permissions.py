@@ -114,6 +114,19 @@ class PermissionPolicy:
         if risk == "read" or risk == "interactive":
             return PermissionDecision("allow", "read-only or interactive tool")
 
+        if risk == "server":
+            if self.profile == "read_only":
+                return PermissionDecision(
+                    "block",
+                    "Tool is blocked by read-only profile",
+                )
+            if self.confirm_risky_actions and self.profile != "trusted":
+                return PermissionDecision(
+                    "confirm",
+                    "Tool starts or manages a local server",
+                )
+            return PermissionDecision("allow", "server management allowed")
+
         if self.profile == "read_only":
             return PermissionDecision(
                 "block",

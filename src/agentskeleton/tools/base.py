@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 class ToolContext(BaseModel):
     workspace: Path
+    logs_dir: Path = Path("runs")
+    run_id: str | None = None
     shell_timeout_seconds: int = 30
     shell_max_output_bytes: int = 20000
     ask_user: Callable[[str], str] | None = None

@@ -747,6 +747,8 @@ class AgentLoop:
                 action.arguments,
                 ToolContext(
                     workspace=state.workspace,
+                    logs_dir=self.config.logs_dir,
+                    run_id=self.run_id,
                     shell_timeout_seconds=self.config.shell_timeout_seconds,
                     shell_max_output_bytes=self.config.shell_max_output_bytes,
                     ask_user=self.ask_user,

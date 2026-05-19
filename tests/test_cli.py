@@ -2090,6 +2090,10 @@ def test_run_persists_status_reason_when_no_final_answer(
         "write_file",
         "shell",
         "ask_user",
+        "start_static_server",
+        "list_servers",
+        "stop_server",
+        "restart_server",
     ]
     read_file = registered_tools[1]
     assert read_file["args_schema_hash"] == schema_hash(

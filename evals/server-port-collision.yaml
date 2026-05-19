@@ -1,0 +1,79 @@
+name: server-port-collision
+domain: servers
+goal: Start two managed static servers from the same requested port.
+config:
+  permission_profile: trusted
+files:
+  inputs/seed.txt: server eval workspace
+actions:
+  - type: tool
+    tool: write_file
+    call_id: write-first-html
+    arguments:
+      path: first/index.html
+      content: first server
+      create_parent_dirs: true
+  - type: tool
+    tool: write_file
+    call_id: write-second-html
+    arguments:
+      path: second/index.html
+      content: second server
+      create_parent_dirs: true
+  - type: tool
+    tool: start_static_server
+    call_id: start-first-server
+    arguments:
+      root: .
+      path: first/index.html
+      port: 8000
+      server_id: eval-collision-first
+  - type: tool
+    tool: start_static_server
+    call_id: start-second-server
+    arguments:
+      root: .
+      path: second/index.html
+      port: 8000
+      server_id: eval-collision-second
+  - type: tool
+    tool: stop_server
+    call_id: stop-first-server
+    arguments:
+      server_id: eval-collision-first
+  - type: tool
+    tool: stop_server
+    call_id: stop-second-server
+    arguments:
+      server_id: eval-collision-second
+  - type: final
+    text: server port collision ok
+expect:
+  status: completed
+  answer: server port collision ok
+  observations: 6
+  observations_detail:
+    - tool: write_file
+      success: true
+    - tool: write_file
+      success: true
+    - tool: start_static_server
+      success: true
+      payload:
+        server_id: eval-collision-first
+        status_code: 200
+    - tool: start_static_server
+      success: true
+      payload:
+        server_id: eval-collision-second
+        status_code: 200
+    - tool: stop_server
+      success: true
+      payload:
+        server_id: eval-collision-first
+        status: stopped
+    - tool: stop_server
+      success: true
+      payload:
+        server_id: eval-collision-second
+        status: stopped

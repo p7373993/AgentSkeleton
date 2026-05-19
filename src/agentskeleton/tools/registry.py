@@ -7,7 +7,7 @@ from typing import Any
 from agentskeleton.tools.base import Tool
 
 TOOL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
-SUPPORTED_TOOL_RISKS = ("interactive", "read", "shell", "write")
+SUPPORTED_TOOL_RISKS = ("interactive", "read", "server", "shell", "write")
 SUPPORTED_JSON_SCHEMA_TYPES = (
     "array",
     "boolean",

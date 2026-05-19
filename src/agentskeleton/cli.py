@@ -25,6 +25,7 @@ from agentskeleton.eval import (
 )
 from agentskeleton.logging.run_logger import RunLogger
 from agentskeleton.policy.permissions import PermissionDecision
+from agentskeleton.server_manager import ServerManager
 from agentskeleton.tools.filesystem import ListDirTool, ReadFileTool, WriteFileTool
 from agentskeleton.tools.loading import load_tools_from_modules
 from agentskeleton.tools.provenance import (
@@ -32,6 +33,12 @@ from agentskeleton.tools.provenance import (
     tool_schema_hash,
 )
 from agentskeleton.tools.registry import ToolRegistry
+from agentskeleton.tools.server import (
+    ListServersTool,
+    RestartServerTool,
+    StartStaticServerTool,
+    StopServerTool,
+)
 from agentskeleton.tools.shell import ShellTool
 from agentskeleton.tools.user import AskUserTool
 
@@ -62,6 +69,10 @@ def build_default_registry(
         WriteFileTool(),
         ShellTool(),
         AskUserTool(),
+        StartStaticServerTool(),
+        ListServersTool(),
+        StopServerTool(),
+        RestartServerTool(),
     ]
     tools.extend(load_tools_from_modules(tool_modules))
     registry = ToolRegistry(tools)
@@ -899,6 +910,93 @@ def sessions(
             _display_optional_text(summary.summary),
         )
     console.print(table)
+
+
+@app.command()
+def servers(
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    loaded = _load_config_or_exit(config)
+    manager = ServerManager(workspace=loaded.workspace, logs_dir=loaded.logs_dir)
+    server_records = manager.list_servers()
+    payload = {
+        "servers": [
+            record.to_dict(running=manager.is_process_running(record.pid))
+            for record in server_records
+        ]
+    }
+
+    if as_json:
+        _print_json(payload)
+        return
+
+    if not server_records:
+        console.print("No managed servers found.")
+        return
+
+    table = Table(title="Managed Servers")
+    table.add_column("ID")
+    table.add_column("PID")
+    table.add_column("Port")
+    table.add_column("Running")
+    table.add_column("URL")
+    table.add_column("Root")
+    for item in payload["servers"]:
+        table.add_row(
+            _display_text(item["server_id"]),
+            _display_text(item["pid"]),
+            _display_text(item["port"]),
+            _display_text(item["running"]),
+            _display_text(item["url"]),
+            _display_text(item["root"]),
+        )
+    console.print(table)
+
+
+@app.command(name="stop-server")
+def stop_server(
+    server_id: str,
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    loaded = _load_config_or_exit(config)
+    manager = ServerManager(workspace=loaded.workspace, logs_dir=loaded.logs_dir)
+    try:
+        record = manager.stop_server(server_id)
+    except ValueError as exc:
+        console.print(f"Server error: {exc}", soft_wrap=True)
+        raise typer.Exit(1) from exc
+    payload = {"server": record.to_dict(running=False)}
+
+    if as_json:
+        _print_json(payload)
+        return
+
+    console.print(f"Stopped server {record.server_id}")
+
+
+@app.command(name="restart-server")
+def restart_server(
+    server_id: str,
+    config: Annotated[Path | None, typer.Option("--config", "-c")] = None,
+    as_json: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    loaded = _load_config_or_exit(config)
+    manager = ServerManager(workspace=loaded.workspace, logs_dir=loaded.logs_dir)
+    try:
+        record = manager.restart_server(server_id)
+    except ValueError as exc:
+        console.print(f"Server error: {exc}", soft_wrap=True)
+        raise typer.Exit(1) from exc
+    payload = {"server": record.to_dict(running=True)}
+
+    if as_json:
+        _print_json(payload)
+        return
+
+    console.print(f"Restarted server {record.server_id}")
+    console.print(f"URL: {record.url}")
 
 
 @app.command()

@@ -316,7 +316,7 @@ def test_registry_rejects_unstrippable_tool_descriptions() -> None:
         (" read ", "Tool echo risk cannot contain whitespace"),
         (
             "network",
-            "Tool echo risk must be one of: interactive, read, shell, write",
+            "Tool echo risk must be one of: interactive, read, server, shell, write",
         ),
     ],
 )

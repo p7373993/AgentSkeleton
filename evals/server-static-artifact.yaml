@@ -1,0 +1,55 @@
+name: server-static-artifact
+domain: servers
+goal: Create a static artifact, serve it locally, list the server, and stop it.
+config:
+  permission_profile: trusted
+files:
+  inputs/seed.txt: server eval workspace
+actions:
+  - type: tool
+    tool: write_file
+    call_id: write-static-html
+    arguments:
+      path: static/index.html
+      content: <h1>served artifact</h1>
+      create_parent_dirs: true
+  - type: tool
+    tool: start_static_server
+    call_id: start-static-server
+    arguments:
+      root: .
+      path: static/index.html
+      port: 8000
+      server_id: eval-static-server
+  - type: tool
+    tool: list_servers
+    call_id: list-static-server
+    arguments: {}
+  - type: tool
+    tool: stop_server
+    call_id: stop-static-server
+    arguments:
+      server_id: eval-static-server
+  - type: final
+    text: static server artifact ok
+expect:
+  status: completed
+  answer: static server artifact ok
+  observations: 4
+  observations_detail:
+    - tool: write_file
+      success: true
+    - tool: start_static_server
+      success: true
+      payload:
+        server_id: eval-static-server
+        status_code: 200
+    - tool: list_servers
+      success: true
+    - tool: stop_server
+      success: true
+      payload:
+        server_id: eval-static-server
+        status: stopped
+  files:
+    static/index.html: <h1>served artifact</h1>
