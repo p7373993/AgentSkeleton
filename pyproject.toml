@@ -2,7 +2,7 @@
 name = "agentskeleton"
 version = "0.1.0"
 description = "A minimal local CLI agent skeleton."
-readme = "docs/superpowers/specs/2026-04-23-local-cli-agent-design.md"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "openai>=1.0.0",
