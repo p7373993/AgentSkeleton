@@ -6,6 +6,8 @@ from typing import Annotated, Any, NoReturn
 from uuid import uuid4
 
 import typer
+from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.table import Table
 
@@ -75,6 +77,10 @@ console = Console(markup=False)
 MAX_RUN_LOG_BYTES = 2_097_152
 MAX_RUN_LOG_TEXT_CHARS = 4_096
 MAX_RUN_LOG_EVENT_DEPTH = 64
+SHIFT_ENTER_SEQUENCES = (
+    ("\x1b", "[", "1", "3", ";", "2", "u"),
+    ("\x1b", "[", "1", "3", ";", "2", "~"),
+)
 
 
 def build_default_registry(
@@ -133,6 +139,42 @@ def _load_config_or_exit(
     except ValueError as exc:
         console.print(f"Configuration error: {exc}", soft_wrap=True)
         raise typer.Exit(1) from exc
+
+
+def _stdin_stdout_are_tty() -> bool:
+    return bool(sys.stdin.isatty() and sys.stdout.isatty())
+
+
+def _create_chat_key_bindings() -> KeyBindings:
+    bindings = KeyBindings()
+
+    @bindings.add("enter", eager=True)
+    def _(event) -> None:  # type: ignore[no-untyped-def]
+        event.current_buffer.validate_and_handle()
+
+    def insert_newline(event) -> None:  # type: ignore[no-untyped-def]
+        event.current_buffer.insert_text("\n")
+
+    for sequence in SHIFT_ENTER_SEQUENCES:
+        bindings.add(*sequence, eager=True)(insert_newline)
+
+    return bindings
+
+
+def _create_chat_prompt_session():
+    if not _stdin_stdout_are_tty():
+        return None
+    return PromptSession(
+        multiline=True,
+        prompt_continuation="... ",
+        key_bindings=_create_chat_key_bindings(),
+    )
+
+
+def _prompt_chat_goal(prompt_session) -> object:
+    if prompt_session is None:
+        return typer.prompt("agent")
+    return prompt_session.prompt("agent> ")
 
 
 def _build_registry_or_exit(
@@ -717,10 +759,11 @@ def chat(
         console.print(f"Arguments: {arguments}")
         return typer.confirm("Allow this action?", default=False)
 
-    console.print("Type /exit or /quit to leave.")
+    prompt_session = _create_chat_prompt_session()
+    console.print("Type /exit or /quit to leave. Use Shift+Enter for a newline.")
     while True:
         try:
-            goal = typer.prompt("agent")
+            goal = _prompt_chat_goal(prompt_session)
         except (EOFError, KeyboardInterrupt):
             console.print()
             break

@@ -65,6 +65,9 @@ Start an interactive chat:
 uv run agent chat
 ```
 
+In an interactive terminal, press `Shift+Enter` to insert a newline and `Enter`
+to submit the message.
+
 Use a separate named session:
 
 ```bash

@@ -2338,6 +2338,60 @@ def test_chat_model_retry_attempts_option_overrides_config(
     assert seen_retry_attempts == [4]
 
 
+def test_chat_uses_typer_prompt_for_non_interactive_input(monkeypatch) -> None:
+    monkeypatch.setattr("agentskeleton.cli._stdin_stdout_are_tty", lambda: False)
+    monkeypatch.setattr("agentskeleton.cli.typer.prompt", lambda label: f"{label}: ok")
+
+    prompt_session = cli_module._create_chat_prompt_session()
+    result = cli_module._prompt_chat_goal(prompt_session)
+
+    assert prompt_session is None
+    assert result == "agent: ok"
+
+
+def test_chat_prompt_session_supports_shift_enter_multiline(monkeypatch) -> None:
+    seen_kwargs: dict[str, object] = {}
+
+    class FakePromptSession:
+        def __init__(self, **kwargs) -> None:
+            seen_kwargs.update(kwargs)
+
+    monkeypatch.setattr("agentskeleton.cli._stdin_stdout_are_tty", lambda: True)
+    monkeypatch.setattr("agentskeleton.cli.PromptSession", FakePromptSession)
+
+    prompt_session = cli_module._create_chat_prompt_session()
+
+    assert isinstance(prompt_session, FakePromptSession)
+    assert seen_kwargs["multiline"] is True
+    assert seen_kwargs["prompt_continuation"] == "... "
+    assert seen_kwargs["key_bindings"] is not None
+
+
+def test_chat_key_bindings_accept_enter_and_insert_newline_on_shift_enter() -> None:
+    key_bindings = cli_module._create_chat_key_bindings()
+    handlers = {binding.keys: binding.handler for binding in key_bindings.bindings}
+    shift_enter_keys = ("\x1b", "[", "1", "3", ";", "2", "u")
+
+    class FakeBuffer:
+        def __init__(self) -> None:
+            self.inserted: list[str] = []
+            self.accepted = False
+
+        def insert_text(self, text: str) -> None:
+            self.inserted.append(text)
+
+        def validate_and_handle(self) -> None:
+            self.accepted = True
+
+    event = type("Event", (), {"current_buffer": FakeBuffer()})()
+
+    handlers[shift_enter_keys](event)
+    handlers[("c-m",)](event)
+
+    assert event.current_buffer.inserted == ["\n"]
+    assert event.current_buffer.accepted is True
+
+
 def test_chat_output_includes_run_id_status_and_log_path(monkeypatch, tmp_path) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AZURE_OPENAI_API_KEY", "dummy-key")
